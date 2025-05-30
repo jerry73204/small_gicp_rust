@@ -1,0 +1,117 @@
+cmake_minimum_required(VERSION 3.16)
+project(small_gicp_c VERSION 1.0.0 LANGUAGES C CXX)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Set C standard
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# Options
+option(BUILD_SHARED_LIBS "Build shared library" ON)
+option(BUILD_EXAMPLES "Build example programs" ON)
+
+# Find required packages
+find_package(Eigen3 REQUIRED)
+find_package(OpenMP)
+
+# Add the parent directory to include path for small_gicp headers
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp/include)
+
+# Build the small_gicp helper library if not already built
+if(NOT TARGET small_gicp)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp ${CMAKE_CURRENT_BINARY_DIR}/small_gicp)
+endif()
+
+# Create the C wrapper library
+add_library(small_gicp_c
+    src/small_gicp_c.cpp
+)
+
+# Set include directories
+target_include_directories(small_gicp_c
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp/include
+)
+
+# Link dependencies
+target_link_libraries(small_gicp_c
+    PUBLIC
+        Eigen3::Eigen
+    PRIVATE
+        small_gicp
+)
+
+# Add OpenMP if available
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(small_gicp_c PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+# Set library properties
+set_target_properties(small_gicp_c PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+    PUBLIC_HEADER include/small_gicp_c.h
+)
+
+# Build examples
+if(BUILD_EXAMPLES)
+    add_subdirectory(example)
+endif()
+
+# Installation
+include(GNUInstallDirs)
+
+install(TARGETS small_gicp_c
+    EXPORT small_gicp_c-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Export targets
+install(EXPORT small_gicp_c-targets
+    FILE small_gicp_c-targets.cmake
+    NAMESPACE small_gicp_c::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/small_gicp_c
+)
+
+# Create and install package config file
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/small_gicp_c-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/small_gicp_c
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c-config-version.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/small_gicp_c
+)
+
+# Create pkg-config file
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/small_gicp_c.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c.pc
+    @ONLY
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/small_gicp_c.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)

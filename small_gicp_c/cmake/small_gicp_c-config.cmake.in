@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Eigen3)
+
+include("${CMAKE_CURRENT_LIST_DIR}/small_gicp_c-targets.cmake")
+
+check_required_components(small_gicp_c)
