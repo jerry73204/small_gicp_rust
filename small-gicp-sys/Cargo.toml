@@ -1,0 +1,16 @@
+[package]
+name = "small-gicp-sys"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "Raw FFI bindings to small_gicp C API"
+repository = "https://github.com/yourusername/small_gicp_rust"
+license = "MIT"
+keywords = ["point-cloud", "registration", "icp", "gicp", "ffi"]
+categories = ["external-ffi-bindings", "science"]
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.69"
+cmake = "0.1"

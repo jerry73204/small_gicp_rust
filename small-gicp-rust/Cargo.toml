@@ -1,0 +1,32 @@
+[package]
+name = "small-gicp-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "Safe Rust bindings for small_gicp point cloud registration library"
+repository = "https://github.com/yourusername/small_gicp_rust"
+license = "MIT"
+keywords = ["point-cloud", "registration", "icp", "gicp", "3d"]
+categories = ["science", "algorithms", "mathematics"]
+readme = "README.md"
+
+[dependencies]
+small-gicp-sys = { path = "../small-gicp-sys", version = "0.1" }
+thiserror = "1.0"
+nalgebra = "0.32"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+approx = "0.5"
+
+[features]
+default = []
+# Enable SIMD optimizations
+simd = []
+
+# [[bench]]
+# name = "registration_benchmark"
+# harness = false
+
+[package.metadata.docs.rs]
+all-features = true
