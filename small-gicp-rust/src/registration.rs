@@ -1,8 +1,10 @@
 //! Point cloud registration algorithms.
 
-use crate::error::{check_error, Result, SmallGicpError};
-use crate::kdtree::KdTree;
-use crate::point_cloud::PointCloud;
+use crate::{
+    error::{check_error, Result, SmallGicpError},
+    kdtree::KdTree,
+    point_cloud::PointCloud,
+};
 use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
 use std::ptr;
 

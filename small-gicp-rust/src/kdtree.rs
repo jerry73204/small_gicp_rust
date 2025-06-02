@@ -1,7 +1,9 @@
 //! KdTree for efficient nearest neighbor search.
 
-use crate::error::{check_error, Result, SmallGicpError};
-use crate::point_cloud::PointCloud;
+use crate::{
+    error::{check_error, Result, SmallGicpError},
+    point_cloud::PointCloud,
+};
 use nalgebra::Point3;
 use std::ptr;
 

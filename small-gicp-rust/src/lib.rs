@@ -15,8 +15,8 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use small_gicp_rust::prelude::*;
 //! use nalgebra::Point3;
+//! use small_gicp_rust::prelude::*;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create point clouds
@@ -66,15 +66,17 @@ pub use registration::{
 
 /// Convenience module for glob imports.
 pub mod prelude {
-    pub use crate::error::{Result, SmallGicpError};
-    pub use crate::kdtree::KdTree;
-    pub use crate::point_cloud::PointCloud;
-    pub use crate::preprocessing::{
-        preprocess_point_cloud, preprocess_points, random_sampling, voxelgrid_sampling,
-        DownsamplingMethod, PreprocessingSettings,
-    };
-    pub use crate::registration::{
-        register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
-        RegistrationSettings, RegistrationType,
+    pub use crate::{
+        error::{Result, SmallGicpError},
+        kdtree::KdTree,
+        point_cloud::PointCloud,
+        preprocessing::{
+            preprocess_point_cloud, preprocess_points, random_sampling, voxelgrid_sampling,
+            DownsamplingMethod, PreprocessingSettings,
+        },
+        registration::{
+            register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
+            RegistrationSettings, RegistrationType,
+        },
     };
 }

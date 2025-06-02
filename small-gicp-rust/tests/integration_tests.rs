@@ -2,8 +2,9 @@
 
 use approx::assert_relative_eq;
 use nalgebra::{Isometry3, Point3, Translation3, UnitQuaternion, Vector3};
-use small_gicp_rust::prelude::*;
-use small_gicp_rust::{estimate_covariances, estimate_normals, estimate_normals_and_covariances};
+use small_gicp_rust::{
+    estimate_covariances, estimate_normals, estimate_normals_and_covariances, prelude::*,
+};
 
 /// Create a simple test point cloud (unit cube vertices).
 fn create_test_cube() -> PointCloud {

@@ -1,8 +1,10 @@
 //! Point cloud preprocessing utilities.
 
-use crate::error::{check_error, Result, SmallGicpError};
-use crate::kdtree::KdTree;
-use crate::point_cloud::PointCloud;
+use crate::{
+    error::{check_error, Result, SmallGicpError},
+    kdtree::KdTree,
+    point_cloud::PointCloud,
+};
 use std::ptr;
 
 /// Downsampling methods for point clouds.
