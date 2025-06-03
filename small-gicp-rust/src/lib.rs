@@ -18,7 +18,7 @@
 //! use nalgebra::Point3;
 //! use small_gicp_rust::prelude::*;
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! // Create point clouds
 //! let target_points = vec![
 //!     Point3::new(0.0, 0.0, 0.0),
@@ -44,6 +44,7 @@
 //! # }
 //! ```
 
+pub mod config;
 pub mod error;
 pub mod kdtree;
 pub mod point_cloud;
@@ -51,13 +52,18 @@ pub mod preprocessing;
 pub mod registration;
 
 // Re-export the most commonly used types
+pub use config::{
+    CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
+    GaussianVoxelMapConfig, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
+    NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig,
+    RandomSamplingConfig, RegistrationConfig, TerminationConfig, VoxelGridConfig,
+};
 pub use error::{Result, SmallGicpError};
 pub use kdtree::KdTree;
 pub use point_cloud::PointCloud;
 pub use preprocessing::{
-    estimate_covariances, estimate_normals, estimate_normals_and_covariances,
-    preprocess_point_cloud, preprocess_points, random_sampling, voxelgrid_sampling,
-    DownsamplingMethod, PreprocessingResult, PreprocessingSettings,
+    estimate_covariances, estimate_normals, estimate_normals_and_covariances, DownsamplingMethod,
+    PreprocessingResult, PreprocessorConfig,
 };
 pub use registration::{
     register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
@@ -67,13 +73,16 @@ pub use registration::{
 /// Convenience module for glob imports.
 pub mod prelude {
     pub use crate::{
+        config::{
+            CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
+            GaussianVoxelMapConfig, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
+            NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig,
+            RandomSamplingConfig, RegistrationConfig, TerminationConfig, VoxelGridConfig,
+        },
         error::{Result, SmallGicpError},
         kdtree::KdTree,
         point_cloud::PointCloud,
-        preprocessing::{
-            preprocess_point_cloud, preprocess_points, random_sampling, voxelgrid_sampling,
-            DownsamplingMethod, PreprocessingSettings,
-        },
+        preprocessing::{DownsamplingMethod, PreprocessorConfig},
         registration::{
             register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
             RegistrationSettings, RegistrationType,

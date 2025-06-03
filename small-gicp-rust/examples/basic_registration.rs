@@ -34,15 +34,16 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n2. Registration with Manual Preprocessing");
     println!("----------------------------------------");
 
-    let preprocessing_settings = PreprocessingSettings {
-        downsampling: Some(DownsamplingMethod::VoxelGrid { leaf_size: 0.05 }),
-        num_neighbors_normals: 20,
-        estimate_covariances: true,
+    let target_processed = target.preprocess_points(&PreprocessorConfig {
+        downsampling_resolution: 0.05,
+        num_neighbors: 20,
         num_threads: 4,
-    };
-
-    let target_processed = preprocess_point_cloud(&target, &preprocessing_settings, true)?;
-    let source_processed = preprocess_point_cloud(&source, &preprocessing_settings, false)?;
+    })?;
+    let source_processed = source.preprocess_points(&PreprocessorConfig {
+        downsampling_resolution: 0.05,
+        num_neighbors: 20,
+        num_threads: 4,
+    })?;
 
     println!("Preprocessed clouds:");
     println!(
@@ -56,15 +57,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         source_processed.cloud.len()
     );
 
-    if let Some(ref target_tree) = target_processed.kdtree {
-        let result = register_preprocessed(
-            &target_processed.cloud,
-            &source_processed.cloud,
-            target_tree,
-            &settings,
-        )?;
-        print_registration_result(&result);
-    }
+    let target_tree = &target_processed.kdtree;
+    let result = register_preprocessed(
+        &target_processed.cloud,
+        &source_processed.cloud,
+        target_tree,
+        &settings,
+    )?;
+    print_registration_result(&result);
 
     // Example 3: Different registration algorithms
     println!("\n3. Comparison of Registration Algorithms");
@@ -100,7 +100,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n4. VGICP Registration");
     println!("---------------------");
 
-    let target_voxelmap = GaussianVoxelMap::new(&target, 0.1, 4)?;
+    let voxelmap_config = GaussianVoxelMapConfig {
+        voxel_resolution: 0.1,
+        num_threads: 4,
+    };
+    let target_voxelmap = GaussianVoxelMap::new(&target, &voxelmap_config)?;
     let vgicp_settings = RegistrationSettings {
         registration_type: RegistrationType::Vgicp,
         num_threads: 4,

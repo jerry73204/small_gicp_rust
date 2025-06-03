@@ -4,7 +4,7 @@
 //! downsampling, normal estimation, and KdTree operations.
 
 use nalgebra::Point3;
-use small_gicp_rust::prelude::*;
+use small_gicp_rust::{estimate_covariances, estimate_normals, prelude::*};
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Small GICP Rust - Preprocessing Demo");
@@ -20,7 +20,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let leaf_sizes = [0.1, 0.05, 0.02];
     for leaf_size in leaf_sizes {
-        let downsampled = voxelgrid_sampling(&original_cloud, leaf_size, 4)?;
+        let voxel_config = VoxelGridConfig {
+            leaf_size,
+            num_threads: 4,
+        };
+        let downsampled = original_cloud.voxelgrid_sampling(&voxel_config)?;
         println!(
             "Leaf size {:.2}: {} → {} points ({:.1}% reduction)",
             leaf_size,
@@ -37,7 +41,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let sample_counts = [1000, 500, 100];
     for num_samples in sample_counts {
         if num_samples < original_cloud.len() {
-            let downsampled = random_sampling(&original_cloud, num_samples)?;
+            let downsampled = original_cloud.random_sampling(num_samples)?;
             println!(
                 "Sample count {}: {} → {} points",
                 num_samples,
@@ -51,19 +55,16 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n3. Complete Preprocessing Pipeline");
     println!("----------------------------------");
 
-    let settings = PreprocessingSettings {
-        downsampling: Some(DownsamplingMethod::VoxelGrid { leaf_size: 0.05 }),
-        num_neighbors_normals: 20,
-        estimate_covariances: true,
+    let result = original_cloud.preprocess_points(&PreprocessorConfig {
+        downsampling_resolution: 0.05,
+        num_neighbors: 20,
         num_threads: 4,
-    };
-
-    let result = preprocess_point_cloud(&original_cloud, &settings, true)?;
+    })?;
 
     println!("Preprocessing complete:");
     println!("  Original: {} points", original_cloud.len());
     println!("  Processed: {} points", result.cloud.len());
-    println!("  KdTree created: {}", result.kdtree.is_some());
+    println!("  KdTree created: yes");
 
     // Verify normals were estimated
     if !result.cloud.is_empty() {
@@ -81,71 +82,75 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n4. KdTree Nearest Neighbor Search");
     println!("---------------------------------");
 
-    if let Some(ref kdtree) = result.kdtree {
-        let query_point = Point3::new(0.5, 0.5, 0.5);
+    let kdtree = &result.kdtree;
+    let query_point = Point3::new(0.5, 0.5, 0.5);
 
-        // Single nearest neighbor
-        let (nearest_idx, sq_dist) = kdtree.nearest_neighbor(query_point)?;
-        let nearest_point = result.cloud.get_point(nearest_idx)?;
+    // Single nearest neighbor
+    let (nearest_idx, sq_dist) = kdtree.nearest_neighbor(query_point)?;
+    let nearest_point = result.cloud.get_point(nearest_idx)?;
 
+    println!(
+        "Query point: [{:.2}, {:.2}, {:.2}]",
+        query_point.x, query_point.y, query_point.z
+    );
+    println!(
+        "Nearest point: [{:.2}, {:.2}, {:.2}] at index {} (distance: {:.4})",
+        nearest_point.x,
+        nearest_point.y,
+        nearest_point.z,
+        nearest_idx,
+        sq_dist.sqrt()
+    );
+
+    // K nearest neighbors
+    let k = 5;
+    let knn_results = kdtree.knn_search(query_point, k)?;
+    println!("\n{} nearest neighbors:", k);
+    for (i, (idx, sq_dist)) in knn_results.iter().enumerate() {
+        let point = result.cloud.get_point(*idx)?;
         println!(
-            "Query point: [{:.2}, {:.2}, {:.2}]",
-            query_point.x, query_point.y, query_point.z
+            "  {}: index={}, distance={:.4}, point=[{:.2}, {:.2}, {:.2}]",
+            i + 1,
+            idx,
+            sq_dist.sqrt(),
+            point.x,
+            point.y,
+            point.z
         );
+    }
+
+    // Radius search
+    let radius = 0.2;
+    let radius_results = kdtree.radius_search(query_point, radius, 10)?;
+    println!("\nPoints within radius {:.1}:", radius);
+    println!("  Found {} points", radius_results.len());
+    for (i, (idx, sq_dist)) in radius_results.iter().take(5).enumerate() {
+        let point = result.cloud.get_point(*idx)?;
         println!(
-            "Nearest point: [{:.2}, {:.2}, {:.2}] at index {} (distance: {:.4})",
-            nearest_point.x,
-            nearest_point.y,
-            nearest_point.z,
-            nearest_idx,
-            sq_dist.sqrt()
+            "  {}: index={}, distance={:.4}, point=[{:.2}, {:.2}, {:.2}]",
+            i + 1,
+            idx,
+            sq_dist.sqrt(),
+            point.x,
+            point.y,
+            point.z
         );
-
-        // K nearest neighbors
-        let k = 5;
-        let knn_results = kdtree.knn_search(query_point, k)?;
-        println!("\n{} nearest neighbors:", k);
-        for (i, (idx, sq_dist)) in knn_results.iter().enumerate() {
-            let point = result.cloud.get_point(*idx)?;
-            println!(
-                "  {}: index={}, distance={:.4}, point=[{:.2}, {:.2}, {:.2}]",
-                i + 1,
-                idx,
-                sq_dist.sqrt(),
-                point.x,
-                point.y,
-                point.z
-            );
-        }
-
-        // Radius search
-        let radius = 0.2;
-        let radius_results = kdtree.radius_search(query_point, radius, 10)?;
-        println!("\nPoints within radius {:.1}:", radius);
-        println!("  Found {} points", radius_results.len());
-        for (i, (idx, sq_dist)) in radius_results.iter().take(5).enumerate() {
-            let point = result.cloud.get_point(*idx)?;
-            println!(
-                "  {}: index={}, distance={:.4}, point=[{:.2}, {:.2}, {:.2}]",
-                i + 1,
-                idx,
-                sq_dist.sqrt(),
-                point.x,
-                point.y,
-                point.z
-            );
-        }
-        if radius_results.len() > 5 {
-            println!("  ... and {} more", radius_results.len() - 5);
-        }
+    }
+    if radius_results.len() > 5 {
+        println!("  ... and {} more", radius_results.len() - 5);
     }
 
     // Example 5: Manual normal estimation
     println!("\n5. Manual Normal Estimation");
     println!("---------------------------");
 
-    let mut test_cloud = voxelgrid_sampling(&original_cloud, 0.1, 1)?;
-    let test_kdtree = KdTree::new(&test_cloud, 1)?;
+    let voxel_config = VoxelGridConfig {
+        leaf_size: 0.1,
+        num_threads: 1,
+    };
+    let mut test_cloud = original_cloud.voxelgrid_sampling(&voxel_config)?;
+    let kdtree_config = KdTreeConfig::default();
+    let test_kdtree = KdTree::new(&test_cloud, &kdtree_config)?;
 
     println!("Before normal estimation:");
     if !test_cloud.is_empty() {
@@ -155,7 +160,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    estimate_normals(&mut test_cloud, &test_kdtree, 15, 1)?;
+    estimate_normals(
+        &mut test_cloud,
+        &test_kdtree,
+        &NormalEstimationConfig {
+            num_neighbors: 15,
+            num_threads: 1,
+        },
+    )?;
 
     println!("After normal estimation:");
     if !test_cloud.is_empty() {
@@ -173,7 +185,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n6. Covariance Estimation for GICP");
     println!("---------------------------------");
 
-    estimate_covariances(&mut test_cloud, &test_kdtree, 15, 1)?;
+    estimate_covariances(
+        &mut test_cloud,
+        &test_kdtree,
+        &CovarianceEstimationConfig {
+            num_neighbors: 15,
+            num_threads: 1,
+        },
+    )?;
     println!("Covariances estimated successfully (required for GICP)");
 
     println!("\nPreprocessing demo completed!");

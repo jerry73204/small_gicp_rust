@@ -1,6 +1,7 @@
 //! KdTree for efficient nearest neighbor search.
 
 use crate::{
+    config::KdTreeConfig,
     error::{check_error, Result, SmallGicpError},
     point_cloud::PointCloud,
 };
@@ -18,8 +19,31 @@ impl KdTree {
     ///
     /// # Arguments
     /// * `cloud` - The point cloud to build the tree from
+    /// * `config` - KdTree configuration
+    pub fn new(cloud: &PointCloud, _config: &KdTreeConfig) -> Result<Self> {
+        if cloud.is_empty() {
+            return Err(SmallGicpError::EmptyPointCloud);
+        }
+
+        // Note: Currently the C API doesn't expose max_leaf_size and projection settings
+        // For now we use a default single-threaded approach for compatibility
+        let num_threads = 1;
+
+        let mut handle = ptr::null_mut();
+        let error = unsafe {
+            small_gicp_sys::small_gicp_kdtree_create(cloud.handle, num_threads, &mut handle)
+        };
+        check_error(error)?;
+        Ok(KdTree { handle })
+    }
+
+    /// Create a new KdTree from a point cloud (legacy method).
+    ///
+    /// # Arguments
+    /// * `cloud` - The point cloud to build the tree from
     /// * `num_threads` - Number of threads to use for construction (1 for single-threaded)
-    pub fn new(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
+    #[deprecated(since = "0.2.0", note = "Use new() with KdTreeConfig instead")]
+    pub fn new_legacy(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
         if cloud.is_empty() {
             return Err(SmallGicpError::EmptyPointCloud);
         }

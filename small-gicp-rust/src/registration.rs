@@ -1,6 +1,7 @@
 //! Point cloud registration algorithms.
 
 use crate::{
+    config::GaussianVoxelMapConfig,
     error::{check_error, Result, SmallGicpError},
     kdtree::KdTree,
     point_cloud::PointCloud,
@@ -138,12 +139,16 @@ impl GaussianVoxelMap {
     ///
     /// # Arguments
     /// * `cloud` - The point cloud to voxelize
-    /// * `voxel_resolution` - Size of each voxel
-    /// * `num_threads` - Number of threads to use
-    pub fn new(cloud: &PointCloud, voxel_resolution: f64, num_threads: usize) -> Result<Self> {
+    /// * `config` - Gaussian voxel map configuration
+    pub fn new(cloud: &PointCloud, config: &GaussianVoxelMapConfig) -> Result<Self> {
         if cloud.is_empty() {
             return Err(SmallGicpError::EmptyPointCloud);
         }
+
+        let GaussianVoxelMapConfig {
+            voxel_resolution,
+            num_threads,
+        } = *config;
 
         let mut handle = ptr::null_mut();
         let error = unsafe {
@@ -156,6 +161,28 @@ impl GaussianVoxelMap {
         };
         check_error(error)?;
         Ok(GaussianVoxelMap { handle })
+    }
+
+    /// Create a Gaussian voxel map from a point cloud (legacy method).
+    ///
+    /// # Arguments
+    /// * `cloud` - The point cloud to voxelize
+    /// * `voxel_resolution` - Size of each voxel
+    /// * `num_threads` - Number of threads to use
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use new() with GaussianVoxelMapConfig instead"
+    )]
+    pub fn new_legacy(
+        cloud: &PointCloud,
+        voxel_resolution: f64,
+        num_threads: usize,
+    ) -> Result<Self> {
+        let config = GaussianVoxelMapConfig {
+            voxel_resolution,
+            num_threads,
+        };
+        Self::new(cloud, &config)
     }
 }
 

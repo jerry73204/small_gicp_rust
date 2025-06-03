@@ -7,6 +7,14 @@ use crate::{
 };
 use std::ptr;
 
+/// Get the default number of threads based on available parallelism.
+/// Falls back to 4 if unable to determine available parallelism.
+fn default_num_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+}
+
 /// Downsampling methods for point clouds.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DownsamplingMethod {
@@ -16,241 +24,177 @@ pub enum DownsamplingMethod {
     Random { num_samples: usize },
 }
 
-/// Settings for point cloud preprocessing.
-#[derive(Debug, Clone)]
-pub struct PreprocessingSettings {
-    /// Downsampling method to apply
-    pub downsampling: Option<DownsamplingMethod>,
-    /// Number of neighbors for normal estimation (0 to skip)
-    pub num_neighbors_normals: i32,
-    /// Whether to estimate covariances for GICP
-    pub estimate_covariances: bool,
-    /// Number of threads to use (1 for single-threaded)
-    pub num_threads: usize,
-}
-
-impl Default for PreprocessingSettings {
-    fn default() -> Self {
-        PreprocessingSettings {
-            downsampling: Some(DownsamplingMethod::VoxelGrid { leaf_size: 0.05 }),
-            num_neighbors_normals: 20,
-            estimate_covariances: true,
-            num_threads: 1,
-        }
-    }
-}
-
 /// Result of preprocessing operations.
 #[derive(Debug)]
 pub struct PreprocessingResult {
     /// The preprocessed point cloud
     pub cloud: PointCloud,
     /// KdTree built from the preprocessed cloud (if requested)
-    pub kdtree: Option<KdTree>,
+    pub kdtree: KdTree,
 }
 
-/// Perform complete preprocessing of a point cloud.
-///
-/// This function applies downsampling, normal estimation, and covariance computation
-/// based on the provided settings.
-///
-/// # Arguments
-/// * `cloud` - The input point cloud
-/// * `settings` - Preprocessing settings
-/// * `build_kdtree` - Whether to build a KdTree for the result
-///
-/// # Returns
-/// Preprocessing result with the processed cloud and optional KdTree
-pub fn preprocess_point_cloud(
-    cloud: &PointCloud,
-    settings: &PreprocessingSettings,
-    build_kdtree: bool,
-) -> Result<PreprocessingResult> {
-    if cloud.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // Step 1: Apply downsampling if requested
-    let mut processed_cloud = if let Some(downsampling) = &settings.downsampling {
-        match downsampling {
-            DownsamplingMethod::VoxelGrid { leaf_size } => {
-                voxelgrid_sampling(cloud, *leaf_size, settings.num_threads)?
-            }
-            DownsamplingMethod::Random { num_samples } => random_sampling(cloud, *num_samples)?,
-        }
-    } else {
-        cloud.clone()
-    };
-
-    // Step 2: Build KdTree if needed for normal estimation or if requested
-    let kdtree = if settings.num_neighbors_normals > 0 || build_kdtree {
-        Some(KdTree::new(&processed_cloud, settings.num_threads)?)
-    } else {
-        None
-    };
-
-    // Step 3: Estimate normals and/or covariances if requested
-    if settings.num_neighbors_normals > 0 {
-        if let Some(ref tree) = kdtree {
-            if settings.estimate_covariances {
-                estimate_normals_and_covariances(
-                    &mut processed_cloud,
-                    tree,
-                    settings.num_neighbors_normals,
-                    settings.num_threads,
-                )?;
-            } else {
-                estimate_normals(
-                    &mut processed_cloud,
-                    tree,
-                    settings.num_neighbors_normals,
-                    settings.num_threads,
-                )?;
-            }
-        }
-    }
-
-    Ok(PreprocessingResult {
-        cloud: processed_cloud,
-        kdtree: if build_kdtree { kdtree } else { None },
-    })
+// Legacy PreprocessorConfig for backward compatibility
+#[derive(Debug, Clone)]
+pub struct PreprocessorConfig {
+    pub downsampling_resolution: f64,
+    pub num_neighbors: usize,
+    pub num_threads: usize,
 }
 
-/// Convenience function for complete preprocessing with automatic KdTree creation.
-///
-/// This is equivalent to calling `preprocess_point_cloud` with `build_kdtree = true`.
-///
-/// # Arguments
-/// * `cloud` - The input point cloud
-/// * `downsampling_resolution` - Voxel size for downsampling
-/// * `num_neighbors` - Number of neighbors for normal estimation
-/// * `num_threads` - Number of threads to use
-///
-/// # Returns
-/// Preprocessing result with both processed cloud and KdTree
-pub fn preprocess_points(
-    cloud: &PointCloud,
-    downsampling_resolution: f64,
-    num_neighbors: i32,
-    num_threads: usize,
-) -> Result<PreprocessingResult> {
-    if cloud.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
+impl Default for PreprocessorConfig {
+    fn default() -> Self {
+        PreprocessorConfig {
+            downsampling_resolution: 0.25,
+            num_neighbors: 10,
+            num_threads: default_num_threads(),
+        }
     }
+}
 
-    let mut preprocessed_cloud_handle = ptr::null_mut();
-    let mut kdtree_handle = ptr::null_mut();
-
-    let error = unsafe {
-        small_gicp_sys::small_gicp_preprocess_points(
-            cloud.handle,
+impl PointCloud {
+    /// Convenience function for complete preprocessing with automatic KdTree creation.
+    ///
+    /// This is equivalent to calling `preprocess_point_cloud` with `build_kdtree = true`.
+    ///
+    /// # Arguments
+    /// * `cloud` - The input point cloud
+    /// * `downsampling_resolution` - Voxel size for downsampling
+    /// * `num_neighbors` - Number of neighbors for normal estimation
+    /// * `num_threads` - Number of threads to use
+    ///
+    /// # Returns
+    /// Preprocessing result with both processed cloud and KdTree
+    pub fn preprocess_points(&self, config: &PreprocessorConfig) -> Result<PreprocessingResult> {
+        let PreprocessorConfig {
             downsampling_resolution,
             num_neighbors,
-            num_threads as i32,
-            &mut preprocessed_cloud_handle,
-            &mut kdtree_handle,
-        )
-    };
+            num_threads,
+        } = *config;
 
-    check_error(error)?;
+        if self.is_empty() {
+            return Err(SmallGicpError::EmptyPointCloud);
+        }
 
-    let preprocessed_cloud = PointCloud {
-        handle: preprocessed_cloud_handle,
-    };
+        let mut preprocessed_cloud_handle = ptr::null_mut();
+        let mut kdtree_handle = ptr::null_mut();
 
-    let kdtree = if !kdtree_handle.is_null() {
-        Some(KdTree {
+        let error = unsafe {
+            small_gicp_sys::small_gicp_preprocess_points(
+                self.handle,
+                downsampling_resolution,
+                num_neighbors as i32,
+                num_threads as i32,
+                &mut preprocessed_cloud_handle,
+                &mut kdtree_handle,
+            )
+        };
+
+        check_error(error)?;
+
+        let preprocessed_cloud = PointCloud {
+            handle: preprocessed_cloud_handle,
+        };
+
+        assert!(!kdtree_handle.is_null());
+        let kdtree = KdTree {
             handle: kdtree_handle,
+        };
+
+        Ok(PreprocessingResult {
+            cloud: preprocessed_cloud,
+            kdtree,
         })
-    } else {
-        None
-    };
-
-    Ok(PreprocessingResult {
-        cloud: preprocessed_cloud,
-        kdtree,
-    })
+    }
 }
 
-/// Apply voxel grid downsampling to a point cloud.
-///
-/// # Arguments
-/// * `cloud` - The input point cloud
-/// * `leaf_size` - Size of each voxel (in meters)
-/// * `num_threads` - Number of threads to use
-///
-/// # Returns
-/// A new downsampled point cloud
-pub fn voxelgrid_sampling(
-    cloud: &PointCloud,
-    leaf_size: f64,
-    num_threads: usize,
-) -> Result<PointCloud> {
-    if cloud.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
+// Re-export from config module for backward compatibility
+pub use crate::config::{
+    CovarianceEstimationConfig, NormalEstimationConfig, VoxelGridConfig as VoxelGridSamplingConfig,
+    VoxelGridConfig,
+};
 
-    if leaf_size <= 0.0 {
-        return Err(SmallGicpError::InvalidArgument(
-            "Leaf size must be positive".to_string(),
-        ));
-    }
-
-    let mut downsampled_handle = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_voxelgrid_sampling(
-            cloud.handle,
+impl PointCloud {
+    /// Apply voxel grid downsampling to a point cloud.
+    ///
+    /// # Arguments
+    /// * `config` - Voxel grid sampling configuration
+    ///
+    /// # Returns
+    /// A new downsampled point cloud
+    pub fn voxelgrid_sampling(&self, config: &VoxelGridConfig) -> Result<PointCloud> {
+        let VoxelGridConfig {
             leaf_size,
-            num_threads as i32,
-            &mut downsampled_handle,
-        )
-    };
+            num_threads,
+        } = *config;
 
-    check_error(error)?;
+        if self.is_empty() {
+            return Err(SmallGicpError::EmptyPointCloud);
+        }
 
-    Ok(PointCloud {
-        handle: downsampled_handle,
-    })
+        if leaf_size <= 0.0 {
+            return Err(SmallGicpError::InvalidArgument(
+                "Leaf size must be positive".to_string(),
+            ));
+        }
+
+        let mut downsampled_handle = ptr::null_mut();
+        let error = unsafe {
+            small_gicp_sys::small_gicp_voxelgrid_sampling(
+                self.handle,
+                leaf_size,
+                num_threads as i32,
+                &mut downsampled_handle,
+            )
+        };
+
+        check_error(error)?;
+
+        Ok(PointCloud {
+            handle: downsampled_handle,
+        })
+    }
 }
 
-/// Apply random downsampling to a point cloud.
-///
-/// # Arguments
-/// * `cloud` - The input point cloud
-/// * `num_samples` - Number of points to sample
-///
-/// # Returns
-/// A new randomly sampled point cloud
-pub fn random_sampling(cloud: &PointCloud, num_samples: usize) -> Result<PointCloud> {
-    if cloud.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
+impl PointCloud {
+    /// Apply random downsampling to a point cloud.
+    ///
+    /// # Arguments
+    /// * `cloud` - The input point cloud
+    /// * `num_samples` - Number of points to sample
+    ///
+    /// # Returns
+    /// A new randomly sampled point cloud
+    pub fn random_sampling(&self, num_samples: usize) -> Result<PointCloud> {
+        if self.is_empty() {
+            return Err(SmallGicpError::EmptyPointCloud);
+        }
+
+        if num_samples == 0 {
+            return Err(SmallGicpError::InvalidArgument(
+                "Number of samples must be positive".to_string(),
+            ));
+        }
+
+        if num_samples >= self.len() {
+            // Return a clone if we're sampling more points than available
+            return Ok(self.clone());
+        }
+
+        let mut downsampled_handle = ptr::null_mut();
+        let error = unsafe {
+            small_gicp_sys::small_gicp_random_sampling(
+                self.handle,
+                num_samples,
+                &mut downsampled_handle,
+            )
+        };
+
+        check_error(error)?;
+
+        Ok(PointCloud {
+            handle: downsampled_handle,
+        })
     }
-
-    if num_samples == 0 {
-        return Err(SmallGicpError::InvalidArgument(
-            "Number of samples must be positive".to_string(),
-        ));
-    }
-
-    if num_samples >= cloud.len() {
-        // Return a clone if we're sampling more points than available
-        return Ok(cloud.clone());
-    }
-
-    let mut downsampled_handle = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_random_sampling(
-            cloud.handle,
-            num_samples,
-            &mut downsampled_handle,
-        )
-    };
-
-    check_error(error)?;
-
-    Ok(PointCloud {
-        handle: downsampled_handle,
-    })
 }
 
 /// Estimate normals for a point cloud using a KdTree.
@@ -258,19 +202,21 @@ pub fn random_sampling(cloud: &PointCloud, num_samples: usize) -> Result<PointCl
 /// # Arguments
 /// * `cloud` - The point cloud to estimate normals for (modified in-place)
 /// * `kdtree` - KdTree for neighborhood search
-/// * `num_neighbors` - Number of neighbors to use for estimation
-/// * `num_threads` - Number of threads to use
+/// * `config` - Configuration for normal estimation
 pub fn estimate_normals(
     cloud: &mut PointCloud,
     kdtree: &KdTree,
-    num_neighbors: i32,
-    num_threads: usize,
+    config: &NormalEstimationConfig,
 ) -> Result<()> {
+    let NormalEstimationConfig {
+        num_neighbors,
+        num_threads,
+    } = *config;
     if cloud.is_empty() {
         return Err(SmallGicpError::EmptyPointCloud);
     }
 
-    if num_neighbors <= 0 {
+    if num_neighbors == 0 {
         return Err(SmallGicpError::InvalidArgument(
             "Number of neighbors must be positive".to_string(),
         ));
@@ -280,7 +226,7 @@ pub fn estimate_normals(
         small_gicp_sys::small_gicp_estimate_normals(
             cloud.handle,
             kdtree.handle,
-            num_neighbors,
+            num_neighbors as i32,
             num_threads as i32,
         )
     };
@@ -295,19 +241,21 @@ pub fn estimate_normals(
 /// # Arguments
 /// * `cloud` - The point cloud to estimate covariances for (modified in-place)
 /// * `kdtree` - KdTree for neighborhood search
-/// * `num_neighbors` - Number of neighbors to use for estimation
-/// * `num_threads` - Number of threads to use
+/// * `config` - Configuration for covariance estimation
 pub fn estimate_covariances(
     cloud: &mut PointCloud,
     kdtree: &KdTree,
-    num_neighbors: i32,
-    num_threads: usize,
+    config: &CovarianceEstimationConfig,
 ) -> Result<()> {
+    let CovarianceEstimationConfig {
+        num_neighbors,
+        num_threads,
+    } = *config;
     if cloud.is_empty() {
         return Err(SmallGicpError::EmptyPointCloud);
     }
 
-    if num_neighbors <= 0 {
+    if num_neighbors == 0 {
         return Err(SmallGicpError::InvalidArgument(
             "Number of neighbors must be positive".to_string(),
         ));
@@ -317,7 +265,7 @@ pub fn estimate_covariances(
         small_gicp_sys::small_gicp_estimate_covariances(
             cloud.handle,
             kdtree.handle,
-            num_neighbors,
+            num_neighbors as i32,
             num_threads as i32,
         )
     };
@@ -332,19 +280,21 @@ pub fn estimate_covariances(
 /// # Arguments
 /// * `cloud` - The point cloud to process (modified in-place)
 /// * `kdtree` - KdTree for neighborhood search
-/// * `num_neighbors` - Number of neighbors to use for estimation
-/// * `num_threads` - Number of threads to use
+/// * `config` - Configuration for normal and covariance estimation
 pub fn estimate_normals_and_covariances(
     cloud: &mut PointCloud,
     kdtree: &KdTree,
-    num_neighbors: i32,
-    num_threads: usize,
+    config: &NormalEstimationConfig,
 ) -> Result<()> {
+    let NormalEstimationConfig {
+        num_neighbors,
+        num_threads,
+    } = *config;
     if cloud.is_empty() {
         return Err(SmallGicpError::EmptyPointCloud);
     }
 
-    if num_neighbors <= 0 {
+    if num_neighbors == 0 {
         return Err(SmallGicpError::InvalidArgument(
             "Number of neighbors must be positive".to_string(),
         ));
@@ -354,7 +304,7 @@ pub fn estimate_normals_and_covariances(
         small_gicp_sys::small_gicp_estimate_normals_covariances(
             cloud.handle,
             kdtree.handle,
-            num_neighbors,
+            num_neighbors as i32,
             num_threads as i32,
         )
     };
@@ -384,7 +334,12 @@ mod tests {
     #[test]
     fn test_voxelgrid_sampling() {
         let cloud = create_test_cloud();
-        let downsampled = voxelgrid_sampling(&cloud, 0.5, 1).unwrap();
+        let downsampled = cloud
+            .voxelgrid_sampling(&VoxelGridConfig {
+                leaf_size: 0.5,
+                num_threads: 1,
+            })
+            .unwrap();
 
         // Should have fewer points after downsampling
         assert!(downsampled.len() <= cloud.len());
@@ -395,7 +350,7 @@ mod tests {
     fn test_random_sampling() {
         let cloud = create_test_cloud();
         let num_samples = 4;
-        let downsampled = random_sampling(&cloud, num_samples).unwrap();
+        let downsampled = cloud.random_sampling(num_samples).unwrap();
 
         assert_eq!(downsampled.len(), num_samples);
     }
@@ -403,29 +358,32 @@ mod tests {
     #[test]
     fn test_preprocess_points() {
         let cloud = create_test_cloud();
-        let result = preprocess_points(&cloud, 0.5, 10, 1).unwrap();
-
+        let result = cloud
+            .preprocess_points(&PreprocessorConfig {
+                downsampling_resolution: 0.5,
+                num_neighbors: 10,
+                num_threads: 1,
+            })
+            .unwrap();
         assert!(!result.cloud.is_empty());
-        assert!(result.kdtree.is_some());
-    }
-
-    #[test]
-    fn test_preprocessing_settings() {
-        let cloud = create_test_cloud();
-        let settings = PreprocessingSettings::default();
-        let result = preprocess_point_cloud(&cloud, &settings, true).unwrap();
-
-        assert!(!result.cloud.is_empty());
-        assert!(result.kdtree.is_some());
     }
 
     #[test]
     fn test_normal_estimation() {
         let cloud = create_test_cloud();
         let mut preprocessed_cloud = cloud.clone();
-        let kdtree = KdTree::new(&preprocessed_cloud, 1).unwrap();
+        let kdtree_config = crate::config::KdTreeConfig::default();
+        let kdtree = KdTree::new(&preprocessed_cloud, &kdtree_config).unwrap();
 
-        estimate_normals(&mut preprocessed_cloud, &kdtree, 5, 1).unwrap();
+        estimate_normals(
+            &mut preprocessed_cloud,
+            &kdtree,
+            &NormalEstimationConfig {
+                num_neighbors: 5,
+                num_threads: 1,
+            },
+        )
+        .unwrap();
 
         // Verify that normals were estimated (they should not be zero)
         let normal = preprocessed_cloud.get_normal(0).unwrap();

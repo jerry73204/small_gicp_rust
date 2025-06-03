@@ -2,9 +2,7 @@
 
 use approx::assert_relative_eq;
 use nalgebra::{Isometry3, Point3, Translation3, UnitQuaternion, Vector3};
-use small_gicp_rust::{
-    estimate_covariances, estimate_normals, estimate_normals_and_covariances, prelude::*,
-};
+use small_gicp_rust::{estimate_normals, prelude::*};
 
 /// Create a simple test point cloud (unit cube vertices).
 fn create_test_cube() -> PointCloud {
@@ -90,7 +88,8 @@ fn test_point_cloud_with_normals() {
 #[test]
 fn test_kdtree_operations() {
     let cloud = create_dense_test_cloud();
-    let kdtree = KdTree::new(&cloud, 1).unwrap();
+    let kdtree_config = KdTreeConfig::default();
+    let kdtree = KdTree::new(&cloud, &kdtree_config).unwrap();
 
     // Test nearest neighbor search
     let query = Point3::new(0.5, 0.5, 0.2);
@@ -124,14 +123,24 @@ fn test_voxelgrid_downsampling() {
     let cloud = create_dense_test_cloud();
     let original_size = cloud.len();
 
-    let downsampled = voxelgrid_sampling(&cloud, 0.15, 1).unwrap();
+    let downsampled = cloud
+        .voxelgrid_sampling(&VoxelGridConfig {
+            leaf_size: 0.15,
+            num_threads: 1,
+        })
+        .unwrap();
 
     // Should have fewer points after downsampling
     assert!(downsampled.len() <= original_size);
     assert!(!downsampled.is_empty());
 
     // Test with very large voxel size - should result in very few points
-    let heavily_downsampled = voxelgrid_sampling(&cloud, 1.0, 1).unwrap();
+    let heavily_downsampled = cloud
+        .voxelgrid_sampling(&VoxelGridConfig {
+            leaf_size: 1.0,
+            num_threads: 1,
+        })
+        .unwrap();
     assert!(heavily_downsampled.len() < downsampled.len());
 }
 
@@ -140,11 +149,11 @@ fn test_random_downsampling() {
     let cloud = create_dense_test_cloud();
     let target_samples = 50;
 
-    let downsampled = random_sampling(&cloud, target_samples).unwrap();
+    let downsampled = cloud.random_sampling(target_samples).unwrap();
     assert_eq!(downsampled.len(), target_samples);
 
     // Test edge case: sampling more points than available
-    let oversampled = random_sampling(&cloud, cloud.len() + 100).unwrap();
+    let oversampled = cloud.random_sampling(cloud.len() + 100).unwrap();
     assert_eq!(oversampled.len(), cloud.len());
 }
 
@@ -152,10 +161,19 @@ fn test_random_downsampling() {
 fn test_normal_estimation() {
     let cloud = create_dense_test_cloud();
     let mut processed_cloud = cloud.clone();
-    let kdtree = KdTree::new(&processed_cloud, 1).unwrap();
+    let kdtree_config = KdTreeConfig::default();
+    let kdtree = KdTree::new(&processed_cloud, &kdtree_config).unwrap();
 
     // Before normal estimation, normals might be zero or uninitialized
-    estimate_normals(&mut processed_cloud, &kdtree, 10, 1).unwrap();
+    estimate_normals(
+        &mut processed_cloud,
+        &kdtree,
+        &NormalEstimationConfig {
+            num_neighbors: 10,
+            num_threads: 1,
+        },
+    )
+    .unwrap();
 
     // After estimation, normals should have reasonable magnitude
     let normal = processed_cloud.get_normal(0).unwrap();
@@ -167,21 +185,19 @@ fn test_normal_estimation() {
 fn test_preprocessing_pipeline() {
     let cloud = create_dense_test_cloud();
 
-    let settings = PreprocessingSettings {
-        downsampling: Some(DownsamplingMethod::VoxelGrid { leaf_size: 0.15 }),
-        num_neighbors_normals: 15,
-        estimate_covariances: true,
-        num_threads: 1,
-    };
-
-    let result = preprocess_point_cloud(&cloud, &settings, true).unwrap();
+    let result = cloud
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.15,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
 
     // Should have downsampled
     assert!(result.cloud.len() <= cloud.len());
     assert!(!result.cloud.is_empty());
 
-    // Should have KdTree
-    assert!(result.kdtree.is_some());
+    // Should have KdTree (always created)
 
     // Should have normals
     let normal = result.cloud.get_normal(0).unwrap();
@@ -192,10 +208,16 @@ fn test_preprocessing_pipeline() {
 fn test_preprocess_points_convenience() {
     let cloud = create_dense_test_cloud();
 
-    let result = preprocess_points(&cloud, 0.15, 15, 1).unwrap();
+    let result = cloud
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.15,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
 
     assert!(!result.cloud.is_empty());
-    assert!(result.kdtree.is_some());
+    // KdTree is always created
 
     // Verify normals were estimated
     let normal = result.cloud.get_normal(0).unwrap();
@@ -311,7 +333,11 @@ fn test_vgicp_registration() {
     let source = transform_point_cloud(&target, &transformation);
 
     // Create voxel map
-    let voxel_map = GaussianVoxelMap::new(&target, 0.1, 1).unwrap();
+    let voxel_config = GaussianVoxelMapConfig {
+        voxel_resolution: 0.1,
+        num_threads: 1,
+    };
+    let voxel_map = GaussianVoxelMap::new(&target, &voxel_config).unwrap();
 
     let settings = RegistrationSettings {
         registration_type: RegistrationType::Vgicp,
@@ -343,8 +369,20 @@ fn test_register_preprocessed() {
     let source = transform_point_cloud(&target, &transformation);
 
     // Preprocess clouds
-    let target_result = preprocess_points(&target, 0.1, 15, 1).unwrap();
-    let source_processed = preprocess_points(&source, 0.1, 15, 1).unwrap();
+    let target_result = target
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.1,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
+    let source_processed = source
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.1,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
 
     let settings = RegistrationSettings {
         registration_type: RegistrationType::Gicp,
@@ -355,7 +393,7 @@ fn test_register_preprocessed() {
     let result = register_preprocessed(
         &target_result.cloud,
         &source_processed.cloud,
-        target_result.kdtree.as_ref().unwrap(),
+        &target_result.kdtree,
         &settings,
     )
     .unwrap();
@@ -408,13 +446,24 @@ fn test_error_handling() {
     assert!(register(&non_empty_cloud, &empty_cloud, &settings).is_err());
 
     // KdTree creation with empty cloud should fail
-    assert!(KdTree::new(&empty_cloud, 1).is_err());
+    let kdtree_config = KdTreeConfig::default();
+    assert!(KdTree::new(&empty_cloud, &kdtree_config).is_err());
 
     // Downsampling empty cloud should fail
-    assert!(voxelgrid_sampling(&empty_cloud, 0.1, 1).is_err());
-    assert!(random_sampling(&empty_cloud, 10).is_err());
+    assert!(empty_cloud
+        .voxelgrid_sampling(&VoxelGridConfig {
+            leaf_size: 0.1,
+            num_threads: 1,
+        })
+        .is_err());
+    assert!(empty_cloud.random_sampling(10).is_err());
 
     // Invalid parameters
-    assert!(voxelgrid_sampling(&non_empty_cloud, -0.1, 1).is_err());
-    assert!(random_sampling(&non_empty_cloud, 0).is_err());
+    assert!(non_empty_cloud
+        .voxelgrid_sampling(&VoxelGridConfig {
+            leaf_size: -0.1,
+            num_threads: 1,
+        })
+        .is_err());
+    assert!(non_empty_cloud.random_sampling(0).is_err());
 }
