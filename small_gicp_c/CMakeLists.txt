@@ -28,7 +28,15 @@ endif()
 
 # Create the C wrapper library
 add_library(small_gicp_c
-    src/small_gicp_c.cpp
+    src/types.cpp
+    src/points/point_cloud.cpp
+    src/ann/kdtree.cpp
+    src/ann/gaussian_voxelmap.cpp
+    src/util/downsampling.cpp
+    src/util/normal_estimation.cpp
+    src/util/version.cpp
+    src/registration/registration.cpp
+    src/io/io.cpp
 )
 
 # Set include directories
@@ -57,7 +65,6 @@ endif()
 set_target_properties(small_gicp_c PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER include/small_gicp_c.h
 )
 
 # Build examples
@@ -73,7 +80,12 @@ install(TARGETS small_gicp_c
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install all headers
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h"
 )
 
 # Export targets
