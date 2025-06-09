@@ -12,10 +12,15 @@ target_link_libraries(preprocessing_c small_gicp_c)
 add_executable(kdtree_c kdtree.c)
 target_link_libraries(kdtree_c small_gicp_c m)
 
+# Test for new covariance and parallel functionality
+add_executable(test_covariance_parallel_c test_covariance_parallel.c)
+target_link_libraries(test_covariance_parallel_c small_gicp_c m)
+
 # Install examples
 install(TARGETS 
     basic_registration_c
     preprocessing_c
     kdtree_c
+    test_covariance_parallel_c
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples
 )
