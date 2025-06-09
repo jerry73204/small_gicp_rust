@@ -17,6 +17,7 @@ option(BUILD_EXAMPLES "Build example programs" ON)
 # Find required packages
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP)
+find_package(TBB)
 
 # Add the parent directory to include path for small_gicp headers
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp/include)
@@ -36,6 +37,7 @@ add_library(small_gicp_c
     src/util/normal_estimation.cpp
     src/util/version.cpp
     src/registration/registration.cpp
+    src/registration/advanced_registration.cpp
     src/io/io.cpp
 )
 
@@ -59,6 +61,11 @@ target_link_libraries(small_gicp_c
 # Add OpenMP if available
 if(OpenMP_CXX_FOUND)
     target_link_libraries(small_gicp_c PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+# Add TBB if available
+if(TBB_FOUND)
+    target_link_libraries(small_gicp_c PUBLIC TBB::tbb)
 endif()
 
 # Set library properties

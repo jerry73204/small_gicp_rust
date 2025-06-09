@@ -1,5 +1,5 @@
-#include <small_gicp_c/util/normal_estimation.h>
 #include "../common.h"
+#include <small_gicp_c/util/normal_estimation.h>
 
 #define CHECK_NULL(ptr)                                                        \
   if (!(ptr))                                                                  \
@@ -61,28 +61,5 @@ small_gicp_estimate_normals_covariances(small_gicp_point_cloud_t *cloud,
     small_gicp::estimate_normals_covariances(*cloud->cloud, *kdtree->tree,
                                              num_neighbors);
   }
-  TRY_CATCH_END
-}
-
-small_gicp_error_t
-small_gicp_preprocess_points(const small_gicp_point_cloud_t *cloud,
-                             double downsampling_resolution, int num_neighbors,
-                             int num_threads,
-                             small_gicp_point_cloud_t **preprocessed_cloud,
-                             small_gicp_kdtree_t **kdtree) {
-  CHECK_NULL(cloud);
-  CHECK_NULL(cloud->cloud);
-  CHECK_NULL(preprocessed_cloud);
-  CHECK_NULL(kdtree);
-
-  TRY_CATCH_BEGIN
-  auto [downsampled, tree] = small_gicp::preprocess_points(
-      *cloud->cloud, downsampling_resolution, num_neighbors, num_threads);
-
-  *preprocessed_cloud = new small_gicp_point_cloud;
-  (*preprocessed_cloud)->cloud = downsampled;
-
-  *kdtree = new small_gicp_kdtree;
-  (*kdtree)->tree = tree;
   TRY_CATCH_END
 }
