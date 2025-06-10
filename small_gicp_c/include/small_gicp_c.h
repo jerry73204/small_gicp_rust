@@ -10,6 +10,7 @@ extern "C" {
 
 // Include all module headers
 #include <small_gicp_c/ann/gaussian_voxelmap.h>
+#include <small_gicp_c/ann/incremental_voxelmap.h>
 #include <small_gicp_c/ann/kdtree.h>
 #include <small_gicp_c/io/io.h>
 #include <small_gicp_c/points/point_cloud.h>
