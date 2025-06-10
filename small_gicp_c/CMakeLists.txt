@@ -25,7 +25,21 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp/include)
 
 # Build the small_gicp helper library if not already built
 if(NOT TARGET small_gicp)
+    # Save our current BUILD_TESTS setting before modifying it for small_gicp
+    set(SAVED_BUILD_TESTS ${BUILD_TESTS})
+
+    # Disable PCL and other heavy dependencies for C wrapper
+    set(BUILD_WITH_PCL OFF CACHE BOOL "Disable PCL for C wrapper" FORCE)
+    set(BUILD_TESTS OFF CACHE BOOL "Disable C++ tests for C wrapper" FORCE)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "Disable C++ examples for C wrapper" FORCE)
+    set(BUILD_BENCHMARKS OFF CACHE BOOL "Disable C++ benchmarks for C wrapper" FORCE)
+    set(BUILD_WITH_FAST_GICP OFF CACHE BOOL "Disable fast_gicp for C wrapper" FORCE)
+    set(BUILD_WITH_IRIDESCENCE OFF CACHE BOOL "Disable Iridescence for C wrapper" FORCE)
+
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../small_gicp ${CMAKE_CURRENT_BINARY_DIR}/small_gicp)
+
+    # Restore our BUILD_TESTS setting for the C wrapper
+    set(BUILD_TESTS ${SAVED_BUILD_TESTS})
 endif()
 
 # Create the C wrapper library
