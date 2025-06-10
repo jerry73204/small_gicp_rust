@@ -24,6 +24,10 @@ target_link_libraries(test_parallel_utilities_c small_gicp_c m)
 add_executable(test_direct_access_c test_direct_access.c)
 target_link_libraries(test_direct_access_c small_gicp_c m)
 
+# Test for advanced features (RegistrationHelper, LocalFeatures, Sorting)
+add_executable(test_advanced_features_c test_advanced_features.c)
+target_link_libraries(test_advanced_features_c small_gicp_c m)
+
 # Install examples
 install(TARGETS 
     basic_registration_c
@@ -32,5 +36,6 @@ install(TARGETS
     test_covariance_parallel_c
     test_parallel_utilities_c
     test_direct_access_c
+    test_advanced_features_c
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples
 )

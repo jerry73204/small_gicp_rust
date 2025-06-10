@@ -35,6 +35,8 @@ add_library(small_gicp_c
     src/ann/gaussian_voxelmap.cpp
     src/util/downsampling.cpp
     src/util/normal_estimation.cpp
+    src/util/local_features.cpp
+    src/util/sorting.cpp
     src/util/version.cpp
     src/registration/registration.cpp
     src/registration/advanced_registration.cpp

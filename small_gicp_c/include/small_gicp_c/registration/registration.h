@@ -219,6 +219,63 @@ small_gicp_error_t
 small_gicp_set_reduction_strategy(small_gicp_reduction_type_t type,
                                   int num_threads);
 
+// RegistrationHelper functions
+
+// RegistrationHelper setting structure
+typedef struct {
+  small_gicp_registration_type_t type;
+  double voxel_resolution;
+  double downsampling_resolution;
+  double max_correspondence_distance;
+  double rotation_eps;
+  double translation_eps;
+  int num_threads;
+  int max_iterations;
+  bool verbose;
+} small_gicp_registration_helper_setting_t;
+
+// Create default RegistrationHelper setting
+small_gicp_error_t small_gicp_create_default_registration_helper_setting(
+    small_gicp_registration_helper_setting_t **setting);
+
+// Create custom RegistrationHelper setting
+small_gicp_error_t small_gicp_create_registration_helper_setting(
+    const small_gicp_registration_helper_setting_t *input_setting,
+    small_gicp_registration_helper_setting_t **setting);
+
+// Destroy RegistrationHelper setting
+small_gicp_error_t small_gicp_destroy_registration_helper_setting(
+    small_gicp_registration_helper_setting_t *setting);
+
+// RegistrationHelper preprocessing functions
+small_gicp_error_t small_gicp_preprocess_points_helper(
+    const small_gicp_point_cloud_t *points, double downsampling_resolution,
+    int num_neighbors, int num_threads,
+    small_gicp_point_cloud_t **preprocessed_cloud,
+    small_gicp_kdtree_t **kdtree);
+
+// Create Gaussian voxelmap
+small_gicp_error_t small_gicp_create_gaussian_voxelmap_helper(
+    const small_gicp_point_cloud_t *points, double voxel_resolution,
+    small_gicp_gaussian_voxelmap_t **voxelmap);
+
+// RegistrationHelper align function with point clouds
+small_gicp_error_t
+small_gicp_align_helper(const small_gicp_point_cloud_t *target,
+                        const small_gicp_point_cloud_t *source,
+                        const small_gicp_kdtree_t *target_tree,
+                        const double *init_T, // 4x4 matrix in row-major order
+                        const small_gicp_registration_helper_setting_t *setting,
+                        small_gicp_registration_result_t *result);
+
+// RegistrationHelper align function with voxelmap
+small_gicp_error_t small_gicp_align_helper_vgicp(
+    const small_gicp_gaussian_voxelmap_t *target_voxelmap,
+    const small_gicp_point_cloud_t *source,
+    const double *init_T, // 4x4 matrix in row-major order
+    const small_gicp_registration_helper_setting_t *setting,
+    small_gicp_registration_result_t *result);
+
 #ifdef __cplusplus
 }
 #endif
