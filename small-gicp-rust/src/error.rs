@@ -36,6 +36,10 @@ pub enum SmallGicpError {
     /// Registration failed to converge.
     #[error("Registration failed to converge after {iterations} iterations")]
     RegistrationFailed { iterations: i32 },
+
+    /// Not implemented error.
+    #[error("Not implemented")]
+    NotImplemented,
 }
 
 impl From<small_gicp_sys::small_gicp_error_t> for SmallGicpError {
@@ -59,6 +63,7 @@ impl From<small_gicp_sys::small_gicp_error_t> for SmallGicpError {
             small_gicp_sys::small_gicp_error_t::SMALL_GICP_ERROR_EXCEPTION => {
                 SmallGicpError::InternalException("Unknown".to_string())
             }
+            small_gicp_sys::small_gicp_error_t::SMALL_GICP_NOT_IMPLEMENTED => todo!(),
         }
     }
 }
