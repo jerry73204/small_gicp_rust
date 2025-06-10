@@ -276,6 +276,60 @@ small_gicp_error_t small_gicp_align_helper_vgicp(
     const small_gicp_registration_helper_setting_t *setting,
     small_gicp_registration_result_t *result);
 
+// Direct factor utility functions
+
+// Point-to-point ICP error computation
+small_gicp_error_t
+small_gicp_compute_icp_error(const double *source_point, // 3D point [x, y, z]
+                             const double *target_point, // 3D point [x, y, z]
+                             double *error);             // Output: scalar error
+
+// Point-to-plane ICP error computation
+small_gicp_error_t small_gicp_compute_point_to_plane_error(
+    const double *source_point,  // 3D point [x, y, z]
+    const double *target_point,  // 3D point [x, y, z]
+    const double *target_normal, // 3D normal [nx, ny, nz]
+    double *error);              // Output: scalar error
+
+// GICP error computation
+small_gicp_error_t small_gicp_compute_gicp_error(
+    const double *source_point, // 3D point [x, y, z]
+    const double *target_point, // 3D point [x, y, z]
+    const double *source_cov,   // 3x3 covariance matrix [row-major]
+    const double *target_cov,   // 3x3 covariance matrix [row-major]
+    double *error);             // Output: scalar error
+
+// Robust kernel weight computation
+small_gicp_error_t
+small_gicp_compute_robust_weight(const small_gicp_robust_kernel_t *kernel,
+                                 double error,    // Input: error value
+                                 double *weight); // Output: robust weight
+
+// Combined robust error computation
+small_gicp_error_t small_gicp_compute_robust_icp_error(
+    const small_gicp_robust_kernel_t *kernel,
+    const double *source_point, // 3D point [x, y, z]
+    const double *target_point, // 3D point [x, y, z]
+    double *error,              // Output: weighted error
+    double *weight);            // Output: robust weight [optional]
+
+small_gicp_error_t small_gicp_compute_robust_point_to_plane_error(
+    const small_gicp_robust_kernel_t *kernel,
+    const double *source_point,  // 3D point [x, y, z]
+    const double *target_point,  // 3D point [x, y, z]
+    const double *target_normal, // 3D normal [nx, ny, nz]
+    double *error,               // Output: weighted error
+    double *weight);             // Output: robust weight [optional]
+
+small_gicp_error_t small_gicp_compute_robust_gicp_error(
+    const small_gicp_robust_kernel_t *kernel,
+    const double *source_point, // 3D point [x, y, z]
+    const double *target_point, // 3D point [x, y, z]
+    const double *source_cov,   // 3x3 covariance matrix [row-major]
+    const double *target_cov,   // 3x3 covariance matrix [row-major]
+    double *error,              // Output: weighted error
+    double *weight);            // Output: robust weight [optional]
+
 #ifdef __cplusplus
 }
 #endif

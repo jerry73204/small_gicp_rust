@@ -42,6 +42,7 @@ add_library(small_gicp_c
     src/util/version.cpp
     src/registration/registration.cpp
     src/registration/advanced_registration.cpp
+    src/registration/factors.cpp
     src/io/io.cpp
 )
 
