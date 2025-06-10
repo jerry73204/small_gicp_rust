@@ -1,3 +1,6 @@
 [submodule "small_gicp"]
 	path = small_gicp
 	url = https://github.com/koide3/small_gicp.git
+[submodule "small_gicp_c/third_party/Unity"]
+	path = small_gicp_c/third_party/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git

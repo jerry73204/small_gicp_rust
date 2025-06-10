@@ -13,6 +13,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Options
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
+option(BUILD_TESTS "Build test programs" ON)
 
 # Find required packages
 find_package(Eigen3 REQUIRED)
@@ -82,6 +83,12 @@ set_target_properties(small_gicp_c PROPERTIES
 # Build examples
 if(BUILD_EXAMPLES)
     add_subdirectory(example)
+endif()
+
+# Build tests
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
 
 # Installation
