@@ -32,6 +32,10 @@ target_link_libraries(test_advanced_features_c small_gicp_c m)
 add_executable(test_incremental_voxelmap_c test_incremental_voxelmap.c)
 target_link_libraries(test_incremental_voxelmap_c small_gicp_c m)
 
+# Test for advanced ANN features (UnsafeKdTree, KNN settings, projections)
+add_executable(test_advanced_ann_c test_advanced_ann.c)
+target_link_libraries(test_advanced_ann_c small_gicp_c m)
+
 # Install examples
 install(TARGETS 
     basic_registration_c
@@ -42,5 +46,6 @@ install(TARGETS
     test_direct_access_c
     test_advanced_features_c
     test_incremental_voxelmap_c
+    test_advanced_ann_c
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples
 )

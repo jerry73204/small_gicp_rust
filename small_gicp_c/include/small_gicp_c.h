@@ -12,6 +12,7 @@ extern "C" {
 #include <small_gicp_c/ann/gaussian_voxelmap.h>
 #include <small_gicp_c/ann/incremental_voxelmap.h>
 #include <small_gicp_c/ann/kdtree.h>
+#include <small_gicp_c/ann/unsafe_kdtree.h>
 #include <small_gicp_c/io/io.h>
 #include <small_gicp_c/points/point_cloud.h>
 #include <small_gicp_c/registration/registration.h>

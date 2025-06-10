@@ -34,6 +34,7 @@ add_library(small_gicp_c
     src/ann/kdtree.cpp
     src/ann/gaussian_voxelmap.cpp
     src/ann/incremental_voxelmap.cpp
+    src/ann/unsafe_kdtree.cpp
     src/util/downsampling.cpp
     src/util/normal_estimation.cpp
     src/util/local_features.cpp
