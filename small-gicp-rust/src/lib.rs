@@ -54,12 +54,12 @@ pub mod registration;
 // Re-export the most commonly used types
 pub use config::{
     CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
-    GaussianVoxelMapConfig, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
-    NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig,
+    GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
+    NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig, ProjectionType,
     RandomSamplingConfig, RegistrationConfig, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
-pub use kdtree::KdTree;
+pub use kdtree::{KdTree, UnsafeKdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{
     estimate_covariances, estimate_normals, estimate_normals_and_covariances, DownsamplingMethod,
@@ -75,12 +75,13 @@ pub mod prelude {
     pub use crate::{
         config::{
             CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
-            GaussianVoxelMapConfig, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
-            NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig,
-            RandomSamplingConfig, RegistrationConfig, TerminationConfig, VoxelGridConfig,
+            GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+            LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
+            ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
+            TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
-        kdtree::KdTree,
+        kdtree::{KdTree, UnsafeKdTree},
         point_cloud::PointCloud,
         preprocessing::{DownsamplingMethod, PreprocessorConfig},
         registration::{

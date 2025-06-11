@@ -814,3 +814,390 @@ fn test_updated_clone_with_covariances() {
         }
     }
 }
+
+#[test]
+fn test_kdtree_builder_configurations() {
+    let cloud = create_dense_test_cloud();
+
+    // Test default builder
+    let default_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::Default,
+        num_threads: 1,
+        max_leaf_size: 20,
+        projection: ProjectionConfig::default(),
+    };
+    let kdtree_default = KdTree::new(&cloud, &default_config).unwrap();
+
+    let query = Point3::new(0.5, 0.5, 0.2);
+    let (index, _) = kdtree_default.nearest_neighbor(query).unwrap();
+    assert!(index < cloud.len());
+
+    // Test OpenMP builder
+    let openmp_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::OpenMp,
+        num_threads: 2,
+        max_leaf_size: 15,
+        projection: ProjectionConfig::default(),
+    };
+    let kdtree_openmp = KdTree::new(&cloud, &openmp_config).unwrap();
+
+    let (index_openmp, _) = kdtree_openmp.nearest_neighbor(query).unwrap();
+    assert!(index_openmp < cloud.len());
+
+    // Test TBB builder
+    let tbb_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::Tbb,
+        num_threads: 2,
+        max_leaf_size: 25,
+        projection: ProjectionConfig::default(),
+    };
+    let kdtree_tbb = KdTree::new(&cloud, &tbb_config).unwrap();
+
+    let (index_tbb, _) = kdtree_tbb.nearest_neighbor(query).unwrap();
+    assert!(index_tbb < cloud.len());
+
+    // All builders should give similar results for the same query
+    let first_point = cloud.get_point(index).unwrap();
+    let openmp_point = cloud.get_point(index_openmp).unwrap();
+    let tbb_point = cloud.get_point(index_tbb).unwrap();
+
+    // The nearest points should be close to each other (allowing for slight differences due to parallel processing)
+    let dist_to_query = (query - first_point).magnitude_squared();
+    let openmp_dist = (query - openmp_point).magnitude_squared();
+    let tbb_dist = (query - tbb_point).magnitude_squared();
+
+    // All should be reasonably close to the optimal distance
+    assert!((dist_to_query - openmp_dist).abs() < 0.1);
+    assert!((dist_to_query - tbb_dist).abs() < 0.1);
+}
+
+#[test]
+fn test_kdtree_projection_types() {
+    let cloud = create_dense_test_cloud();
+
+    // Test axis-aligned projection
+    let axis_aligned_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::Default,
+        num_threads: 1,
+        max_leaf_size: 20,
+        projection: ProjectionConfig {
+            projection_type: ProjectionType::AxisAligned,
+            max_scan_count: 128,
+        },
+    };
+    let kdtree_axis = KdTree::new(&cloud, &axis_aligned_config).unwrap();
+
+    let query = Point3::new(0.3, 0.7, 0.1);
+    let (index_axis, dist_axis) = kdtree_axis.nearest_neighbor(query).unwrap();
+    assert!(index_axis < cloud.len());
+    assert!(dist_axis >= 0.0);
+
+    // Test normal projection
+    let normal_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::Default,
+        num_threads: 1,
+        max_leaf_size: 20,
+        projection: ProjectionConfig {
+            projection_type: ProjectionType::Normal,
+            max_scan_count: 64,
+        },
+    };
+    let kdtree_normal = KdTree::new(&cloud, &normal_config).unwrap();
+
+    let (index_normal, dist_normal) = kdtree_normal.nearest_neighbor(query).unwrap();
+    assert!(index_normal < cloud.len());
+    assert!(dist_normal >= 0.0);
+
+    // Both projections should find valid nearest neighbors
+    // The exact indices might differ, but distances should be reasonable
+    let axis_point = cloud.get_point(index_axis).unwrap();
+    let normal_point = cloud.get_point(index_normal).unwrap();
+
+    let expected_axis_dist = (query - axis_point).magnitude_squared();
+    let expected_normal_dist = (query - normal_point).magnitude_squared();
+
+    assert_relative_eq!(dist_axis, expected_axis_dist, epsilon = 1e-10);
+    assert_relative_eq!(dist_normal, expected_normal_dist, epsilon = 1e-10);
+}
+
+#[test]
+fn test_knn_settings() {
+    let cloud = create_dense_test_cloud();
+    let kdtree_config = KdTreeConfig::default();
+    let kdtree = KdTree::new(&cloud, &kdtree_config).unwrap();
+
+    let query = Point3::new(0.45, 0.55, 0.15);
+
+    // Test exact search (epsilon = 0.0)
+    let exact_settings = KnnConfig { epsilon: 0.0 };
+    let (exact_index, exact_dist) = kdtree
+        .nearest_neighbor_with_settings(query, &exact_settings)
+        .unwrap();
+    assert!(exact_index < cloud.len());
+    assert!(exact_dist >= 0.0);
+
+    // Test approximate search (epsilon > 0.0)
+    let approx_settings = KnnConfig { epsilon: 0.1 };
+    let (approx_index, approx_dist) = kdtree
+        .nearest_neighbor_with_settings(query, &approx_settings)
+        .unwrap();
+    assert!(approx_index < cloud.len());
+    assert!(approx_dist >= 0.0);
+
+    // Approximate distance should be close to exact distance (may be slightly higher due to early termination)
+    assert!(approx_dist <= exact_dist * (1.0 + approx_settings.epsilon) + 1e-10);
+
+    // Test KNN search with settings
+    let k = 5;
+    let exact_knn = kdtree
+        .knn_search_with_settings(query, k, &exact_settings)
+        .unwrap();
+    let approx_knn = kdtree
+        .knn_search_with_settings(query, k, &approx_settings)
+        .unwrap();
+
+    assert_eq!(exact_knn.len(), k);
+    assert_eq!(approx_knn.len(), k);
+
+    // Results should be sorted by distance
+    for i in 1..exact_knn.len() {
+        assert!(exact_knn[i - 1].1 <= exact_knn[i].1);
+        assert!(approx_knn[i - 1].1 <= approx_knn[i].1);
+    }
+
+    // First result should match nearest neighbor results
+    assert_eq!(exact_knn[0].0, exact_index);
+    assert_relative_eq!(exact_knn[0].1, exact_dist, epsilon = 1e-10);
+}
+
+#[test]
+fn test_unsafe_kdtree() {
+    let cloud = create_dense_test_cloud();
+
+    // Test basic UnsafeKdTree creation
+    let unsafe_kdtree = unsafe { UnsafeKdTree::new_basic(&cloud) }.unwrap();
+
+    let query = Point3::new(0.6, 0.4, 0.3);
+    let (index, dist) = unsafe_kdtree.nearest_neighbor(query).unwrap();
+    assert!(index < cloud.len());
+    assert!(dist >= 0.0);
+
+    // Compare with regular KdTree
+    let regular_config = KdTreeConfig::default();
+    let regular_kdtree = KdTree::new(&cloud, &regular_config).unwrap();
+    let (regular_index, regular_dist) = regular_kdtree.nearest_neighbor(query).unwrap();
+
+    // Results should be valid for same configuration (may not be identical due to implementation)
+    assert!(index < cloud.len() && regular_index < cloud.len());
+    assert!(dist >= 0.0 && regular_dist >= 0.0);
+
+    // Test KNN search
+    let k = 3;
+    let unsafe_knn = unsafe_kdtree.knn_search(query, k).unwrap();
+    let regular_knn = regular_kdtree.knn_search(query, k).unwrap();
+
+    assert_eq!(unsafe_knn.len(), k);
+    assert_eq!(regular_knn.len(), k);
+
+    // Results should be comparable (may not be identical due to implementation differences)
+    for i in 0..k {
+        assert!(unsafe_knn[i].0 < cloud.len());
+        assert!(regular_knn[i].0 < cloud.len());
+        assert!(unsafe_knn[i].1 >= 0.0);
+        assert!(regular_knn[i].1 >= 0.0);
+    }
+
+    // Test radius search
+    let radius = 0.2;
+    let max_neighbors = 10;
+    let unsafe_radius = unsafe_kdtree
+        .radius_search(query, radius, max_neighbors)
+        .unwrap();
+    let regular_radius = regular_kdtree
+        .radius_search(query, radius, max_neighbors)
+        .unwrap();
+
+    // Results should be valid even if they differ slightly due to implementation
+    for result in &unsafe_radius {
+        assert!(result.0 < cloud.len());
+        assert!(result.1 <= radius * radius + 1e-6);
+    }
+    for result in &regular_radius {
+        assert!(result.0 < cloud.len());
+        assert!(result.1 <= radius * radius + 1e-6);
+    }
+}
+
+#[test]
+fn test_unsafe_kdtree_with_config() {
+    let cloud = create_dense_test_cloud();
+
+    // Test UnsafeKdTree with advanced configuration
+    let config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::OpenMp,
+        num_threads: 2,
+        max_leaf_size: 10,
+        projection: ProjectionConfig {
+            projection_type: ProjectionType::Normal,
+            max_scan_count: 64,
+        },
+    };
+
+    let unsafe_kdtree = unsafe { UnsafeKdTree::new(&cloud, &config) }.unwrap();
+
+    let query = Point3::new(0.2, 0.8, 0.1);
+
+    // Test with KNN settings
+    let knn_settings = KnnConfig { epsilon: 0.05 };
+    let (index, dist) = unsafe_kdtree
+        .nearest_neighbor_with_settings(query, &knn_settings)
+        .unwrap();
+    assert!(index < cloud.len());
+    assert!(dist >= 0.0);
+
+    // Test KNN search with settings
+    let k = 7;
+    let knn_results = unsafe_kdtree
+        .knn_search_with_settings(query, k, &knn_settings)
+        .unwrap();
+    assert_eq!(knn_results.len(), k);
+
+    // Verify results are sorted
+    for i in 1..knn_results.len() {
+        assert!(knn_results[i - 1].1 <= knn_results[i].1);
+    }
+
+    // First result should match nearest neighbor
+    assert_eq!(knn_results[0].0, index);
+    assert_relative_eq!(knn_results[0].1, dist, epsilon = 1e-10);
+}
+
+#[test]
+fn test_kdtree_advanced_configuration() {
+    let cloud = create_dense_test_cloud();
+
+    // Test configuration with all advanced features
+    let advanced_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::Tbb,
+        num_threads: 4,
+        max_leaf_size: 5,
+        projection: ProjectionConfig {
+            projection_type: ProjectionType::Normal,
+            max_scan_count: 256,
+        },
+    };
+
+    let kdtree = KdTree::new(&cloud, &advanced_config).unwrap();
+
+    let query = Point3::new(0.7, 0.3, 0.4);
+
+    // Test all search methods
+    let (nn_index, nn_dist) = kdtree.nearest_neighbor(query).unwrap();
+    assert!(nn_index < cloud.len());
+    assert!(nn_dist >= 0.0);
+
+    let knn_results = kdtree.knn_search(query, 8).unwrap();
+    assert_eq!(knn_results.len(), 8);
+    assert_eq!(knn_results[0].0, nn_index);
+    assert_relative_eq!(knn_results[0].1, nn_dist, epsilon = 1e-10);
+
+    let radius_results = kdtree.radius_search(query, 0.3, 15).unwrap();
+    for (_, sq_dist) in &radius_results {
+        assert!(*sq_dist <= 0.3 * 0.3 + 1e-10);
+    }
+
+    // Test with custom KNN settings
+    let knn_settings = KnnConfig { epsilon: 0.02 };
+    let (settings_index, settings_dist) = kdtree
+        .nearest_neighbor_with_settings(query, &knn_settings)
+        .unwrap();
+    assert!(settings_index < cloud.len());
+    assert!(settings_dist >= 0.0);
+
+    // Approximate result should be reasonable
+    assert!(settings_dist >= 0.0);
+}
+
+#[test]
+fn test_kdtree_performance_comparison() {
+    let cloud = create_dense_test_cloud();
+    let query = Point3::new(0.35, 0.65, 0.25);
+
+    // Create different configurations
+    let default_config = KdTreeConfig::default();
+    let optimized_config = KdTreeConfig {
+        builder_type: KdTreeBuilderType::OpenMp,
+        num_threads: 2,
+        max_leaf_size: 10,
+        projection: ProjectionConfig {
+            projection_type: ProjectionType::AxisAligned,
+            max_scan_count: 64,
+        },
+    };
+
+    // Test regular KdTree
+    let regular_kdtree = KdTree::new(&cloud, &default_config).unwrap();
+    let (regular_index, regular_dist) = regular_kdtree.nearest_neighbor(query).unwrap();
+
+    // Test optimized KdTree
+    let optimized_kdtree = KdTree::new(&cloud, &optimized_config).unwrap();
+    let (optimized_index, optimized_dist) = optimized_kdtree.nearest_neighbor(query).unwrap();
+
+    // Test UnsafeKdTree
+    let unsafe_kdtree = unsafe { UnsafeKdTree::new(&cloud, &default_config) }.unwrap();
+    let (unsafe_index, unsafe_dist) = unsafe_kdtree.nearest_neighbor(query).unwrap();
+
+    // All should find valid nearest neighbors
+    assert!(regular_index < cloud.len());
+    assert!(optimized_index < cloud.len());
+    assert!(unsafe_index < cloud.len());
+
+    // Results should be reasonable (exact results may vary due to different configurations)
+    assert!(regular_dist >= 0.0);
+    assert!(optimized_dist >= 0.0);
+    assert!(unsafe_dist >= 0.0);
+
+    // Results should be valid, though may not be identical due to implementation differences
+    assert!(regular_index < cloud.len() && unsafe_index < cloud.len());
+    assert!(regular_dist >= 0.0 && unsafe_dist >= 0.0);
+}
+
+#[test]
+fn test_kdtree_error_cases() {
+    // Test with empty point cloud
+    let empty_cloud = PointCloud::new().unwrap();
+    let config = KdTreeConfig::default();
+
+    assert!(KdTree::new(&empty_cloud, &config).is_err());
+    assert!(unsafe { UnsafeKdTree::new_basic(&empty_cloud) }.is_err());
+    assert!(unsafe { UnsafeKdTree::new(&empty_cloud, &config) }.is_err());
+
+    // Test with valid cloud
+    let cloud = create_test_cube();
+    let kdtree = KdTree::new(&cloud, &config).unwrap();
+
+    // Test edge cases for KNN search
+    let query = Point3::new(0.5, 0.5, 0.5);
+    let empty_knn = kdtree.knn_search(query, 0).unwrap();
+    assert_eq!(empty_knn.len(), 0);
+
+    let too_many_knn = kdtree.knn_search(query, cloud.len() + 10).unwrap();
+    // The result should be valid even if we ask for more neighbors than available
+    assert!(!too_many_knn.is_empty());
+
+    // Test with different epsilon values
+    let knn_settings_zero = KnnConfig { epsilon: 0.0 };
+    let knn_settings_large = KnnConfig { epsilon: 1.0 };
+
+    let (index_zero, dist_zero) = kdtree
+        .nearest_neighbor_with_settings(query, &knn_settings_zero)
+        .unwrap();
+    let (index_large, dist_large) = kdtree
+        .nearest_neighbor_with_settings(query, &knn_settings_large)
+        .unwrap();
+
+    assert!(index_zero < cloud.len());
+    assert!(index_large < cloud.len());
+    assert!(dist_zero >= 0.0);
+    assert!(dist_large >= 0.0);
+}

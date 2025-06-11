@@ -13,9 +13,45 @@ fn default_num_threads() -> usize {
         .unwrap_or(4)
 }
 
+/// Builder type for KdTree construction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KdTreeBuilderType {
+    /// Default single-threaded builder.
+    Default,
+    /// OpenMP parallel builder.
+    OpenMp,
+    /// TBB (Threading Building Blocks) parallel builder.
+    Tbb,
+}
+
+impl Default for KdTreeBuilderType {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// Projection type for KdTree splitting strategy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectionType {
+    /// Split along coordinate axes (X/Y/Z) - fastest approach.
+    AxisAligned,
+    /// Split along normal direction - more accurate for surfaces.
+    Normal,
+}
+
+impl Default for ProjectionType {
+    fn default() -> Self {
+        Self::AxisAligned
+    }
+}
+
 /// Configuration for KdTree construction.
 #[derive(Debug, Clone)]
 pub struct KdTreeConfig {
+    /// Builder type for parallel processing.
+    pub builder_type: KdTreeBuilderType,
+    /// Number of threads to use (applies to OpenMP builder).
+    pub num_threads: usize,
     /// Maximum number of points in a leaf node.
     pub max_leaf_size: i32,
     /// Projection settings for axis selection.
@@ -25,6 +61,8 @@ pub struct KdTreeConfig {
 impl Default for KdTreeConfig {
     fn default() -> Self {
         Self {
+            builder_type: KdTreeBuilderType::default(),
+            num_threads: default_num_threads(),
             max_leaf_size: 20, // from C++ default kdtree.hpp:129
             projection: ProjectionConfig::default(),
         }
@@ -34,6 +72,8 @@ impl Default for KdTreeConfig {
 /// Configuration for projection axis selection in KdTree.
 #[derive(Debug, Clone)]
 pub struct ProjectionConfig {
+    /// Projection type for splitting strategy.
+    pub projection_type: ProjectionType,
     /// Maximum number of points to use for axis search.
     pub max_scan_count: i32,
 }
@@ -41,6 +81,7 @@ pub struct ProjectionConfig {
 impl Default for ProjectionConfig {
     fn default() -> Self {
         Self {
+            projection_type: ProjectionType::default(),
             max_scan_count: 128, // from C++ default projection.hpp:13
         }
     }
