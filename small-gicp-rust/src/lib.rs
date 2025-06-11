@@ -53,10 +53,11 @@ pub mod registration;
 
 // Re-export the most commonly used types
 pub use config::{
-    CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
-    GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig,
-    NormalEstimationConfig, OptimizerConfig, PreprocessingConfig, ProjectionConfig, ProjectionType,
-    RandomSamplingConfig, RegistrationConfig, TerminationConfig, VoxelGridConfig,
+    CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
+    GaussNewtonConfig, GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+    LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
+    ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig, RobustKernelConfig,
+    RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{KdTree, UnsafeKdTree};
@@ -66,27 +67,29 @@ pub use preprocessing::{
     PreprocessingResult, PreprocessorConfig,
 };
 pub use registration::{
-    register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
-    RegistrationSettings, RegistrationType,
+    register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
+    ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
+    RegistrationType, RobustKernel,
 };
 
 /// Convenience module for glob imports.
 pub mod prelude {
     pub use crate::{
         config::{
-            CorrespondenceRejectorConfig, CovarianceEstimationConfig, GaussNewtonConfig,
-            GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+            CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
+            GaussNewtonConfig, GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
             LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
             ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
-            TerminationConfig, VoxelGridConfig,
+            RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
         kdtree::{KdTree, UnsafeKdTree},
         point_cloud::PointCloud,
         preprocessing::{DownsamplingMethod, PreprocessorConfig},
         registration::{
-            register, register_preprocessed, register_vgicp, GaussianVoxelMap, RegistrationResult,
-            RegistrationSettings, RegistrationType,
+            register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
+            ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
+            RegistrationType, RobustKernel,
         },
     };
 }

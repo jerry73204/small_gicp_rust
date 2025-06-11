@@ -1201,3 +1201,415 @@ fn test_kdtree_error_cases() {
     assert!(dist_zero >= 0.0);
     assert!(dist_large >= 0.0);
 }
+
+// === Registration Tests for New Features ===
+
+#[test]
+fn test_robust_kernel_creation() {
+    // Test Huber kernel
+    let huber_kernel = RobustKernel::huber(1.0).unwrap();
+
+    // Test weight computation
+    let small_error = 0.5;
+    let large_error = 2.0;
+
+    let small_weight = huber_kernel.compute_weight(small_error).unwrap();
+    let large_weight = huber_kernel.compute_weight(large_error).unwrap();
+
+    // Huber kernel should give weight 1.0 for small errors and reduced weight for large errors
+    assert!(small_weight > 0.0 && small_weight <= 1.0);
+    assert!(large_weight > 0.0 && large_weight <= 1.0);
+    assert!(small_weight >= large_weight);
+
+    // Test Cauchy kernel
+    let cauchy_kernel = RobustKernel::cauchy(1.0).unwrap();
+
+    let cauchy_small_weight = cauchy_kernel.compute_weight(small_error).unwrap();
+    let cauchy_large_weight = cauchy_kernel.compute_weight(large_error).unwrap();
+
+    assert!(cauchy_small_weight > 0.0 && cauchy_small_weight <= 1.0);
+    assert!(cauchy_large_weight > 0.0 && cauchy_large_weight <= 1.0);
+    assert!(cauchy_small_weight >= cauchy_large_weight);
+}
+
+#[test]
+fn test_dof_restriction_creation() {
+    // Test 2D planar restriction
+    let _planar_2d = DofRestriction::planar_2d().unwrap();
+
+    // Test yaw-only restriction
+    let _yaw_only = DofRestriction::yaw_only().unwrap();
+
+    // Test XY translation only
+    let _xy_translation = DofRestriction::xy_translation_only().unwrap();
+
+    // Test custom configuration
+    let custom_config = DofRestrictionConfig {
+        restriction_factor: 1e-2,
+        rotation_mask: [1.0, 0.0, 1.0], // Allow rx and rz, restrict ry
+        translation_mask: [0.0, 1.0, 1.0], // Restrict tx, allow ty and tz
+    };
+    let _custom_restriction = DofRestriction::new(&custom_config).unwrap();
+}
+
+#[test]
+fn test_extended_registration_result() {
+    let target = create_test_cube();
+    let transformation = Isometry3::from_parts(
+        Translation3::new(0.01, 0.02, 0.005),
+        UnitQuaternion::from_euler_angles(0.0, 0.0, 0.01),
+    );
+    let source = transform_point_cloud(&target, &transformation);
+
+    // Preprocess clouds for advanced registration
+    let target_result = target
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.05,
+            num_neighbors: 10,
+            num_threads: 1,
+        })
+        .unwrap();
+    let source_processed = source
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.05,
+            num_neighbors: 10,
+            num_threads: 1,
+        })
+        .unwrap();
+
+    let settings = RegistrationSettings {
+        registration_type: RegistrationType::Gicp,
+        num_threads: 1,
+        initial_guess: None,
+    };
+
+    // Test advanced registration with extended results
+    let result = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        None, // No robust kernel
+        None, // No DOF restriction
+        None, // No initial guess
+    )
+    .unwrap();
+
+    // Test ExtendedRegistrationResult methods
+    let matrix = result.transformation_matrix();
+    assert_eq!(matrix.shape(), (4, 4));
+
+    let _translation = result.translation();
+    let _rotation = result.rotation();
+
+    // Test information matrix access
+    let info_matrix = result.information_matrix_6x6();
+    assert_eq!(info_matrix.shape(), (6, 6));
+
+    let info_vector = result.information_vector_6x1();
+    assert_eq!(info_vector.len(), 6);
+
+    // Test conversion to basic result
+    let basic_result = result.to_basic();
+    assert_eq!(basic_result.converged, result.converged);
+    assert_eq!(basic_result.iterations, result.iterations);
+    assert_eq!(basic_result.error, result.error);
+
+    // Test point transformation with extended result
+    let test_point = Point3::new(0.5, 0.5, 0.5);
+    let transformed = result.transform_point(test_point);
+    let basic_transformed = basic_result.transform_point(test_point);
+
+    assert_relative_eq!(transformed.x, basic_transformed.x, epsilon = 1e-10);
+    assert_relative_eq!(transformed.y, basic_transformed.y, epsilon = 1e-10);
+    assert_relative_eq!(transformed.z, basic_transformed.z, epsilon = 1e-10);
+}
+
+#[test]
+fn test_advanced_registration_with_robust_kernel() {
+    let target = create_dense_test_cloud();
+    let transformation = Isometry3::from_parts(
+        Translation3::new(0.02, 0.01, 0.015),
+        UnitQuaternion::from_euler_angles(0.01, 0.005, 0.02),
+    );
+    let source = transform_point_cloud(&target, &transformation);
+
+    // Preprocess clouds
+    let target_result = target
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.08,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
+    let source_processed = source
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.08,
+            num_neighbors: 15,
+            num_threads: 1,
+        })
+        .unwrap();
+
+    let settings = RegistrationSettings {
+        registration_type: RegistrationType::Gicp,
+        num_threads: 1,
+        initial_guess: Some(transformation.inverse()),
+    };
+
+    // Test with Huber robust kernel
+    let huber_kernel = RobustKernel::huber(0.5).unwrap();
+
+    let result_with_huber = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        Some(&huber_kernel),
+        None,
+        None,
+    )
+    .unwrap();
+
+    assert!(result_with_huber.iterations > 0);
+    assert!(result_with_huber.error >= 0.0);
+
+    // Test with Cauchy robust kernel
+    let cauchy_kernel = RobustKernel::cauchy(1.0).unwrap();
+
+    let result_with_cauchy = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        Some(&cauchy_kernel),
+        None,
+        None,
+    )
+    .unwrap();
+
+    assert!(result_with_cauchy.iterations > 0);
+    assert!(result_with_cauchy.error >= 0.0);
+}
+
+#[test]
+fn test_advanced_registration_with_dof_restriction() {
+    let target = create_test_cube();
+    let transformation = Isometry3::from_parts(
+        Translation3::new(0.01, 0.02, 0.0), // Small XY translation, no Z
+        UnitQuaternion::from_euler_angles(0.0, 0.0, 0.015), // Small yaw rotation only
+    );
+    let source = transform_point_cloud(&target, &transformation);
+
+    // Preprocess clouds
+    let target_result = target
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.06,
+            num_neighbors: 12,
+            num_threads: 1,
+        })
+        .unwrap();
+    let source_processed = source
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.06,
+            num_neighbors: 12,
+            num_threads: 1,
+        })
+        .unwrap();
+
+    let settings = RegistrationSettings {
+        registration_type: RegistrationType::Icp,
+        num_threads: 1,
+        initial_guess: None,
+    };
+
+    // Test with 2D planar restriction
+    let planar_2d = DofRestriction::planar_2d().unwrap();
+
+    let result_2d = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        None,
+        Some(&planar_2d),
+        None,
+    )
+    .unwrap();
+
+    assert!(result_2d.iterations > 0);
+    assert!(result_2d.error >= 0.0);
+
+    // Test with yaw-only restriction
+    let yaw_only = DofRestriction::yaw_only().unwrap();
+
+    let result_yaw = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        None,
+        Some(&yaw_only),
+        None,
+    )
+    .unwrap();
+
+    assert!(result_yaw.iterations > 0);
+    assert!(result_yaw.error >= 0.0);
+}
+
+#[test]
+fn test_advanced_registration_combined_features() {
+    let target = create_dense_test_cloud();
+    let transformation = Isometry3::from_parts(
+        Translation3::new(0.015, 0.01, 0.005),
+        UnitQuaternion::from_euler_angles(0.0, 0.0, 0.01),
+    );
+    let source = transform_point_cloud(&target, &transformation);
+
+    // Preprocess clouds
+    let target_result = target
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.07,
+            num_neighbors: 18,
+            num_threads: 1,
+        })
+        .unwrap();
+    let source_processed = source
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.07,
+            num_neighbors: 18,
+            num_threads: 1,
+        })
+        .unwrap();
+
+    let settings = RegistrationSettings {
+        registration_type: RegistrationType::Gicp,
+        num_threads: 1,
+        initial_guess: Some(transformation.inverse()),
+    };
+
+    // Test with both robust kernel and DOF restriction
+    let huber_kernel = RobustKernel::huber(0.8).unwrap();
+    let yaw_only = DofRestriction::yaw_only().unwrap();
+
+    let result_combined = register_advanced(
+        &target_result.cloud,
+        &source_processed.cloud,
+        &target_result.kdtree,
+        &settings,
+        Some(&huber_kernel),
+        Some(&yaw_only),
+        Some(transformation.inverse()),
+    )
+    .unwrap();
+
+    assert!(result_combined.iterations >= 0); // Allow 0 iterations if already converged
+    assert!(result_combined.error >= 0.0);
+    assert!(result_combined.converged);
+
+    // Test information matrix validity
+    let info_matrix = result_combined.information_matrix_6x6();
+    assert!(info_matrix.trace() > 0.0); // Information matrix should have positive trace
+
+    let info_vector = result_combined.information_vector_6x1();
+    assert!(info_vector.magnitude() >= 0.0); // Information vector should be valid
+}
+
+#[test]
+fn test_robust_kernel_error_handling() {
+    // Test invalid kernel type
+    let invalid_config = RobustKernelConfig {
+        kernel_type: RobustKernelType::None,
+        scale_parameter: 1.0,
+    };
+
+    assert!(RobustKernel::new(&invalid_config).is_err());
+
+    // Test valid kernels with edge case parameters
+    let zero_scale_huber = RobustKernel::huber(0.0);
+    assert!(zero_scale_huber.is_ok()); // Should be valid, though not practical
+
+    let large_scale_cauchy = RobustKernel::cauchy(100.0);
+    assert!(large_scale_cauchy.is_ok());
+
+    // Test weight computation with edge values
+    let kernel = RobustKernel::huber(1.0).unwrap();
+
+    let zero_weight = kernel.compute_weight(0.0).unwrap();
+    assert_eq!(zero_weight, 1.0); // Should be 1.0 for zero error
+
+    // Note: Negative errors are not typically meaningful for robust kernels, so we skip testing them
+}
+
+#[test]
+fn test_registration_configurations() {
+    // Test different robust kernel configurations
+    let huber_config = RobustKernelConfig {
+        kernel_type: RobustKernelType::Huber,
+        scale_parameter: 0.5,
+    };
+
+    let cauchy_config = RobustKernelConfig {
+        kernel_type: RobustKernelType::Cauchy,
+        scale_parameter: 2.0,
+    };
+
+    assert!(RobustKernel::new(&huber_config).is_ok());
+    assert!(RobustKernel::new(&cauchy_config).is_ok());
+
+    // Test different DOF restriction configurations
+    let custom_dof = DofRestrictionConfig {
+        restriction_factor: 5e-3,
+        rotation_mask: [0.5, 1.0, 0.5],    // Partial restrictions
+        translation_mask: [1.0, 1.0, 0.0], // No Z translation
+    };
+
+    assert!(DofRestriction::new(&custom_dof).is_ok());
+
+    // Test default configurations
+    assert!(RobustKernelConfig::default().kernel_type == RobustKernelType::None);
+
+    let default_dof = DofRestrictionConfig::default();
+    assert_eq!(default_dof.rotation_mask, [1.0, 1.0, 1.0]);
+    assert_eq!(default_dof.translation_mask, [1.0, 1.0, 1.0]);
+}
+
+#[test]
+fn test_empty_cloud_advanced_registration() {
+    let empty_cloud = PointCloud::new().unwrap();
+    let test_cloud = create_test_cube();
+
+    let target_result = test_cloud
+        .preprocess_points(&PreprocessorConfig {
+            downsampling_resolution: 0.1,
+            num_neighbors: 10,
+            num_threads: 1,
+        })
+        .unwrap();
+
+    let settings = RegistrationSettings::default();
+
+    // Advanced registration with empty target should fail
+    assert!(register_advanced(
+        &empty_cloud,
+        &test_cloud,
+        &target_result.kdtree,
+        &settings,
+        None,
+        None,
+        None,
+    )
+    .is_err());
+
+    // Advanced registration with empty source should fail
+    assert!(register_advanced(
+        &test_cloud,
+        &empty_cloud,
+        &target_result.kdtree,
+        &settings,
+        None,
+        None,
+        None,
+    )
+    .is_err());
+}

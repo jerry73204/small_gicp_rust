@@ -270,6 +270,97 @@ impl Default for OptimizerConfig {
     }
 }
 
+/// Robust kernel types for outlier rejection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RobustKernelType {
+    /// No robust kernel (standard least squares).
+    None,
+    /// Huber robust kernel - good balance between robustness and efficiency.
+    Huber,
+    /// Cauchy robust kernel - more aggressive outlier rejection.
+    Cauchy,
+}
+
+impl Default for RobustKernelType {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+/// Configuration for robust kernel outlier rejection.
+#[derive(Debug, Clone)]
+pub struct RobustKernelConfig {
+    /// Type of robust kernel to use.
+    pub kernel_type: RobustKernelType,
+    /// Scaling parameter for the robust kernel.
+    /// For Huber: threshold for switching between quadratic and linear regions.
+    /// For Cauchy: scale parameter controlling influence of outliers.
+    pub scale_parameter: f64,
+}
+
+impl Default for RobustKernelConfig {
+    fn default() -> Self {
+        Self {
+            kernel_type: RobustKernelType::default(),
+            scale_parameter: 1.0, // Typical default scale from C wrapper examples
+        }
+    }
+}
+
+/// Configuration for DOF (Degrees of Freedom) restrictions during registration.
+/// This allows constraining the optimization to specific translation and rotation axes.
+#[derive(Debug, Clone)]
+pub struct DofRestrictionConfig {
+    /// Factor that controls the strength of DOF restrictions.
+    /// Higher values enforce stronger constraints.
+    pub restriction_factor: f64,
+    /// Mask for rotation constraints [rx, ry, rz].
+    /// 1.0 = allow rotation, 0.0 = restrict rotation on that axis.
+    pub rotation_mask: [f64; 3],
+    /// Mask for translation constraints [tx, ty, tz].
+    /// 1.0 = allow translation, 0.0 = restrict translation on that axis.
+    pub translation_mask: [f64; 3],
+}
+
+impl Default for DofRestrictionConfig {
+    fn default() -> Self {
+        Self {
+            restriction_factor: 1e-3,          // From C wrapper examples
+            rotation_mask: [1.0, 1.0, 1.0],    // Allow all rotations by default
+            translation_mask: [1.0, 1.0, 1.0], // Allow all translations by default
+        }
+    }
+}
+
+impl DofRestrictionConfig {
+    /// Create a configuration that constrains to 2D registration (no rotation around Z-axis).
+    pub fn planar_2d() -> Self {
+        Self {
+            restriction_factor: 1e-3,
+            rotation_mask: [1.0, 1.0, 0.0], // Allow rx, ry, restrict rz
+            translation_mask: [1.0, 1.0, 1.0], // Allow all translations
+        }
+    }
+
+    /// Create a configuration that only allows Z-axis rotation (yaw).
+    pub fn yaw_only() -> Self {
+        Self {
+            restriction_factor: 1e-3,
+            rotation_mask: [0.0, 0.0, 1.0], // Restrict rx, ry, allow rz
+            translation_mask: [1.0, 1.0, 1.0], // Allow all translations
+        }
+    }
+
+    /// Create a configuration that constrains to only XY translation.
+    pub fn xy_translation_only() -> Self {
+        Self {
+            restriction_factor: 1e-3,
+            rotation_mask: [0.0, 0.0, 0.0], // Restrict all rotations
+            translation_mask: [1.0, 1.0, 0.0], // Allow tx, ty, restrict tz
+        }
+    }
+}
+
 /// Configuration for Gaussian voxel map creation.
 #[derive(Debug, Clone)]
 pub struct GaussianVoxelMapConfig {
@@ -321,6 +412,10 @@ pub struct RegistrationConfig {
     pub correspondence_rejector: CorrespondenceRejectorConfig,
     /// Optimizer configuration.
     pub optimizer: OptimizerConfig,
+    /// Robust kernel configuration for outlier rejection.
+    pub robust_kernel: RobustKernelConfig,
+    /// DOF restriction configuration for constrained registration.
+    pub dof_restriction: Option<DofRestrictionConfig>,
     /// Preprocessing configuration (used if input clouds are not preprocessed).
     pub preprocessing: Option<PreprocessingConfig>,
     /// Number of threads for parallel processing.
@@ -333,6 +428,8 @@ impl Default for RegistrationConfig {
             termination: TerminationConfig::default(),
             correspondence_rejector: CorrespondenceRejectorConfig::default(),
             optimizer: OptimizerConfig::default(),
+            robust_kernel: RobustKernelConfig::default(),
+            dof_restriction: None, // No DOF restrictions by default
             preprocessing: Some(PreprocessingConfig::default()),
             num_threads: default_num_threads(),
         }

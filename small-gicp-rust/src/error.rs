@@ -40,6 +40,10 @@ pub enum SmallGicpError {
     /// Not implemented error.
     #[error("Not implemented")]
     NotImplemented,
+
+    /// Invalid parameter error.
+    #[error("Invalid parameter '{param}': {value}")]
+    InvalidParameter { param: &'static str, value: String },
 }
 
 impl From<small_gicp_sys::small_gicp_error_t> for SmallGicpError {
