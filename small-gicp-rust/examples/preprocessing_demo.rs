@@ -22,6 +22,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     for leaf_size in leaf_sizes {
         let voxel_config = VoxelGridConfig {
             leaf_size,
+            backend: DownsamplingBackend::Default,
             num_threads: 4,
         };
         let downsampled = original_cloud.voxelgrid_sampling(&voxel_config)?;
@@ -146,6 +147,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let voxel_config = VoxelGridConfig {
         leaf_size: 0.1,
+        backend: DownsamplingBackend::Default,
         num_threads: 1,
     };
     let mut test_cloud = original_cloud.voxelgrid_sampling(&voxel_config)?;
@@ -165,6 +167,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         &test_kdtree,
         &NormalEstimationConfig {
             num_neighbors: 15,
+            backend: NormalEstimationBackend::Default,
             num_threads: 1,
         },
     )?;
@@ -190,6 +193,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         &test_kdtree,
         &CovarianceEstimationConfig {
             num_neighbors: 15,
+            backend: NormalEstimationBackend::Default,
             num_threads: 1,
         },
     )?;

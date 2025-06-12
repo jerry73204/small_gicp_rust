@@ -55,16 +55,21 @@ pub mod voxelmap;
 // Re-export the most commonly used types
 pub use config::{
     CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-    FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig, IncrementalVoxelMapConfig,
-    KdTreeBuilderType, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig, NormalEstimationConfig,
-    OptimizerConfig, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
+    DownsamplingBackend, FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
+    IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+    LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+    LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
+    PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
     RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{KdTree, UnsafeKdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{
-    estimate_covariances, estimate_normals, estimate_normals_and_covariances, DownsamplingMethod,
+    estimate_covariances, estimate_local_features_auto, estimate_local_features_cloud,
+    estimate_local_features_single_point, estimate_normals, estimate_normals_and_covariances,
+    set_covariance_direct, set_covariance_invalid, set_normal_covariance_direct,
+    set_normal_covariance_invalid, set_normal_direct, set_normal_invalid, DownsamplingMethod,
     PreprocessingResult, PreprocessorConfig,
 };
 pub use registration::{
@@ -81,11 +86,13 @@ pub mod prelude {
     pub use crate::{
         config::{
             CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-            FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
+            DownsamplingBackend, FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
             IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
-            LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
-            ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
-            RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
+            LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+            LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
+            PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
+            RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig,
+            VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
         kdtree::{KdTree, UnsafeKdTree},

@@ -107,6 +107,8 @@ impl Default for KnnConfig {
 pub struct NormalEstimationConfig {
     /// Number of neighbors to use for normal estimation.
     pub num_neighbors: i32,
+    /// Parallel processing backend
+    pub backend: NormalEstimationBackend,
     /// Number of threads to use for parallel processing.
     pub num_threads: usize,
 }
@@ -115,6 +117,7 @@ impl Default for NormalEstimationConfig {
     fn default() -> Self {
         Self {
             num_neighbors: 20, // from C++ default normal_estimation.hpp:118
+            backend: NormalEstimationBackend::default(),
             num_threads: default_num_threads(),
         }
     }
@@ -125,6 +128,8 @@ impl Default for NormalEstimationConfig {
 pub struct CovarianceEstimationConfig {
     /// Number of neighbors to use for covariance estimation.
     pub num_neighbors: i32,
+    /// Parallel processing backend
+    pub backend: NormalEstimationBackend,
     /// Number of threads to use for parallel processing.
     pub num_threads: usize,
 }
@@ -133,6 +138,7 @@ impl Default for CovarianceEstimationConfig {
     fn default() -> Self {
         Self {
             num_neighbors: 20, // from C++ default normal_estimation.hpp:139
+            backend: NormalEstimationBackend::default(),
             num_threads: default_num_threads(),
         }
     }
@@ -143,6 +149,8 @@ impl Default for CovarianceEstimationConfig {
 pub struct VoxelGridConfig {
     /// Size of each voxel (leaf size).
     pub leaf_size: f64,
+    /// Parallel processing backend
+    pub backend: DownsamplingBackend,
     /// Number of threads to use for parallel processing.
     pub num_threads: usize,
 }
@@ -151,6 +159,7 @@ impl Default for VoxelGridConfig {
     fn default() -> Self {
         Self {
             leaf_size: 0.25,
+            backend: DownsamplingBackend::default(),
             num_threads: default_num_threads(),
         }
     }
@@ -477,6 +486,163 @@ impl Default for IncrementalVoxelMapConfig {
             leaf_size: 0.05,
             container_type: crate::voxelmap::VoxelContainerType::FlatPoints,
             flat_container_config: Some(FlatContainerConfig::default()),
+        }
+    }
+}
+
+/// Parallel processing backend types for downsampling operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DownsamplingBackend {
+    /// Default backend (automatic selection)
+    Default,
+    /// OpenMP backend for CPU parallelization
+    OpenMp,
+    /// TBB (Threading Building Blocks) backend
+    Tbb,
+}
+
+impl Default for DownsamplingBackend {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// Parallel processing backend types for normal/covariance estimation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NormalEstimationBackend {
+    /// Default backend (automatic selection)
+    Default,
+    /// OpenMP backend for CPU parallelization
+    OpenMp,
+    /// TBB (Threading Building Blocks) backend
+    Tbb,
+}
+
+impl Default for NormalEstimationBackend {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// Parallel processing backend types for local feature estimation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalFeaturesBackend {
+    /// Default backend (automatic selection)
+    Default,
+    /// OpenMP backend for CPU parallelization
+    OpenMp,
+    /// TBB (Threading Building Blocks) backend
+    Tbb,
+}
+
+impl Default for LocalFeaturesBackend {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// Types of local features that can be estimated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalFeatureSetterType {
+    /// Estimate normal vectors only
+    Normal,
+    /// Estimate covariance matrices only
+    Covariance,
+    /// Estimate both normals and covariances
+    NormalCovariance,
+}
+
+impl Default for LocalFeatureSetterType {
+    fn default() -> Self {
+        Self::NormalCovariance
+    }
+}
+
+/// Configuration for local feature estimation.
+#[derive(Debug, Clone)]
+pub struct LocalFeatureEstimationConfig {
+    /// Type of features to estimate
+    pub setter_type: LocalFeatureSetterType,
+    /// Parallel processing backend
+    pub backend: LocalFeaturesBackend,
+    /// Number of neighbors for estimation
+    pub num_neighbors: i32,
+    /// Number of threads to use
+    pub num_threads: usize,
+}
+
+impl Default for LocalFeatureEstimationConfig {
+    fn default() -> Self {
+        Self {
+            setter_type: LocalFeatureSetterType::default(),
+            backend: LocalFeaturesBackend::default(),
+            num_neighbors: 20,
+            num_threads: default_num_threads(),
+        }
+    }
+}
+
+// Conversion implementations for backend enums
+impl From<DownsamplingBackend> for small_gicp_sys::small_gicp_downsampling_backend_t {
+    fn from(backend: DownsamplingBackend) -> Self {
+        match backend {
+            DownsamplingBackend::Default => {
+                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_DEFAULT
+            }
+            DownsamplingBackend::OpenMp => {
+                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_OPENMP
+            }
+            DownsamplingBackend::Tbb => {
+                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_TBB
+            }
+        }
+    }
+}
+
+impl From<NormalEstimationBackend> for small_gicp_sys::small_gicp_normal_estimation_backend_t {
+    fn from(backend: NormalEstimationBackend) -> Self {
+        match backend {
+            NormalEstimationBackend::Default => {
+                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_DEFAULT
+            }
+            NormalEstimationBackend::OpenMp => {
+                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_OPENMP
+            }
+            NormalEstimationBackend::Tbb => {
+                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_TBB
+            }
+        }
+    }
+}
+
+impl From<LocalFeaturesBackend> for small_gicp_sys::small_gicp_local_features_backend_t {
+    fn from(backend: LocalFeaturesBackend) -> Self {
+        match backend {
+            LocalFeaturesBackend::Default => {
+                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_DEFAULT
+            }
+            LocalFeaturesBackend::OpenMp => {
+                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_OPENMP
+            }
+            LocalFeaturesBackend::Tbb => {
+                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_TBB
+            }
+        }
+    }
+}
+
+impl From<LocalFeatureSetterType> for small_gicp_sys::small_gicp_setter_type_t {
+    fn from(setter_type: LocalFeatureSetterType) -> Self {
+        match setter_type {
+            LocalFeatureSetterType::Normal => {
+                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL
+            }
+            LocalFeatureSetterType::Covariance => {
+                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_COVARIANCE
+            }
+            LocalFeatureSetterType::NormalCovariance => {
+                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL_COVARIANCE
+            }
         }
     }
 }

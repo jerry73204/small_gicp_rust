@@ -126,6 +126,7 @@ fn test_voxelgrid_downsampling() {
     let downsampled = cloud
         .voxelgrid_sampling(&VoxelGridConfig {
             leaf_size: 0.15,
+            backend: DownsamplingBackend::Default,
             num_threads: 1,
         })
         .unwrap();
@@ -138,6 +139,7 @@ fn test_voxelgrid_downsampling() {
     let heavily_downsampled = cloud
         .voxelgrid_sampling(&VoxelGridConfig {
             leaf_size: 1.0,
+            backend: DownsamplingBackend::Default,
             num_threads: 1,
         })
         .unwrap();
@@ -170,6 +172,7 @@ fn test_normal_estimation() {
         &kdtree,
         &NormalEstimationConfig {
             num_neighbors: 10,
+            backend: NormalEstimationBackend::Default,
             num_threads: 1,
         },
     )
@@ -453,6 +456,7 @@ fn test_error_handling() {
     assert!(empty_cloud
         .voxelgrid_sampling(&VoxelGridConfig {
             leaf_size: 0.1,
+            backend: DownsamplingBackend::Default,
             num_threads: 1,
         })
         .is_err());
@@ -462,6 +466,7 @@ fn test_error_handling() {
     assert!(non_empty_cloud
         .voxelgrid_sampling(&VoxelGridConfig {
             leaf_size: -0.1,
+            backend: DownsamplingBackend::Default,
             num_threads: 1,
         })
         .is_err());
