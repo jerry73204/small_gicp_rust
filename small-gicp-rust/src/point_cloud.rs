@@ -1,6 +1,11 @@
 //! Point cloud data structures and operations.
 
-use crate::error::{check_error, Result, SmallGicpError};
+use crate::{
+    error::{check_error, Result, SmallGicpError},
+    traits::{
+        bounds, helpers, Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait,
+    },
+};
 use nalgebra::{Matrix4, Point3, Vector3};
 use std::{ffi::CString, ptr};
 
@@ -699,5 +704,214 @@ impl Clone for PointCloud {
         }
 
         new_cloud
+    }
+}
+
+// Implementation of PointCloudTrait for the C wrapper PointCloud
+impl PointCloudTrait for PointCloud {
+    fn size(&self) -> usize {
+        self.len()
+    }
+
+    fn has_points(&self) -> bool {
+        self.has_points()
+    }
+
+    fn has_normals(&self) -> bool {
+        self.has_normals()
+    }
+
+    fn has_covariances(&self) -> bool {
+        self.has_covariances()
+    }
+
+    fn point(&self, index: usize) -> Point4<f64> {
+        bounds::check_bounds(index, self.size(), "point access");
+        match self.get_point(index) {
+            Ok(p3) => helpers::point_from_vector3(p3.coords),
+            Err(_) => panic!("Failed to get point at index {}", index),
+        }
+    }
+
+    fn normal(&self, index: usize) -> Option<Normal4<f64>> {
+        if !self.has_normals() {
+            return None;
+        }
+        bounds::check_bounds(index, self.size(), "normal access");
+        match self.get_normal(index) {
+            Ok(n3) => Some(helpers::normal_from_vector3(n3)),
+            Err(_) => None,
+        }
+    }
+
+    fn covariance(&self, index: usize) -> Option<Covariance4<f64>> {
+        if !self.has_covariances() {
+            return None;
+        }
+        bounds::check_bounds(index, self.size(), "covariance access");
+        match self.get_covariance(index) {
+            Ok(cov) => Some(cov),
+            Err(_) => None,
+        }
+    }
+
+    unsafe fn point_unchecked(&self, index: usize) -> Point4<f64> {
+        // For C wrapper, we still need bounds checking since C API doesn't guarantee safety
+        self.point(index)
+    }
+
+    unsafe fn normal_unchecked(&self, index: usize) -> Normal4<f64> {
+        self.normal(index)
+            .unwrap_or_else(|| helpers::normal_from_xyz(0.0, 0.0, 0.0))
+    }
+
+    unsafe fn covariance_unchecked(&self, index: usize) -> Covariance4<f64> {
+        self.covariance(index).unwrap_or_else(|| Matrix4::zeros())
+    }
+}
+
+// Implementation of MutablePointCloudTrait for the C wrapper PointCloud
+impl MutablePointCloudTrait for PointCloud {
+    fn resize(&mut self, size: usize) {
+        PointCloud::resize(self, size).expect("Failed to resize point cloud");
+    }
+
+    fn set_point(&mut self, index: usize, point: Point4<f64>) {
+        bounds::check_bounds(index, self.size(), "set point");
+        if !helpers::is_valid_point(point) {
+            panic!(
+                "Invalid point: fourth component must be 1.0, got {}",
+                point.w
+            );
+        }
+        let p3 = Point3::new(point.x, point.y, point.z);
+        PointCloud::set_point(self, index, p3).expect("Failed to set point");
+    }
+
+    fn set_normal(&mut self, index: usize, normal: Normal4<f64>) {
+        bounds::check_bounds(index, self.size(), "set normal");
+        if !helpers::is_valid_normal(normal) {
+            panic!(
+                "Invalid normal: fourth component must be 0.0, got {}",
+                normal.w
+            );
+        }
+        let n3 = Vector3::new(normal.x, normal.y, normal.z);
+        PointCloud::set_normal(self, index, n3).expect("Failed to set normal");
+    }
+
+    fn set_covariance(&mut self, index: usize, covariance: Covariance4<f64>) {
+        bounds::check_bounds(index, self.size(), "set covariance");
+        PointCloud::set_covariance(self, index, covariance).expect("Failed to set covariance");
+    }
+
+    unsafe fn set_point_unchecked(&mut self, index: usize, point: Point4<f64>) {
+        // For C wrapper, we still need bounds checking since C API doesn't guarantee safety
+        <Self as MutablePointCloudTrait>::set_point(self, index, point);
+    }
+
+    unsafe fn set_normal_unchecked(&mut self, index: usize, normal: Normal4<f64>) {
+        <Self as MutablePointCloudTrait>::set_normal(self, index, normal);
+    }
+
+    unsafe fn set_covariance_unchecked(&mut self, index: usize, covariance: Covariance4<f64>) {
+        <Self as MutablePointCloudTrait>::set_covariance(self, index, covariance);
+    }
+}
+
+/// Conversion utilities between trait types and C wrapper types.
+pub mod conversions {
+    use super::*;
+    use crate::traits::{helpers, MutablePointCloudTrait, PointCloudTrait};
+
+    /// Convert a slice of Point3 to Point4 vectors.
+    pub fn points3_to_points4(points: &[Point3<f64>]) -> Vec<Point4<f64>> {
+        points
+            .iter()
+            .map(|p| helpers::point_from_vector3(p.coords))
+            .collect()
+    }
+
+    /// Convert a slice of Point4 vectors to Point3.
+    pub fn points4_to_points3(points: &[Point4<f64>]) -> Vec<Point3<f64>> {
+        points.iter().map(|p| Point3::new(p.x, p.y, p.z)).collect()
+    }
+
+    /// Convert a slice of Vector3 normals to Normal4 vectors.
+    pub fn normals3_to_normals4(normals: &[Vector3<f64>]) -> Vec<Normal4<f64>> {
+        normals
+            .iter()
+            .map(|n| helpers::normal_from_vector3(*n))
+            .collect()
+    }
+
+    /// Convert a slice of Normal4 vectors to Vector3.
+    pub fn normals4_to_normals3(normals: &[Normal4<f64>]) -> Vec<Vector3<f64>> {
+        normals
+            .iter()
+            .map(|n| Vector3::new(n.x, n.y, n.z))
+            .collect()
+    }
+
+    /// Create a PointCloud from any type implementing PointCloudTrait.
+    pub fn from_trait<P: PointCloudTrait>(source: &P) -> Result<PointCloud> {
+        let mut cloud = PointCloud::new()?;
+        cloud.resize(source.size())?;
+
+        // Copy points
+        for i in 0..source.size() {
+            let point4 = source.point(i);
+            let point3 = Point3::new(point4.x, point4.y, point4.z);
+            cloud.set_point(i, point3)?;
+        }
+
+        // Copy normals if available
+        if source.has_normals() {
+            for i in 0..source.size() {
+                if let Some(normal4) = source.normal(i) {
+                    let normal3 = Vector3::new(normal4.x, normal4.y, normal4.z);
+                    cloud.set_normal(i, normal3)?;
+                }
+            }
+        }
+
+        // Copy covariances if available
+        if source.has_covariances() {
+            for i in 0..source.size() {
+                if let Some(cov) = source.covariance(i) {
+                    cloud.set_covariance(i, cov)?;
+                }
+            }
+        }
+
+        Ok(cloud)
+    }
+
+    /// Copy data from any PointCloudTrait to a MutablePointCloudTrait.
+    pub fn copy_data<S: PointCloudTrait, T: MutablePointCloudTrait>(source: &S, target: &mut T) {
+        target.resize(source.size());
+
+        // Copy points
+        for i in 0..source.size() {
+            target.set_point(i, source.point(i));
+        }
+
+        // Copy normals if both support them
+        if source.has_normals() {
+            for i in 0..source.size() {
+                if let Some(normal) = source.normal(i) {
+                    target.set_normal(i, normal);
+                }
+            }
+        }
+
+        // Copy covariances if both support them
+        if source.has_covariances() {
+            for i in 0..source.size() {
+                if let Some(cov) = source.covariance(i) {
+                    target.set_covariance(i, cov);
+                }
+            }
+        }
     }
 }

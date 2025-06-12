@@ -13,6 +13,23 @@ fn default_num_threads() -> usize {
         .unwrap_or(4)
 }
 
+/// Parallel backend types for processing algorithms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParallelBackend {
+    /// Default backend (usually single-threaded).
+    Default,
+    /// OpenMP parallel backend.
+    OpenMp,
+    /// TBB (Threading Building Blocks) parallel backend.
+    Tbb,
+}
+
+impl Default for ParallelBackend {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 /// Builder type for KdTree construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KdTreeBuilderType {
@@ -384,6 +401,27 @@ impl Default for GaussianVoxelMapConfig {
         Self {
             voxel_resolution: 1.0,
             num_threads: default_num_threads(),
+        }
+    }
+}
+
+/// Configuration for downsampling operations.
+#[derive(Debug, Clone)]
+pub struct DownsamplingConfig {
+    /// Parallel backend to use for processing.
+    pub backend: ParallelBackend,
+    /// Number of threads to use for parallel processing.
+    pub num_threads: usize,
+    /// Random seed for reproducible random sampling (None for non-deterministic).
+    pub seed: Option<u64>,
+}
+
+impl Default for DownsamplingConfig {
+    fn default() -> Self {
+        Self {
+            backend: ParallelBackend::default(),
+            num_threads: default_num_threads(),
+            seed: None,
         }
     }
 }

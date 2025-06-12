@@ -46,23 +46,26 @@
 
 pub mod config;
 pub mod error;
+pub mod generic;
 pub mod kdtree;
 pub mod point_cloud;
 pub mod preprocessing;
 pub mod registration;
+pub mod traits;
 pub mod voxelmap;
 
 // Re-export the most commonly used types
 pub use config::{
     CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-    DownsamplingBackend, FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
-    IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+    DownsamplingBackend, DownsamplingConfig, FlatContainerConfig, GaussNewtonConfig,
+    GaussianVoxelMapConfig, IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
     LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
     LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
-    PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
+    ParallelBackend, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
     RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
+pub use generic::{GenericKdTree, KdTreeStrategy};
 pub use kdtree::{KdTree, UnsafeKdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{
@@ -77,6 +80,7 @@ pub use registration::{
     ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
     RegistrationType, RobustKernel,
 };
+pub use traits::{Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait};
 pub use voxelmap::{
     GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
 };
@@ -86,15 +90,16 @@ pub mod prelude {
     pub use crate::{
         config::{
             CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-            DownsamplingBackend, FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
-            IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
-            LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
-            LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
-            PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
-            RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig,
-            VoxelGridConfig,
+            DownsamplingBackend, DownsamplingConfig, FlatContainerConfig, GaussNewtonConfig,
+            GaussianVoxelMapConfig, IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig,
+            KnnConfig, LevenbergMarquardtConfig, LocalFeatureEstimationConfig,
+            LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend,
+            NormalEstimationConfig, OptimizerConfig, ParallelBackend, PreprocessingConfig,
+            ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
+            RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
+        generic::{GenericKdTree, KdTreeStrategy},
         kdtree::{KdTree, UnsafeKdTree},
         point_cloud::PointCloud,
         preprocessing::{DownsamplingMethod, PreprocessorConfig},
@@ -103,6 +108,7 @@ pub mod prelude {
             ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
             RegistrationType, RobustKernel,
         },
+        traits::{Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait},
         voxelmap::{
             GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
         },
