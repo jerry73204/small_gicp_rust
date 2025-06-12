@@ -647,6 +647,325 @@ impl From<LocalFeatureSetterType> for small_gicp_sys::small_gicp_setter_type_t {
     }
 }
 
+/// Parallel reduction strategy types for registration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReductionType {
+    /// Serial execution
+    Serial,
+    /// OpenMP parallel reduction
+    OpenMp,
+    /// TBB parallel reduction
+    Tbb,
+}
+
+impl Default for ReductionType {
+    fn default() -> Self {
+        Self::Serial
+    }
+}
+
+/// Correspondence rejector types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CorrespondenceRejectorType {
+    /// No correspondence rejection
+    None,
+    /// Distance-based correspondence rejection
+    Distance,
+}
+
+impl Default for CorrespondenceRejectorType {
+    fn default() -> Self {
+        Self::Distance
+    }
+}
+
+/// Optimizer types for registration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizerType {
+    /// Gauss-Newton optimizer
+    GaussNewton,
+    /// Levenberg-Marquardt optimizer
+    LevenbergMarquardt,
+}
+
+impl Default for OptimizerType {
+    fn default() -> Self {
+        Self::LevenbergMarquardt
+    }
+}
+
+/// Extended correspondence rejector configuration with type selection.
+#[derive(Debug, Clone)]
+pub struct ExtendedCorrespondenceRejectorConfig {
+    /// Type of correspondence rejector to use
+    pub rejector_type: CorrespondenceRejectorType,
+    /// Maximum squared distance between corresponding points (for distance rejector)
+    pub max_dist_sq: f64,
+}
+
+impl Default for ExtendedCorrespondenceRejectorConfig {
+    fn default() -> Self {
+        Self {
+            rejector_type: CorrespondenceRejectorType::default(),
+            max_dist_sq: 1.0,
+        }
+    }
+}
+
+/// Advanced optimizer configuration that can handle both types.
+#[derive(Debug, Clone)]
+pub struct ExtendedOptimizerConfig {
+    /// Type of optimizer to use
+    pub optimizer_type: OptimizerType,
+    /// Whether to print debug messages
+    pub verbose: bool,
+    /// Maximum number of optimization iterations
+    pub max_iterations: i32,
+    /// Damping factor (lambda for GN, init_lambda for LM)
+    pub lambda: f64,
+    /// Maximum number of inner iterations (only for Levenberg-Marquardt)
+    pub max_inner_iterations: i32,
+    /// Lambda increase factor (only for Levenberg-Marquardt)
+    pub lambda_factor: f64,
+}
+
+impl Default for ExtendedOptimizerConfig {
+    fn default() -> Self {
+        Self {
+            optimizer_type: OptimizerType::default(),
+            verbose: false,
+            max_iterations: 20,
+            lambda: 1e-3,
+            max_inner_iterations: 10,
+            lambda_factor: 10.0,
+        }
+    }
+}
+
+/// Extended projection configuration with more control.
+#[derive(Debug, Clone)]
+pub struct ExtendedProjectionConfig {
+    /// Projection type for splitting strategy
+    pub projection_type: ProjectionType,
+    /// Maximum number of points to use for axis search
+    pub max_scan_count: i32,
+}
+
+impl Default for ExtendedProjectionConfig {
+    fn default() -> Self {
+        Self {
+            projection_type: ProjectionType::default(),
+            max_scan_count: 128,
+        }
+    }
+}
+
+/// Extended KdTree configuration with advanced features.
+#[derive(Debug, Clone)]
+pub struct ExtendedKdTreeConfig {
+    /// Builder type for parallel processing
+    pub builder_type: KdTreeBuilderType,
+    /// Number of threads to use (applies to OpenMP builder)
+    pub num_threads: usize,
+    /// Maximum number of points in a leaf node
+    pub max_leaf_size: i32,
+    /// Extended projection settings for axis selection
+    pub projection: ExtendedProjectionConfig,
+}
+
+impl Default for ExtendedKdTreeConfig {
+    fn default() -> Self {
+        Self {
+            builder_type: KdTreeBuilderType::default(),
+            num_threads: default_num_threads(),
+            max_leaf_size: 20,
+            projection: ExtendedProjectionConfig::default(),
+        }
+    }
+}
+
+/// KNN search settings for early termination and approximate search.
+#[derive(Debug, Clone)]
+pub struct KnnSearchConfig {
+    /// Early termination threshold (0.0 = exact search)
+    pub epsilon: f64,
+}
+
+impl Default for KnnSearchConfig {
+    fn default() -> Self {
+        Self {
+            epsilon: 0.0, // Exact search by default
+        }
+    }
+}
+
+/// Advanced registration settings with comprehensive control.
+#[derive(Debug, Clone)]
+pub struct AdvancedRegistrationConfig {
+    /// Registration algorithm type
+    pub registration_type: crate::registration::RegistrationType,
+    /// Voxel resolution for VGICP
+    pub voxel_resolution: f64,
+    /// Downsampling resolution for preprocessing
+    pub downsampling_resolution: f64,
+    /// Maximum correspondence distance
+    pub max_correspondence_distance: f64,
+    /// Rotation tolerance for convergence (in radians)
+    pub rotation_eps: f64,
+    /// Translation tolerance for convergence (in meters)
+    pub translation_eps: f64,
+    /// Number of threads to use
+    pub num_threads: usize,
+    /// Maximum number of iterations
+    pub max_iterations: i32,
+    /// Whether to print debug messages
+    pub verbose: bool,
+}
+
+impl Default for AdvancedRegistrationConfig {
+    fn default() -> Self {
+        Self {
+            registration_type: crate::registration::RegistrationType::Gicp,
+            voxel_resolution: 1.0,
+            downsampling_resolution: 0.25,
+            max_correspondence_distance: 1.0,
+            rotation_eps: 0.1 * std::f64::consts::PI / 180.0, // 0.1 degrees
+            translation_eps: 1e-3,                            // 1mm
+            num_threads: default_num_threads(),
+            max_iterations: 20,
+            verbose: false,
+        }
+    }
+}
+
+/// Registration helper settings for complete pipeline control.
+#[derive(Debug, Clone)]
+pub struct RegistrationHelperConfig {
+    /// Registration algorithm type
+    pub registration_type: crate::registration::RegistrationType,
+    /// Voxel resolution for VGICP
+    pub voxel_resolution: f64,
+    /// Downsampling resolution for preprocessing
+    pub downsampling_resolution: f64,
+    /// Maximum correspondence distance
+    pub max_correspondence_distance: f64,
+    /// Rotation tolerance for convergence (in radians)
+    pub rotation_eps: f64,
+    /// Translation tolerance for convergence (in meters)
+    pub translation_eps: f64,
+    /// Number of threads to use
+    pub num_threads: usize,
+    /// Maximum number of iterations
+    pub max_iterations: i32,
+    /// Whether to print debug messages
+    pub verbose: bool,
+}
+
+impl Default for RegistrationHelperConfig {
+    fn default() -> Self {
+        Self {
+            registration_type: crate::registration::RegistrationType::Gicp,
+            voxel_resolution: 1.0,
+            downsampling_resolution: 0.25,
+            max_correspondence_distance: 1.0,
+            rotation_eps: 0.1 * std::f64::consts::PI / 180.0,
+            translation_eps: 1e-3,
+            num_threads: default_num_threads(),
+            max_iterations: 20,
+            verbose: false,
+        }
+    }
+}
+
+/// Parallel processing configuration for registration operations.
+#[derive(Debug, Clone)]
+pub struct ParallelProcessingConfig {
+    /// Reduction strategy for parallel processing
+    pub reduction_type: ReductionType,
+    /// Number of threads to use
+    pub num_threads: usize,
+}
+
+impl Default for ParallelProcessingConfig {
+    fn default() -> Self {
+        Self {
+            reduction_type: ReductionType::default(),
+            num_threads: default_num_threads(),
+        }
+    }
+}
+
+/// Complete advanced registration configuration combining all parameters.
+#[derive(Debug, Clone)]
+pub struct CompleteRegistrationConfig {
+    /// Basic registration settings
+    pub registration: AdvancedRegistrationConfig,
+    /// Termination criteria for convergence
+    pub termination: TerminationConfig,
+    /// Extended optimizer configuration
+    pub optimizer: ExtendedOptimizerConfig,
+    /// Extended correspondence rejector configuration
+    pub correspondence_rejector: ExtendedCorrespondenceRejectorConfig,
+    /// Robust kernel configuration for outlier rejection
+    pub robust_kernel: RobustKernelConfig,
+    /// DOF restriction configuration for constrained registration
+    pub dof_restriction: Option<DofRestrictionConfig>,
+    /// Parallel processing configuration
+    pub parallel_processing: ParallelProcessingConfig,
+}
+
+impl Default for CompleteRegistrationConfig {
+    fn default() -> Self {
+        Self {
+            registration: AdvancedRegistrationConfig::default(),
+            termination: TerminationConfig::default(),
+            optimizer: ExtendedOptimizerConfig::default(),
+            correspondence_rejector: ExtendedCorrespondenceRejectorConfig::default(),
+            robust_kernel: RobustKernelConfig::default(),
+            dof_restriction: None,
+            parallel_processing: ParallelProcessingConfig::default(),
+        }
+    }
+}
+
+// Conversion implementations for C FFI
+impl From<ReductionType> for u32 {
+    fn from(reduction: ReductionType) -> Self {
+        match reduction {
+            ReductionType::Serial => 0, // SMALL_GICP_REDUCTION_SERIAL
+            ReductionType::OpenMp => 1, // SMALL_GICP_REDUCTION_OPENMP
+            ReductionType::Tbb => 2,    // SMALL_GICP_REDUCTION_TBB
+        }
+    }
+}
+
+impl From<CorrespondenceRejectorType> for u32 {
+    fn from(rejector: CorrespondenceRejectorType) -> Self {
+        match rejector {
+            CorrespondenceRejectorType::None => 0, // SMALL_GICP_REJECTOR_NONE
+            CorrespondenceRejectorType::Distance => 1, // SMALL_GICP_REJECTOR_DISTANCE
+        }
+    }
+}
+
+impl From<OptimizerType> for u32 {
+    fn from(optimizer: OptimizerType) -> Self {
+        match optimizer {
+            OptimizerType::GaussNewton => 0, // SMALL_GICP_OPTIMIZER_GAUSS_NEWTON
+            OptimizerType::LevenbergMarquardt => 1, // SMALL_GICP_OPTIMIZER_LEVENBERG_MARQUARDT
+        }
+    }
+}
+
+impl From<ProjectionType> for u32 {
+    fn from(projection: ProjectionType) -> Self {
+        match projection {
+            ProjectionType::AxisAligned => 0, // SMALL_GICP_PROJECTION_AXIS_ALIGNED
+            ProjectionType::Normal => 1,      // SMALL_GICP_PROJECTION_NORMAL
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -661,6 +980,14 @@ mod tests {
         let _termination_config = TerminationConfig::default();
         let _optimizer_config = OptimizerConfig::default();
         let _registration_config = RegistrationConfig::default();
+
+        // Test new advanced configs
+        let _extended_optimizer_config = ExtendedOptimizerConfig::default();
+        let _extended_kdtree_config = ExtendedKdTreeConfig::default();
+        let _advanced_registration_config = AdvancedRegistrationConfig::default();
+        let _complete_registration_config = CompleteRegistrationConfig::default();
+        let _knn_search_config = KnnSearchConfig::default();
+        let _parallel_processing_config = ParallelProcessingConfig::default();
     }
 
     #[test]
@@ -689,5 +1016,67 @@ mod tests {
             flat_container_config: Some(flat_config),
         };
         assert_eq!(voxelmap_config.leaf_size, 0.1);
+    }
+
+    #[test]
+    fn test_advanced_config_values() {
+        // Test ExtendedOptimizerConfig
+        let optimizer_config = ExtendedOptimizerConfig::default();
+        assert_eq!(
+            optimizer_config.optimizer_type,
+            OptimizerType::LevenbergMarquardt
+        );
+        assert_eq!(optimizer_config.max_iterations, 20);
+        assert_eq!(optimizer_config.lambda, 1e-3);
+        assert!(!optimizer_config.verbose);
+
+        // Test ExtendedKdTreeConfig
+        let kdtree_config = ExtendedKdTreeConfig::default();
+        assert_eq!(kdtree_config.builder_type, KdTreeBuilderType::Default);
+        assert_eq!(kdtree_config.max_leaf_size, 20);
+        assert_eq!(
+            kdtree_config.projection.projection_type,
+            ProjectionType::AxisAligned
+        );
+        assert_eq!(kdtree_config.projection.max_scan_count, 128);
+
+        // Test AdvancedRegistrationConfig
+        let reg_config = AdvancedRegistrationConfig::default();
+        assert_eq!(
+            reg_config.registration_type,
+            crate::registration::RegistrationType::Gicp
+        );
+        assert_eq!(reg_config.voxel_resolution, 1.0);
+        assert_eq!(reg_config.downsampling_resolution, 0.25);
+        assert_eq!(reg_config.max_correspondence_distance, 1.0);
+        assert_eq!(reg_config.translation_eps, 1e-3);
+        assert!(!reg_config.verbose);
+
+        // Test KnnSearchConfig
+        let knn_config = KnnSearchConfig::default();
+        assert_eq!(knn_config.epsilon, 0.0);
+
+        // Test ParallelProcessingConfig
+        let parallel_config = ParallelProcessingConfig::default();
+        assert_eq!(parallel_config.reduction_type, ReductionType::Serial);
+    }
+
+    #[test]
+    fn test_enum_conversions() {
+        // Test ReductionType conversion
+        let serial: u32 = ReductionType::Serial.into();
+        assert_eq!(serial, 0); // SMALL_GICP_REDUCTION_SERIAL
+
+        // Test OptimizerType conversion
+        let gn: u32 = OptimizerType::GaussNewton.into();
+        assert_eq!(gn, 0); // SMALL_GICP_OPTIMIZER_GAUSS_NEWTON
+
+        // Test ProjectionType conversion
+        let axis_aligned: u32 = ProjectionType::AxisAligned.into();
+        assert_eq!(axis_aligned, 0); // SMALL_GICP_PROJECTION_AXIS_ALIGNED
+
+        // Test CorrespondenceRejectorType conversion
+        let distance: u32 = CorrespondenceRejectorType::Distance.into();
+        assert_eq!(distance, 1); // SMALL_GICP_REJECTOR_DISTANCE
     }
 }
