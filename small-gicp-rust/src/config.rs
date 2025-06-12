@@ -436,6 +436,51 @@ impl Default for RegistrationConfig {
     }
 }
 
+/// Configuration for flat container in incremental voxel maps.
+#[derive(Debug, Clone)]
+pub struct FlatContainerConfig {
+    /// Minimum squared distance between points in a cell
+    pub min_sq_dist_in_cell: f64,
+    /// Maximum number of points per cell
+    pub max_num_points_in_cell: usize,
+    /// LRU horizon (0 = disabled)
+    pub lru_horizon: f64,
+    /// LRU clear cycle (0 = disabled)
+    pub lru_clear_cycle: usize,
+}
+
+impl Default for FlatContainerConfig {
+    fn default() -> Self {
+        Self {
+            min_sq_dist_in_cell: 1e-3,
+            max_num_points_in_cell: 20,
+            lru_horizon: 0.0,
+            lru_clear_cycle: 0,
+        }
+    }
+}
+
+/// Configuration for incremental voxel maps.
+#[derive(Debug, Clone)]
+pub struct IncrementalVoxelMapConfig {
+    /// Size of each voxel
+    pub leaf_size: f64,
+    /// Type of container for storing point attributes
+    pub container_type: crate::voxelmap::VoxelContainerType,
+    /// Configuration for flat containers (optional)
+    pub flat_container_config: Option<FlatContainerConfig>,
+}
+
+impl Default for IncrementalVoxelMapConfig {
+    fn default() -> Self {
+        Self {
+            leaf_size: 0.05,
+            container_type: crate::voxelmap::VoxelContainerType::FlatPoints,
+            flat_container_config: Some(FlatContainerConfig::default()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,5 +508,20 @@ mod tests {
 
         let cov_config = CovarianceEstimationConfig::default();
         assert_eq!(cov_config.num_neighbors, 20);
+    }
+
+    #[test]
+    fn test_voxelmap_configs() {
+        use crate::voxelmap::VoxelContainerType;
+
+        let flat_config = FlatContainerConfig::default();
+        assert_eq!(flat_config.max_num_points_in_cell, 20);
+
+        let voxelmap_config = IncrementalVoxelMapConfig {
+            leaf_size: 0.1,
+            container_type: VoxelContainerType::FlatPoints,
+            flat_container_config: Some(flat_config),
+        };
+        assert_eq!(voxelmap_config.leaf_size, 0.1);
     }
 }

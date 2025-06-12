@@ -50,14 +50,15 @@ pub mod kdtree;
 pub mod point_cloud;
 pub mod preprocessing;
 pub mod registration;
+pub mod voxelmap;
 
 // Re-export the most commonly used types
 pub use config::{
     CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-    GaussNewtonConfig, GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
-    LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
-    ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig, RobustKernelConfig,
-    RobustKernelType, TerminationConfig, VoxelGridConfig,
+    FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig, IncrementalVoxelMapConfig,
+    KdTreeBuilderType, KdTreeConfig, KnnConfig, LevenbergMarquardtConfig, NormalEstimationConfig,
+    OptimizerConfig, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
+    RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{KdTree, UnsafeKdTree};
@@ -71,13 +72,17 @@ pub use registration::{
     ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
     RegistrationType, RobustKernel,
 };
+pub use voxelmap::{
+    GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
+};
 
 /// Convenience module for glob imports.
 pub mod prelude {
     pub use crate::{
         config::{
             CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-            GaussNewtonConfig, GaussianVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
+            FlatContainerConfig, GaussNewtonConfig, GaussianVoxelMapConfig,
+            IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
             LevenbergMarquardtConfig, NormalEstimationConfig, OptimizerConfig, PreprocessingConfig,
             ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
             RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
@@ -90,6 +95,9 @@ pub mod prelude {
             register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
             ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
             RegistrationType, RobustKernel,
+        },
+        voxelmap::{
+            GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
         },
     };
 }

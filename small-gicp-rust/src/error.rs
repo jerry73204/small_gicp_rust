@@ -38,8 +38,8 @@ pub enum SmallGicpError {
     RegistrationFailed { iterations: i32 },
 
     /// Not implemented error.
-    #[error("Not implemented")]
-    NotImplemented,
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 
     /// Invalid parameter error.
     #[error("Invalid parameter '{param}': {value}")]
@@ -67,7 +67,9 @@ impl From<small_gicp_sys::small_gicp_error_t> for SmallGicpError {
             small_gicp_sys::small_gicp_error_t::SMALL_GICP_ERROR_EXCEPTION => {
                 SmallGicpError::InternalException("Unknown".to_string())
             }
-            small_gicp_sys::small_gicp_error_t::SMALL_GICP_NOT_IMPLEMENTED => todo!(),
+            small_gicp_sys::small_gicp_error_t::SMALL_GICP_NOT_IMPLEMENTED => {
+                SmallGicpError::NotImplemented("Operation not implemented".to_string())
+            }
         }
     }
 }
