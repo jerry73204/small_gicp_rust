@@ -8,7 +8,9 @@
 
 use nalgebra::Point3;
 use small_gicp_rust::{
-    estimate_local_features_auto, estimate_local_features_cloud, estimate_normals, prelude::*,
+    estimate_local_features_auto, estimate_local_features_cloud, estimate_normals,
+    prelude::*,
+    preprocessing::{NormalEstimation, PreprocessingStrategy},
     set_covariance_direct, set_normal_covariance_direct, set_normal_direct,
 };
 
@@ -135,7 +137,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         };
 
         let start = std::time::Instant::now();
-        estimate_local_features_cloud(&mut test_cloud_copy, &kdtree, &config)?;
+        estimate_local_features_auto(&mut test_cloud_copy, &config)?;
         let duration = start.elapsed();
 
         println!(
@@ -266,7 +268,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         };
 
         let start = std::time::Instant::now();
-        estimate_normals(&mut backend_test_cloud, &kdtree, &config)?;
+        NormalEstimation::estimate_normals(
+            &mut backend_test_cloud,
+            &config,
+            PreprocessingStrategy::CWrapper,
+        )?;
         let duration = start.elapsed();
 
         println!(

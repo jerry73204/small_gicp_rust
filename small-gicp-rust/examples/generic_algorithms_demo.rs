@@ -3,13 +3,10 @@
 use nalgebra::Point3;
 use small_gicp_rust::{
     config::{DownsamplingConfig, KdTreeConfig},
-    generic::{
-        kdtree::algorithms,
-        preprocessing::{GenericDownsampling, PreprocessingStrategy},
-        GenericKdTree,
-    },
+    kdtree::{algorithms, KdTree},
     point_cloud::PointCloud,
     prelude::*,
+    preprocessing::{Downsampling, PreprocessingStrategy},
 };
 
 fn main() -> Result<()> {
@@ -27,9 +24,9 @@ fn main() -> Result<()> {
 
     println!("Original cloud size: {}", cloud.size());
 
-    // Test generic KdTree
-    println!("\n--- Generic KdTree Test ---");
-    let kdtree = GenericKdTree::new(&cloud, &KdTreeConfig::default())?;
+    // Test unified KdTree
+    println!("\n--- Unified KdTree Test ---");
+    let kdtree = KdTree::new(&cloud, &KdTreeConfig::default())?;
     println!("KdTree backend: {}", kdtree.backend_info());
 
     let query = Point3::new(0.1, 0.1, 0.0);
@@ -71,14 +68,14 @@ fn main() -> Result<()> {
     let config = DownsamplingConfig::default();
 
     let downsampled =
-        GenericDownsampling::voxel_grid(&cloud, 0.5, &config, PreprocessingStrategy::CWrapper)?;
+        Downsampling::voxel_grid(&cloud, 0.5, &config, PreprocessingStrategy::CWrapper)?;
     println!(
         "Downsampled cloud size (voxel_grid): {}",
         downsampled.size()
     );
 
     let random_sampled =
-        GenericDownsampling::random_sampling(&cloud, 3, &config, PreprocessingStrategy::PureRust)?;
+        Downsampling::random_sampling(&cloud, 3, &config, PreprocessingStrategy::PureRust)?;
     println!("Random sampled cloud size: {}", random_sampled.size());
 
     println!("\nDemo completed successfully!");

@@ -767,7 +767,7 @@ fn demonstrate_interoperability() -> Result<()> {
     let mut aos_cloud = {
         use self::demonstrate_aos_implementation as _;
         // Re-define AoS for this scope
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         struct AoSPointCloud {
             points: Vec<Point4<f64>>,
         }
@@ -848,7 +848,8 @@ fn demonstrate_interoperability() -> Result<()> {
     }
 
     // Merge different implementations into another implementation
-    merge_clouds(&aos_cloud, &soa_cloud, &mut aos_cloud);
+    let aos_cloud_copy = aos_cloud.clone();
+    merge_clouds(&aos_cloud_copy, &soa_cloud, &mut aos_cloud);
 
     println!("Merged Point Cloud:");
     println!("  Total size: {}", aos_cloud.size());

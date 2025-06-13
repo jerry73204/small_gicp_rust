@@ -7,7 +7,15 @@
 
 use nalgebra::Point3;
 use small_gicp_rust::{
-    config::*, error::Result, kdtree::KdTree, point_cloud::PointCloud, preprocessing,
+    config::*,
+    error::Result,
+    kdtree::KdTree,
+    point_cloud::PointCloud,
+    preprocessing,
+    preprocessing::{
+        estimate_local_features_auto, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+        LocalFeaturesBackend,
+    },
     registration::*,
 };
 
@@ -83,12 +91,16 @@ fn main() -> Result<()> {
         num_threads: 4,
     };
 
-    // Create temporary KdTrees for normal estimation
-    let temp_target_tree = KdTree::new(&target, &KdTreeConfig::default())?;
-    let temp_source_tree = KdTree::new(&source, &KdTreeConfig::default())?;
+    // Use unified normal estimation API
+    let local_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::Normal,
+        backend: LocalFeaturesBackend::Default,
+        num_neighbors: normal_config.num_neighbors,
+        num_threads: normal_config.num_threads,
+    };
 
-    preprocessing::estimate_normals(&mut target, &temp_target_tree, &normal_config)?;
-    preprocessing::estimate_normals(&mut source, &temp_source_tree, &normal_config)?;
+    estimate_local_features_auto(&mut target, &local_config)?;
+    estimate_local_features_auto(&mut source, &local_config)?;
 
     println!("  - Normal estimation backend: {:?}", normal_config.backend);
     println!("  - Number of neighbors: {}", normal_config.num_neighbors);
@@ -200,7 +212,7 @@ fn main() -> Result<()> {
         initial_guess: None,
     };
 
-    match register_preprocessed(&target, &source, &target_tree, &settings) {
+    match register(&target, &source, &settings) {
         Ok(result) => {
             println!("  - Registration completed successfully");
             println!("  - Converged: {}", result.converged);

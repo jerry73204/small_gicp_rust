@@ -5,8 +5,9 @@ use small_gicp_rust::{
     kdtree::KdTree,
     point_cloud::PointCloud,
     preprocessing::{
-        estimate_covariances, estimate_normals_and_covariances, CovarianceEstimationConfig,
-        NormalEstimationBackend, NormalEstimationConfig,
+        estimate_covariances, estimate_local_features_auto, estimate_normals_and_covariances,
+        CovarianceEstimationConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+        LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig,
     },
 };
 
@@ -180,13 +181,14 @@ fn main() -> Result<()> {
     let kdtree = KdTree::new(&estimation_cloud, &kdtree_config)?;
 
     // Estimate covariances from local neighborhoods
-    let cov_config = CovarianceEstimationConfig {
+    let cov_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::Covariance,
+        backend: LocalFeaturesBackend::Default,
         num_neighbors: 8,
         num_threads: 1,
-        backend: NormalEstimationBackend::Default,
     };
 
-    estimate_covariances(&mut estimation_cloud, &kdtree, &cov_config)?;
+    estimate_local_features_auto(&mut estimation_cloud, &cov_config)?;
 
     println!(
         "   Estimated covariances from {} neighbors",
@@ -212,13 +214,14 @@ fn main() -> Result<()> {
     let mut combined_cloud = PointCloud::from_points(&points)?;
     let combined_kdtree = KdTree::new(&combined_cloud, &kdtree_config)?;
 
-    let normal_config = NormalEstimationConfig {
+    let normal_covariance_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::NormalCovariance,
+        backend: LocalFeaturesBackend::Default,
         num_neighbors: 10,
         num_threads: 1,
-        backend: NormalEstimationBackend::Default,
     };
 
-    estimate_normals_and_covariances(&mut combined_cloud, &combined_kdtree, &normal_config)?;
+    estimate_local_features_auto(&mut combined_cloud, &normal_covariance_config)?;
 
     println!("   Estimated both normals and covariances");
     println!("   has_normals(): {}", combined_cloud.has_normals());

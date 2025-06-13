@@ -4,7 +4,14 @@
 //! downsampling, normal estimation, and KdTree operations.
 
 use nalgebra::Point3;
-use small_gicp_rust::{estimate_covariances, estimate_normals, prelude::*};
+use small_gicp_rust::{
+    estimate_covariances, estimate_normals,
+    prelude::*,
+    preprocessing::{
+        estimate_local_features_auto, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+        LocalFeaturesBackend,
+    },
+};
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Small GICP Rust - Preprocessing Demo");
@@ -83,7 +90,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n4. KdTree Nearest Neighbor Search");
     println!("---------------------------------");
 
-    let kdtree = &result.kdtree;
+    // Create unified KdTree from the processed cloud
+    let kdtree_config = KdTreeConfig::default();
+    let kdtree = KdTree::new(&result.cloud, &kdtree_config)?;
     let query_point = Point3::new(0.5, 0.5, 0.5);
 
     // Single nearest neighbor
@@ -162,15 +171,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    estimate_normals(
-        &mut test_cloud,
-        &test_kdtree,
-        &NormalEstimationConfig {
-            num_neighbors: 15,
-            backend: NormalEstimationBackend::Default,
-            num_threads: 1,
-        },
-    )?;
+    let normal_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::Normal,
+        backend: LocalFeaturesBackend::Default,
+        num_neighbors: 15,
+        num_threads: 1,
+    };
+    estimate_local_features_auto(&mut test_cloud, &normal_config)?;
 
     println!("After normal estimation:");
     if !test_cloud.is_empty() {
@@ -188,15 +195,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n6. Covariance Estimation for GICP");
     println!("---------------------------------");
 
-    estimate_covariances(
-        &mut test_cloud,
-        &test_kdtree,
-        &CovarianceEstimationConfig {
-            num_neighbors: 15,
-            backend: NormalEstimationBackend::Default,
-            num_threads: 1,
-        },
-    )?;
+    let covariance_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::Covariance,
+        backend: LocalFeaturesBackend::Default,
+        num_neighbors: 15,
+        num_threads: 1,
+    };
+    estimate_local_features_auto(&mut test_cloud, &covariance_config)?;
     println!("Covariances estimated successfully (required for GICP)");
 
     println!("\nPreprocessing demo completed!");

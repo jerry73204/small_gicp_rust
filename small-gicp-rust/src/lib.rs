@@ -46,8 +46,8 @@
 
 pub mod config;
 pub mod error;
-pub mod generic;
 pub mod kdtree;
+pub(crate) mod kdtree_internal;
 pub mod point_cloud;
 pub mod preprocessing;
 pub mod registration;
@@ -65,15 +65,28 @@ pub use config::{
     RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
-pub use generic::{GenericKdTree, KdTreeStrategy};
-pub use kdtree::{KdTree, UnsafeKdTree};
+pub use kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{
-    estimate_covariances, estimate_local_features_auto, estimate_local_features_cloud,
-    estimate_local_features_single_point, estimate_normals, estimate_normals_and_covariances,
-    set_covariance_direct, set_covariance_invalid, set_normal_covariance_direct,
-    set_normal_covariance_invalid, set_normal_direct, set_normal_invalid, DownsamplingMethod,
-    PreprocessingResult, PreprocessorConfig,
+    estimate_covariances,
+    estimate_local_features_auto,
+    estimate_local_features_cloud,
+    estimate_local_features_single_point,
+    estimate_normals,
+    estimate_normals_and_covariances,
+    set_covariance_direct,
+    set_covariance_invalid,
+    set_normal_covariance_direct,
+    set_normal_covariance_invalid,
+    set_normal_direct,
+    set_normal_invalid,
+    // Unified generic preprocessing API
+    Downsampling,
+    DownsamplingMethod,
+    NormalEstimation,
+    PreprocessingResult,
+    PreprocessingStrategy,
+    PreprocessorConfig,
 };
 pub use registration::{
     register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
@@ -99,10 +112,12 @@ pub mod prelude {
             RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
-        generic::{GenericKdTree, KdTreeStrategy},
-        kdtree::{KdTree, UnsafeKdTree},
+        kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree},
         point_cloud::PointCloud,
-        preprocessing::{DownsamplingMethod, PreprocessorConfig},
+        preprocessing::{
+            Downsampling, DownsamplingMethod, NormalEstimation, PreprocessingStrategy,
+            PreprocessorConfig,
+        },
         registration::{
             register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
             ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,

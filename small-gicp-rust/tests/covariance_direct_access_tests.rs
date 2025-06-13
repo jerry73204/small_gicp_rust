@@ -5,8 +5,9 @@ use small_gicp_rust::{
     kdtree::KdTree,
     point_cloud::PointCloud,
     preprocessing::{
-        estimate_covariances, estimate_normals_and_covariances, CovarianceEstimationConfig,
-        NormalEstimationBackend, NormalEstimationConfig,
+        estimate_covariances, estimate_local_features_auto, estimate_normals_and_covariances,
+        CovarianceEstimationConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
+        LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig,
     },
 };
 
@@ -335,18 +336,15 @@ fn test_covariance_estimation_integration() {
 
     let mut cloud = PointCloud::from_points(&points).unwrap();
 
-    // Create KdTree for the cloud
-    let kdtree_config = KdTreeConfig::default();
-    let kdtree = KdTree::new(&cloud, &kdtree_config).unwrap();
-
-    // Estimate covariances
-    let config = CovarianceEstimationConfig {
+    // Estimate covariances using auto estimation
+    let config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::Covariance,
+        backend: LocalFeaturesBackend::Default,
         num_neighbors: 10,
         num_threads: 1,
-        backend: NormalEstimationBackend::Default,
     };
 
-    estimate_covariances(&mut cloud, &kdtree, &config).unwrap();
+    estimate_local_features_auto(&mut cloud, &config).unwrap();
 
     assert!(cloud.has_covariances());
 
@@ -365,15 +363,15 @@ fn test_covariance_estimation_integration() {
 
     // Test combined normal and covariance estimation
     let mut cloud2 = PointCloud::from_points(&points).unwrap();
-    let kdtree2 = KdTree::new(&cloud2, &kdtree_config).unwrap();
 
-    let normal_config = NormalEstimationConfig {
+    let normal_covariance_config = LocalFeatureEstimationConfig {
+        setter_type: LocalFeatureSetterType::NormalCovariance,
+        backend: LocalFeaturesBackend::Default,
         num_neighbors: 10,
         num_threads: 1,
-        backend: NormalEstimationBackend::Default,
     };
 
-    estimate_normals_and_covariances(&mut cloud2, &kdtree2, &normal_config).unwrap();
+    estimate_local_features_auto(&mut cloud2, &normal_covariance_config).unwrap();
 
     assert!(cloud2.has_normals());
     assert!(cloud2.has_covariances());

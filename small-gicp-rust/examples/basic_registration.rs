@@ -57,13 +57,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         source_processed.cloud.len()
     );
 
-    let target_tree = &target_processed.kdtree;
-    let result = register_preprocessed(
-        &target_processed.cloud,
-        &source_processed.cloud,
-        target_tree,
-        &settings,
-    )?;
+    // Use the basic register function which will handle KdTree internally
+    let result = register(&target_processed.cloud, &source_processed.cloud, &settings)?;
     print_registration_result(&result);
 
     // Example 3: Different registration algorithms

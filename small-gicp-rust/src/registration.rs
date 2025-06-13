@@ -3,7 +3,7 @@
 use crate::{
     config::{DofRestrictionConfig, GaussianVoxelMapConfig, RobustKernelConfig, RobustKernelType},
     error::{check_error, Result, SmallGicpError},
-    kdtree::KdTree,
+    kdtree_internal::CKdTree,
     point_cloud::PointCloud,
 };
 use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
@@ -550,7 +550,7 @@ pub fn register(
 pub fn register_preprocessed(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &KdTree,
+    target_tree: &CKdTree,
     settings: &RegistrationSettings,
 ) -> Result<RegistrationResult> {
     if target.is_empty() || source.is_empty() {
@@ -718,7 +718,7 @@ pub fn register_vgicp(
 pub fn register_advanced(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &KdTree,
+    target_tree: &CKdTree,
     settings: &RegistrationSettings,
     robust_kernel: Option<&RobustKernel>,
     dof_restriction: Option<&DofRestriction>,
@@ -868,7 +868,7 @@ pub fn register_advanced(
 pub fn register_with_complete_config(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &KdTree,
+    target_tree: &CKdTree,
     config: &crate::config::CompleteRegistrationConfig,
     initial_guess: Option<&Isometry3<f64>>,
 ) -> Result<ExtendedRegistrationResult> {
