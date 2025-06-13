@@ -8,6 +8,10 @@ small_gicp is a header-only C++ library for efficient and parallelized point clo
 
 **Important Note**: Despite the repository name "small_gicp_rust", this currently contains only the C++ implementation. The Rust port appears to be planned for the future.
 
+## Backward Compatibility
+
+- There is no need to maintain backward compatibility. The project was not published yet.
+
 ## Build Commands
 
 ### C++ Build
@@ -30,6 +34,7 @@ ctest
 
 ### Rust Build
 ```bash
+# Run `cargo build --all-targets --all-features` to test the Rust build.
 # Run `cargo build --all-targets` to build all targets, including the libraries, binaries, test and example code.
 ```
 
