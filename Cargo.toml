@@ -2,5 +2,5 @@
 resolver = "2"
 members = [
   "small-gicp-sys",
-  "small-gicp-rust",
+  "small-gicp-rust", "small-gicp-cxx",
 ]

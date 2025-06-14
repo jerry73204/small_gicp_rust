@@ -1,0 +1,18 @@
+[package]
+name = "small-gicp-cxx"
+version = "0.1.0"
+edition = "2021"
+authors = ["small_gicp_rust contributors"]
+description = "Direct C++ bindings for small_gicp using cxx"
+repository = "https://github.com/koide3/small_gicp"
+license = "MIT"
+keywords = ["pointcloud", "registration", "icp", "gicp", "vgicp"]
+categories = ["algorithms", "science"]
+
+[dependencies]
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
+
+[dev-dependencies]
