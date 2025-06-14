@@ -86,6 +86,7 @@ pub(crate) fn check_error(error: small_gicp_sys::small_gicp_error_t) -> Result<(
 }
 
 /// Get error string from C library.
+#[allow(dead_code)]
 pub(crate) fn get_error_string(error: small_gicp_sys::small_gicp_error_t) -> String {
     unsafe {
         let c_str = small_gicp_sys::small_gicp_error_string(error);
