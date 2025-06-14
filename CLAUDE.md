@@ -36,6 +36,7 @@ ctest
 ```bash
 # Run `cargo build --all-targets --all-features` to test the Rust build.
 # Run `cargo build --all-targets` to build all targets, including the libraries, binaries, test and example code.
+# Run `cargo test --all-features --all-targets` to run the tests for Rust code.
 ```
 
 ### Python Build
@@ -62,6 +63,12 @@ pytest src/test/python_test.py
 ```bash
 # Run Python tests
 pytest src/test/python_test.py
+```
+
+### Rust Code
+```bash
+# Run `cargo clippy --all-features --all-targets` to check the Rust code quality.
+# Run `cargo +nightly fmt` to format Rust code.
 ```
 
 ## Architecture Overview
