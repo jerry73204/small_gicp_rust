@@ -83,16 +83,33 @@ pub mod ffi {
         fn knn_search(self: &KdTree, point: Point3d, k: usize) -> Vec<usize>;
         fn radius_search(self: &KdTree, point: Point3d, radius: f64) -> Vec<usize>;
 
+        // UnsafeKdTree type and methods (high-performance variant)
+        type UnsafeKdTree;
+
+        fn unsafe_nearest_neighbor(self: &UnsafeKdTree, point: Point3d) -> usize;
+        fn unsafe_knn_search(self: &UnsafeKdTree, point: Point3d, k: usize) -> Vec<usize>;
+        fn unsafe_radius_search(self: &UnsafeKdTree, point: Point3d, radius: f64) -> Vec<usize>;
+
         // GaussianVoxelMap type and methods
         type GaussianVoxelMap;
 
         fn insert(self: Pin<&mut GaussianVoxelMap>, cloud: &PointCloud);
         fn size(self: &GaussianVoxelMap) -> usize;
 
+        // IncrementalVoxelMap type and methods
+        type IncrementalVoxelMap;
+
+        fn incremental_insert(self: Pin<&mut IncrementalVoxelMap>, cloud: &PointCloud);
+        fn incremental_size(self: &IncrementalVoxelMap) -> usize;
+        fn incremental_clear(self: Pin<&mut IncrementalVoxelMap>);
+        fn incremental_finalize(self: Pin<&mut IncrementalVoxelMap>);
+
         // Factory functions
         fn create_point_cloud() -> UniquePtr<PointCloud>;
         fn create_kdtree(cloud: &PointCloud, num_threads: i32) -> UniquePtr<KdTree>;
+        fn create_unsafe_kdtree(cloud: &PointCloud, num_threads: i32) -> UniquePtr<UnsafeKdTree>;
         fn create_voxelmap(voxel_size: f64) -> UniquePtr<GaussianVoxelMap>;
+        fn create_incremental_voxelmap(voxel_size: f64) -> UniquePtr<IncrementalVoxelMap>;
 
         // Registration functions
         fn align_points_icp(

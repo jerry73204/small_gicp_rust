@@ -36,14 +36,18 @@
 #![warn(missing_docs)]
 
 mod ffi;
+mod incremental_voxel_map;
 mod kdtree;
 mod point_cloud;
 mod registration;
+mod unsafe_kdtree;
 mod voxel_map;
 
+pub use incremental_voxel_map::{IncrementalVoxelMap, IncrementalVoxelMapBuilder};
 pub use kdtree::{KdTree, KdTreeBuilder};
 pub use point_cloud::PointCloud;
 pub use registration::{Registration, RegistrationSettingsBuilder, TransformExt};
+pub use unsafe_kdtree::{UnsafeKdTree, UnsafeKdTreeBuilder};
 pub use voxel_map::{VoxelMap, VoxelMapBuilder};
 
 // Re-export FFI types that users need
