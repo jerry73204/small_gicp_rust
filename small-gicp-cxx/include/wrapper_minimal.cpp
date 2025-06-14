@@ -5,6 +5,12 @@
 #include <small_gicp/ann/incremental_voxelmap.hpp>
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
+#include <small_gicp/util/downsampling_omp.hpp>
+#include <small_gicp/util/normal_estimation_omp.hpp>
+
+#include <algorithm>
+#include <numeric>
+#include <random>
 
 namespace small_gicp_cxx {
 
@@ -50,26 +56,47 @@ rust::Slice<const double> PointCloud::points_data() const {
 }
 
 rust::Slice<const double> PointCloud::normals_data() const {
-  return rust::Slice<const double>(); // Simplified for now
+  if (cloud_->empty() || cloud_->normals.empty()) {
+    return rust::Slice<const double>();
+  }
+  return rust::Slice<const double>(cloud_->normals.data()->data(),
+                                   cloud_->normals.size() * 4);
 }
 
 rust::Slice<const double> PointCloud::covs_data() const {
-  return rust::Slice<const double>(); // Simplified for now
+  if (cloud_->empty() || cloud_->covs.empty()) {
+    return rust::Slice<const double>();
+  }
+  return rust::Slice<const double>(cloud_->covs.data()->data(),
+                                   cloud_->covs.size() * 16);
 }
 
 void PointCloud::estimate_normals(int num_neighbors, int num_threads) {
-  // No-op for now
+  if (num_threads > 1) {
+    small_gicp::estimate_normals_omp(*cloud_, num_neighbors, num_threads);
+  } else {
+    small_gicp::estimate_normals(*cloud_, num_neighbors);
+  }
 }
 
 void PointCloud::estimate_covariances(int num_neighbors, int num_threads) {
-  // No-op for now
+  if (num_threads > 1) {
+    small_gicp::estimate_covariances_omp(*cloud_, num_neighbors, num_threads);
+  } else {
+    small_gicp::estimate_covariances(*cloud_, num_neighbors);
+  }
 }
 
 std::unique_ptr<PointCloud>
 PointCloud::voxel_downsample(double voxel_size, int num_threads) const {
-  // Return copy for now
   auto result = std::make_unique<PointCloud>();
-  result->cloud_ = std::make_shared<small_gicp::PointCloud>(*cloud_);
+  
+  if (num_threads > 1) {
+    result->cloud_ = small_gicp::voxelgrid_sampling_omp(*cloud_, voxel_size, num_threads);
+  } else {
+    result->cloud_ = small_gicp::voxelgrid_sampling(*cloud_, voxel_size);
+  }
+  
   return result;
 }
 
@@ -410,6 +437,58 @@ std::unique_ptr<GaussianVoxelMap> create_voxelmap(double voxel_size) {
 std::unique_ptr<IncrementalVoxelMap>
 create_incremental_voxelmap(double voxel_size) {
   return std::make_unique<IncrementalVoxelMap>(voxel_size);
+}
+
+// Preprocessing function implementations
+std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud& cloud, double voxel_size, int num_threads) {
+  // Use the existing method which has proper access
+  return cloud.voxel_downsample(voxel_size, num_threads);
+}
+
+std::unique_ptr<PointCloud> downsample_random(const PointCloud& cloud, size_t num_samples) {
+  auto result = std::make_unique<PointCloud>();
+  
+  // Use the public API instead of private members
+  const auto& input_cloud = cloud.get_internal();
+  if (num_samples >= input_cloud.size()) {
+    // Return a copy by copying points one by one
+    result->resize(input_cloud.size());
+    for (size_t i = 0; i < input_cloud.size(); ++i) {
+      const auto& point = input_cloud.point(i);
+      result->set_point(i, Point3d{point.x(), point.y(), point.z()});
+    }
+    return result;
+  }
+  
+  // Resize the result cloud
+  result->resize(num_samples);
+  
+  // Simple random sampling without replacement
+  std::vector<size_t> indices(input_cloud.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  
+  // Use a simple random shuffle
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::shuffle(indices.begin(), indices.end(), gen);
+  
+  // Copy selected points using public API
+  for (size_t i = 0; i < num_samples; ++i) {
+    const auto& point = input_cloud.point(indices[i]);
+    result->set_point(i, Point3d{point.x(), point.y(), point.z()});
+  }
+  
+  return result;
+}
+
+void compute_normals(PointCloud& cloud, int num_neighbors, int num_threads) {
+  // Use the existing method which has proper access
+  cloud.estimate_normals(num_neighbors, num_threads);
+}
+
+void compute_covariances(PointCloud& cloud, int num_neighbors, int num_threads) {
+  // Use the existing method which has proper access
+  cloud.estimate_covariances(num_neighbors, num_threads);
 }
 
 } // namespace small_gicp_cxx

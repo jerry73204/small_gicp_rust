@@ -117,6 +117,11 @@ impl PointCloud {
     pub(crate) fn as_ffi_mut(&mut self) -> Pin<&mut FfiPointCloud> {
         self.inner.pin_mut()
     }
+
+    /// Create from FFI handle (for internal use by preprocessing functions)
+    pub(crate) fn from_ffi(inner: UniquePtr<FfiPointCloud>) -> Self {
+        PointCloud { inner }
+    }
 }
 
 impl Default for PointCloud {

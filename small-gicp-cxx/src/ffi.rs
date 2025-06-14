@@ -111,6 +111,16 @@ pub mod ffi {
         fn create_voxelmap(voxel_size: f64) -> UniquePtr<GaussianVoxelMap>;
         fn create_incremental_voxelmap(voxel_size: f64) -> UniquePtr<IncrementalVoxelMap>;
 
+        // Preprocessing functions
+        fn downsample_voxelgrid(
+            cloud: &PointCloud,
+            voxel_size: f64,
+            num_threads: i32,
+        ) -> UniquePtr<PointCloud>;
+        fn downsample_random(cloud: &PointCloud, num_samples: usize) -> UniquePtr<PointCloud>;
+        fn compute_normals(cloud: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
+        fn compute_covariances(cloud: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
+
         // Registration functions
         fn align_points_icp(
             source: &PointCloud,

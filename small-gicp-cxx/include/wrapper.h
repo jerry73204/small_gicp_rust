@@ -176,4 +176,10 @@ std::unique_ptr<GaussianVoxelMap> create_voxelmap(double voxel_size);
 std::unique_ptr<IncrementalVoxelMap>
 create_incremental_voxelmap(double voxel_size);
 
+// Preprocessing functions
+std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud& cloud, double voxel_size, int num_threads);
+std::unique_ptr<PointCloud> downsample_random(const PointCloud& cloud, size_t num_samples);
+void compute_normals(PointCloud& cloud, int num_neighbors, int num_threads);
+void compute_covariances(PointCloud& cloud, int num_neighbors, int num_threads);
+
 } // namespace small_gicp_cxx
