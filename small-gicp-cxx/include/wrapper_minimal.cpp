@@ -1,6 +1,8 @@
 #include "small-gicp-cxx/src/ffi.rs.h"
 #include "wrapper.h"
 
+#include <small_gicp/registration/registration_helper.hpp>
+
 namespace small_gicp_cxx {
 
 // PointCloud implementation - minimal
@@ -104,17 +106,92 @@ void GaussianVoxelMap::insert(const PointCloud &cloud) {
 
 size_t GaussianVoxelMap::size() const { return voxelmap_->size(); }
 
-// Simple registration functions - return identity for now
+// ICP registration implementation
 RegistrationResult align_points_icp(const PointCloud &source,
                                     const PointCloud &target,
                                     const KdTree &target_tree,
                                     const Transform &init_guess,
                                     const RegistrationSettings &settings) {
+  // Convert flat array to Eigen Isometry3d
+  Eigen::Matrix4d init_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      init_matrix(i, j) = init_guess.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d init_T(init_matrix);
+
+  // Create registration settings
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::ICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.num_threads = settings.num_threads;
+
+  // Perform registration
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T, reg_setting);
+
+  // Convert result back to our format
   RegistrationResult reg_result;
-  reg_result.transformation = init_guess;
-  reg_result.converged = true;
-  reg_result.iterations = 1;
-  reg_result.error = 0.0;
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
+  }
+  reg_result.converged = result.converged;
+  reg_result.iterations = result.iterations;
+  reg_result.error = result.error;
+
+  return reg_result;
+}
+
+// Point-to-Plane ICP registration implementation
+RegistrationResult align_points_point_to_plane_icp(
+    const PointCloud &source, const PointCloud &target,
+    const KdTree &target_tree, const Transform &init_guess,
+    const RegistrationSettings &settings) {
+  // Convert flat array to Eigen Isometry3d
+  Eigen::Matrix4d init_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      init_matrix(i, j) = init_guess.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d init_T(init_matrix);
+
+  // Create registration settings
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::PLANE_ICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.num_threads = settings.num_threads;
+
+  // Perform registration
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T, reg_setting);
+
+  // Convert result back to our format
+  RegistrationResult reg_result;
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
+  }
+  reg_result.converged = result.converged;
+  reg_result.iterations = result.iterations;
+  reg_result.error = result.error;
+
   return reg_result;
 }
 
@@ -124,11 +201,43 @@ RegistrationResult align_points_gicp(const PointCloud &source,
                                      const KdTree &target_tree,
                                      const Transform &init_guess,
                                      const RegistrationSettings &settings) {
+  // Convert flat array to Eigen Isometry3d
+  Eigen::Matrix4d init_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      init_matrix(i, j) = init_guess.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d init_T(init_matrix);
+
+  // Create registration settings
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::GICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.num_threads = settings.num_threads;
+
+  // Perform registration (we only use target_tree, source_tree is ignored in
+  // helper)
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T, reg_setting);
+
+  // Convert result back to our format
   RegistrationResult reg_result;
-  reg_result.transformation = init_guess;
-  reg_result.converged = true;
-  reg_result.iterations = 1;
-  reg_result.error = 0.0;
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
+  }
+  reg_result.converged = result.converged;
+  reg_result.iterations = result.iterations;
+  reg_result.error = result.error;
+
   return reg_result;
 }
 
@@ -136,11 +245,42 @@ RegistrationResult align_points_vgicp(const PointCloud &source,
                                       const GaussianVoxelMap &target_voxelmap,
                                       const Transform &init_guess,
                                       const RegistrationSettings &settings) {
+  // Convert flat array to Eigen Isometry3d
+  Eigen::Matrix4d init_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      init_matrix(i, j) = init_guess.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d init_T(init_matrix);
+
+  // Create registration settings
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::VGICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.num_threads = settings.num_threads;
+  reg_setting.voxel_resolution = 1.0; // Use default or could be configurable
+
+  // Perform registration with voxel map
+  auto result = small_gicp::align(target_voxelmap.get_internal(),
+                                  source.get_internal(), init_T, reg_setting);
+
+  // Convert result back to our format
   RegistrationResult reg_result;
-  reg_result.transformation = init_guess;
-  reg_result.converged = true;
-  reg_result.iterations = 1;
-  reg_result.error = 0.0;
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
+  }
+  reg_result.converged = result.converged;
+  reg_result.iterations = result.iterations;
+  reg_result.error = result.error;
+
   return reg_result;
 }
 

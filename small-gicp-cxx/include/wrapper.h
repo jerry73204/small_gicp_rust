@@ -101,6 +101,14 @@ RegistrationResult align_points_icp(
     const RegistrationSettings& settings
 );
 
+RegistrationResult align_points_point_to_plane_icp(
+    const PointCloud& source,
+    const PointCloud& target,
+    const KdTree& target_tree,
+    const Transform& init_guess,
+    const RegistrationSettings& settings
+);
+
 RegistrationResult align_points_gicp(
     const PointCloud& source,
     const PointCloud& target,

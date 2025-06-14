@@ -103,6 +103,14 @@ pub mod ffi {
             settings: &RegistrationSettings,
         ) -> RegistrationResult;
 
+        fn align_points_point_to_plane_icp(
+            source: &PointCloud,
+            target: &PointCloud,
+            target_tree: &KdTree,
+            init_guess: &Transform,
+            settings: &RegistrationSettings,
+        ) -> RegistrationResult;
+
         fn align_points_gicp(
             source: &PointCloud,
             target: &PointCloud,

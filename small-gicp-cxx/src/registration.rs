@@ -1,6 +1,9 @@
 use crate::{
     ffi::{
-        ffi::{align_points_gicp, align_points_icp, align_points_vgicp},
+        ffi::{
+            align_points_gicp, align_points_icp, align_points_point_to_plane_icp,
+            align_points_vgicp,
+        },
         RegistrationResult, RegistrationSettings, Transform,
     },
     KdTree, PointCloud, VoxelMap,
@@ -22,6 +25,27 @@ impl Registration {
         let settings = settings.unwrap_or_default();
 
         align_points_icp(
+            source.as_ffi(),
+            target.as_ffi(),
+            target_tree.as_ffi(),
+            &init,
+            &settings,
+        )
+    }
+
+    /// Align two point clouds using Point-to-Plane ICP
+    /// Requires normals to be computed for the target cloud
+    pub fn point_to_plane_icp(
+        source: &PointCloud,
+        target: &PointCloud,
+        target_tree: &KdTree,
+        init_guess: Option<Transform>,
+        settings: Option<RegistrationSettings>,
+    ) -> RegistrationResult {
+        let init = init_guess.unwrap_or_default();
+        let settings = settings.unwrap_or_default();
+
+        align_points_point_to_plane_icp(
             source.as_ffi(),
             target.as_ffi(),
             target_tree.as_ffi(),
