@@ -60,6 +60,7 @@ fn build_from_source(out_path: &PathBuf) {
     let dst = Config::new(&small_gicp_c_dir)
         .define("BUILD_SHARED_LIBS", "ON")
         .define("BUILD_EXAMPLES", "OFF")
+        .define("BUILD_TESTS", "OFF")
         .define("CMAKE_INSTALL_PREFIX", out_path.to_str().unwrap())
         .build();
 
