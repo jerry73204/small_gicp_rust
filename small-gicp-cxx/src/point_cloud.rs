@@ -98,6 +98,53 @@ impl PointCloud {
         }
     }
 
+    /// Set multiple points at once for better performance
+    /// Data should be in format [x1, y1, z1, 1.0, x2, y2, z2, 1.0, ...]
+    pub fn set_points_bulk(&mut self, points: &[f64]) {
+        if points.len() % 4 != 0 {
+            panic!("Points data must be a multiple of 4 (x, y, z, w)");
+        }
+        self.inner.pin_mut().set_points_bulk(points);
+    }
+
+    /// Set multiple normals at once for better performance
+    /// Data should be in format [nx1, ny1, nz1, 0.0, nx2, ny2, nz2, 0.0, ...]
+    pub fn set_normals_bulk(&mut self, normals: &[f64]) {
+        if normals.len() % 4 != 0 {
+            panic!("Normals data must be a multiple of 4 (nx, ny, nz, 0)");
+        }
+        self.inner.pin_mut().set_normals_bulk(normals);
+    }
+
+    /// Set multiple covariances at once for better performance
+    /// Data should be in format [c11, c12, c13, c14, c21, ...] (row-major 4x4 matrices)
+    pub fn set_covariances_bulk(&mut self, covariances: &[f64]) {
+        if covariances.len() % 16 != 0 {
+            panic!("Covariances data must be a multiple of 16 (4x4 matrix)");
+        }
+        self.inner.pin_mut().set_covariances_bulk(covariances);
+    }
+
+    /// Apply a rigid transformation to all points in the cloud (in-place)
+    pub fn transform(&mut self, transform: &crate::ffi::Transform) {
+        self.inner.pin_mut().transform(transform);
+    }
+
+    /// Create a new transformed point cloud without modifying the original
+    pub fn transformed(&self, transform: &crate::ffi::Transform) -> Self {
+        PointCloud {
+            inner: self.inner.transformed(transform),
+        }
+    }
+
+    /// Create from bulk point data (more efficient than individual add_point calls)
+    /// Data should be in format [x1, y1, z1, 1.0, x2, y2, z2, 1.0, ...]
+    pub fn from_points_bulk(points: &[f64]) -> Self {
+        let mut cloud = Self::new();
+        cloud.set_points_bulk(points);
+        cloud
+    }
+
     /// Create from a slice of points (x, y, z)
     pub fn from_points(points: &[(f64, f64, f64)]) -> Self {
         let mut cloud = Self::new();
@@ -149,5 +196,62 @@ mod tests {
 
         cloud.clear();
         assert!(cloud.is_empty());
+    }
+
+    #[test]
+    fn test_bulk_operations() {
+        let mut cloud = PointCloud::new();
+
+        // Test bulk point setting
+        let points = vec![
+            1.0, 2.0, 3.0, 1.0, // Point 1
+            4.0, 5.0, 6.0, 1.0, // Point 2
+        ];
+        cloud.set_points_bulk(&points);
+        assert_eq!(cloud.len(), 2);
+
+        assert_eq!(cloud.get_point(0).unwrap(), (1.0, 2.0, 3.0));
+        assert_eq!(cloud.get_point(1).unwrap(), (4.0, 5.0, 6.0));
+
+        // Test bulk normal setting
+        let normals = vec![
+            0.0, 0.0, 1.0, 0.0, // Normal 1
+            1.0, 0.0, 0.0, 0.0, // Normal 2
+        ];
+        cloud.set_normals_bulk(&normals);
+
+        // Test creating from bulk data
+        let cloud2 = PointCloud::from_points_bulk(&points);
+        assert_eq!(cloud2.len(), 2);
+        assert_eq!(cloud2.get_point(0).unwrap(), (1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn test_transformation() {
+        let mut cloud = PointCloud::new();
+        cloud.add_point(1.0, 0.0, 0.0);
+        cloud.add_point(0.0, 1.0, 0.0);
+
+        // Test translation
+        let translation = crate::Transform::translation(1.0, 2.0, 3.0);
+        let transformed = cloud.transformed(&translation);
+
+        assert_eq!(transformed.get_point(0).unwrap(), (2.0, 2.0, 3.0));
+        assert_eq!(transformed.get_point(1).unwrap(), (1.0, 3.0, 3.0));
+
+        // Original should be unchanged
+        assert_eq!(cloud.get_point(0).unwrap(), (1.0, 0.0, 0.0));
+
+        // Test in-place transformation
+        cloud.transform(&translation);
+        assert_eq!(cloud.get_point(0).unwrap(), (2.0, 2.0, 3.0));
+    }
+
+    #[test]
+    #[should_panic(expected = "Points data must be a multiple of 4")]
+    fn test_bulk_operations_invalid_size() {
+        let mut cloud = PointCloud::new();
+        let invalid_points = vec![1.0, 2.0, 3.0]; // Missing 4th component
+        cloud.set_points_bulk(&invalid_points);
     }
 }

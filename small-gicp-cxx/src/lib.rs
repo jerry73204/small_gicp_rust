@@ -5,19 +5,42 @@
 //! This crate provides safe Rust bindings to the small_gicp C++ library,
 //! offering efficient point cloud registration algorithms including ICP, GICP, and VGICP.
 //!
+//! ## Features
+//!
+//! - **Point Cloud Operations**: Create, manipulate, and transform point clouds
+//! - **Bulk Operations**: High-performance bulk data setting for large point clouds
+//! - **Preprocessing**: Voxel grid downsampling, normal estimation, covariance estimation
+//! - **Registration**: ICP, Point-to-Plane ICP, GICP, VGICP algorithms
+//! - **Spatial Data Structures**: KdTree, UnsafeKdTree, GaussianVoxelMap, IncrementalVoxelMap
+//! - **Transformations**: Rigid body transformations with utility functions
+//!
 //! ## Example
 //!
 //! ```rust,no_run
-//! use small_gicp_cxx::{KdTree, PointCloud, Registration, RegistrationSettingsBuilder};
+//! use small_gicp_cxx::{
+//!     KdTree, PointCloud, Preprocessing, Registration, RegistrationSettingsBuilder, Transform,
+//! };
 //!
-//! // Create point clouds
-//! let mut source = PointCloud::new();
+//! // Create point clouds using bulk operations for better performance
+//! let points = vec![
+//!     1.0, 2.0, 3.0, 1.0, // Point 1 (x, y, z, w)
+//!     4.0, 5.0, 6.0, 1.0, // Point 2 (x, y, z, w)
+//! ];
+//! let mut source = PointCloud::from_points_bulk(&points);
 //! let mut target = PointCloud::new();
+//! target.add_point(0.0, 0.0, 0.0);
+//! target.add_point(1.0, 1.0, 1.0);
 //!
-//! // ... add points to clouds ...
+//! // Apply transformation
+//! let transform = Transform::translation(1.0, 0.0, 0.0);
+//! source.transform(&transform);
+//!
+//! // Preprocess point clouds
+//! let processed_source = Preprocessing::preprocess_for_registration(&source, 0.1, 10, 1);
+//! let processed_target = Preprocessing::preprocess_for_registration(&target, 0.1, 10, 1);
 //!
 //! // Build KdTree for target
-//! let target_tree = KdTree::build(&target, 4);
+//! let target_tree = KdTree::build(&processed_target, 4);
 //!
 //! // Configure registration
 //! let settings = RegistrationSettingsBuilder::new()
@@ -26,7 +49,13 @@
 //!     .build();
 //!
 //! // Perform ICP registration
-//! let result = Registration::icp(&source, &target, &target_tree, None, Some(settings));
+//! let result = Registration::icp(
+//!     &processed_source,
+//!     &processed_target,
+//!     &target_tree,
+//!     None,
+//!     Some(settings),
+//! );
 //!
 //! println!("Converged: {}", result.converged);
 //! println!("Iterations: {}", result.iterations);
@@ -41,6 +70,7 @@ mod kdtree;
 mod point_cloud;
 mod preprocessing;
 mod registration;
+mod transform;
 mod unsafe_kdtree;
 mod voxel_map;
 

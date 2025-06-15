@@ -43,6 +43,15 @@ public:
   rust::Slice<const double> normals_data() const;
   rust::Slice<const double> covs_data() const;
 
+  // Bulk operations for performance
+  void set_points_bulk(rust::Slice<const double> points);
+  void set_normals_bulk(rust::Slice<const double> normals);
+  void set_covariances_bulk(rust::Slice<const double> covariances);
+
+  // Transformation operations
+  void transform(const Transform &transform);
+  std::unique_ptr<PointCloud> transformed(const Transform &transform) const;
+
   // Compute normals and covariances
   void estimate_normals(int num_neighbors, int num_threads);
   void estimate_covariances(int num_neighbors, int num_threads);
@@ -177,9 +186,12 @@ std::unique_ptr<IncrementalVoxelMap>
 create_incremental_voxelmap(double voxel_size);
 
 // Preprocessing functions
-std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud& cloud, double voxel_size, int num_threads);
-std::unique_ptr<PointCloud> downsample_random(const PointCloud& cloud, size_t num_samples);
-void compute_normals(PointCloud& cloud, int num_neighbors, int num_threads);
-void compute_covariances(PointCloud& cloud, int num_neighbors, int num_threads);
+std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud &cloud,
+                                                 double voxel_size,
+                                                 int num_threads);
+std::unique_ptr<PointCloud> downsample_random(const PointCloud &cloud,
+                                              size_t num_samples);
+void compute_normals(PointCloud &cloud, int num_neighbors, int num_threads);
+void compute_covariances(PointCloud &cloud, int num_neighbors, int num_threads);
 
 } // namespace small_gicp_cxx

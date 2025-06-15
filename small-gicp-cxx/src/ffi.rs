@@ -67,6 +67,15 @@ pub mod ffi {
         fn normals_data(self: &PointCloud) -> &[f64];
         fn covs_data(self: &PointCloud) -> &[f64];
 
+        // Bulk operations for performance
+        fn set_points_bulk(self: Pin<&mut PointCloud>, points: &[f64]);
+        fn set_normals_bulk(self: Pin<&mut PointCloud>, normals: &[f64]);
+        fn set_covariances_bulk(self: Pin<&mut PointCloud>, covariances: &[f64]);
+
+        // Transformation operations
+        fn transform(self: Pin<&mut PointCloud>, transform: &Transform);
+        fn transformed(self: &PointCloud, transform: &Transform) -> UniquePtr<PointCloud>;
+
         fn estimate_normals(self: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
         fn estimate_covariances(self: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
 

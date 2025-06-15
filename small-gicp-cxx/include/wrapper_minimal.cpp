@@ -87,16 +87,119 @@ void PointCloud::estimate_covariances(int num_neighbors, int num_threads) {
   }
 }
 
+// Bulk operations for performance
+void PointCloud::set_points_bulk(rust::Slice<const double> points) {
+  if (points.length() % 4 != 0) {
+    throw std::invalid_argument(
+        "Points data must be a multiple of 4 (x, y, z, w)");
+  }
+
+  size_t num_points = points.length() / 4;
+  cloud_->resize(num_points);
+
+  for (size_t i = 0; i < num_points; ++i) {
+    cloud_->point(i) = Eigen::Vector4d(points[i * 4 + 0], points[i * 4 + 1],
+                                       points[i * 4 + 2], points[i * 4 + 3]);
+  }
+}
+
+void PointCloud::set_normals_bulk(rust::Slice<const double> normals) {
+  if (normals.length() % 4 != 0) {
+    throw std::invalid_argument(
+        "Normals data must be a multiple of 4 (nx, ny, nz, 0)");
+  }
+
+  size_t num_normals = normals.length() / 4;
+  cloud_->normals.resize(num_normals);
+
+  for (size_t i = 0; i < num_normals; ++i) {
+    cloud_->normals[i] =
+        Eigen::Vector4d(normals[i * 4 + 0], normals[i * 4 + 1],
+                        normals[i * 4 + 2], normals[i * 4 + 3]);
+  }
+}
+
+void PointCloud::set_covariances_bulk(rust::Slice<const double> covariances) {
+  if (covariances.length() % 16 != 0) {
+    throw std::invalid_argument(
+        "Covariances data must be a multiple of 16 (4x4 matrix)");
+  }
+
+  size_t num_covariances = covariances.length() / 16;
+  cloud_->covs.resize(num_covariances);
+
+  for (size_t i = 0; i < num_covariances; ++i) {
+    for (int row = 0; row < 4; ++row) {
+      for (int col = 0; col < 4; ++col) {
+        cloud_->covs[i](row, col) = covariances[i * 16 + row * 4 + col];
+      }
+    }
+  }
+}
+
+// Transformation operations
+void PointCloud::transform(const Transform &transform) {
+  // Convert flat array to Eigen transformation matrix
+  Eigen::Matrix4d transform_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      transform_matrix(i, j) = transform.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d T(transform_matrix);
+
+  // Transform all points
+  for (size_t i = 0; i < cloud_->size(); ++i) {
+    Eigen::Vector3d point = cloud_->point(i).head<3>();
+    point = T * point;
+    cloud_->point(i).head<3>() = point;
+  }
+
+  // Transform normals (only rotation part)
+  if (!cloud_->normals.empty()) {
+    Eigen::Matrix3d rotation = T.rotation();
+    for (size_t i = 0; i < cloud_->normals.size(); ++i) {
+      Eigen::Vector3d normal = cloud_->normals[i].head<3>();
+      normal = rotation * normal;
+      cloud_->normals[i].head<3>() = normal;
+    }
+  }
+
+  // Transform covariances (R * C * R^T)
+  if (!cloud_->covs.empty()) {
+    Eigen::Matrix3d rotation = T.rotation();
+    for (size_t i = 0; i < cloud_->covs.size(); ++i) {
+      Eigen::Matrix3d cov = cloud_->covs[i].block<3, 3>(0, 0);
+      cov = rotation * cov * rotation.transpose();
+      cloud_->covs[i].block<3, 3>(0, 0) = cov;
+    }
+  }
+}
+
+std::unique_ptr<PointCloud>
+PointCloud::transformed(const Transform &transform) const {
+  auto result = std::make_unique<PointCloud>();
+
+  // Copy the original cloud
+  result->cloud_ = std::make_shared<small_gicp::PointCloud>(*cloud_);
+
+  // Apply transformation to the copy
+  result->transform(transform);
+
+  return result;
+}
+
 std::unique_ptr<PointCloud>
 PointCloud::voxel_downsample(double voxel_size, int num_threads) const {
   auto result = std::make_unique<PointCloud>();
-  
+
   if (num_threads > 1) {
-    result->cloud_ = small_gicp::voxelgrid_sampling_omp(*cloud_, voxel_size, num_threads);
+    result->cloud_ =
+        small_gicp::voxelgrid_sampling_omp(*cloud_, voxel_size, num_threads);
   } else {
     result->cloud_ = small_gicp::voxelgrid_sampling(*cloud_, voxel_size);
   }
-  
+
   return result;
 }
 
@@ -440,53 +543,57 @@ create_incremental_voxelmap(double voxel_size) {
 }
 
 // Preprocessing function implementations
-std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud& cloud, double voxel_size, int num_threads) {
+std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud &cloud,
+                                                 double voxel_size,
+                                                 int num_threads) {
   // Use the existing method which has proper access
   return cloud.voxel_downsample(voxel_size, num_threads);
 }
 
-std::unique_ptr<PointCloud> downsample_random(const PointCloud& cloud, size_t num_samples) {
+std::unique_ptr<PointCloud> downsample_random(const PointCloud &cloud,
+                                              size_t num_samples) {
   auto result = std::make_unique<PointCloud>();
-  
+
   // Use the public API instead of private members
-  const auto& input_cloud = cloud.get_internal();
+  const auto &input_cloud = cloud.get_internal();
   if (num_samples >= input_cloud.size()) {
     // Return a copy by copying points one by one
     result->resize(input_cloud.size());
     for (size_t i = 0; i < input_cloud.size(); ++i) {
-      const auto& point = input_cloud.point(i);
+      const auto &point = input_cloud.point(i);
       result->set_point(i, Point3d{point.x(), point.y(), point.z()});
     }
     return result;
   }
-  
+
   // Resize the result cloud
   result->resize(num_samples);
-  
+
   // Simple random sampling without replacement
   std::vector<size_t> indices(input_cloud.size());
   std::iota(indices.begin(), indices.end(), 0);
-  
+
   // Use a simple random shuffle
   std::random_device rd;
   std::mt19937 gen(rd());
   std::shuffle(indices.begin(), indices.end(), gen);
-  
+
   // Copy selected points using public API
   for (size_t i = 0; i < num_samples; ++i) {
-    const auto& point = input_cloud.point(indices[i]);
+    const auto &point = input_cloud.point(indices[i]);
     result->set_point(i, Point3d{point.x(), point.y(), point.z()});
   }
-  
+
   return result;
 }
 
-void compute_normals(PointCloud& cloud, int num_neighbors, int num_threads) {
+void compute_normals(PointCloud &cloud, int num_neighbors, int num_threads) {
   // Use the existing method which has proper access
   cloud.estimate_normals(num_neighbors, num_threads);
 }
 
-void compute_covariances(PointCloud& cloud, int num_neighbors, int num_threads) {
+void compute_covariances(PointCloud &cloud, int num_neighbors,
+                         int num_threads) {
   // Use the existing method which has proper access
   cloud.estimate_covariances(num_neighbors, num_threads);
 }
