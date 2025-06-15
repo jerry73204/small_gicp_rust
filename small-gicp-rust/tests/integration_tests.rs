@@ -42,10 +42,7 @@ fn create_dense_test_cloud() -> PointCloud {
 /// Transform a point cloud with a known transformation.
 fn transform_point_cloud(cloud: &PointCloud, transformation: &Isometry3<f64>) -> PointCloud {
     let points = cloud.points();
-    let transformed_points: Vec<Point3<f64>> = points
-        .iter()
-        .map(|&(x, y, z)| transformation * Point3::new(x, y, z))
-        .collect();
+    let transformed_points: Vec<Point3<f64>> = points.map(|point| transformation * point).collect();
 
     PointCloud::from_points(&transformed_points).unwrap()
 }
@@ -741,7 +738,7 @@ fn test_direct_data_access() {
 
     // Test direct points access
     unsafe {
-        let points_data = cloud.points_data().unwrap();
+        let points_data = cloud.points_data();
         // Points are stored as 4D vectors (homogeneous coordinates), so 2 points * 4 components = 8
         assert_eq!(points_data.len(), 8); // 2 points * 4 components (homogeneous)
         assert_relative_eq!(points_data[0], 1.0, epsilon = 1e-10);
@@ -753,7 +750,7 @@ fn test_direct_data_access() {
 
     // Test direct normals access
     unsafe {
-        let normals_data = cloud.normals_data().unwrap();
+        let normals_data = cloud.normals_data();
         // Normals are also stored as 4D vectors, so 2 normals * 4 components = 8
         assert_eq!(normals_data.len(), 8); // 2 normals * 4 components
         assert_relative_eq!(normals_data[0], 0.0, epsilon = 1e-10);
@@ -767,27 +764,23 @@ fn test_direct_data_access() {
     let covariances = vec![test_cov; 2];
     cloud.set_covariances(&covariances).unwrap();
 
-    unsafe {
-        let covariances_data = cloud.covariances_data().unwrap();
-        assert_eq!(covariances_data.len(), 32); // 2 covariances * 16 components
-                                                // First matrix should be identity
-        assert_relative_eq!(covariances_data[0], 1.0, epsilon = 1e-10); // [0,0]
-        assert_relative_eq!(covariances_data[1], 0.0, epsilon = 1e-10); // [0,1]
-        assert_relative_eq!(covariances_data[5], 1.0, epsilon = 1e-10); // [1,1]
-    }
+    let covariances_data = cloud.covariances_data();
+    assert_eq!(covariances_data.len(), 32); // 2 covariances * 16 components
+                                            // First matrix should be identity
+    assert_relative_eq!(covariances_data[0], 1.0, epsilon = 1e-10); // [0,0]
+    assert_relative_eq!(covariances_data[1], 0.0, epsilon = 1e-10); // [0,1]
+    assert_relative_eq!(covariances_data[5], 1.0, epsilon = 1e-10); // [1,1]
 
     // Test empty cloud direct access
     let empty_cloud = PointCloud::new().unwrap();
-    unsafe {
-        let empty_points = empty_cloud.points_data().unwrap();
-        assert_eq!(empty_points.len(), 0);
+    let empty_points = empty_cloud.points_data();
+    assert_eq!(empty_points.len(), 0);
 
-        let empty_normals = empty_cloud.normals_data().unwrap();
-        assert_eq!(empty_normals.len(), 0);
+    let empty_normals = empty_cloud.normals_data();
+    assert_eq!(empty_normals.len(), 0);
 
-        let empty_covariances = empty_cloud.covariances_data().unwrap();
-        assert_eq!(empty_covariances.len(), 0);
-    }
+    let empty_covariances = empty_cloud.covariances_data();
+    assert_eq!(empty_covariances.len(), 0);
 }
 
 #[test]

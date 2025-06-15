@@ -53,7 +53,9 @@ fn test_covariance_matrix_operations() {
     assert_eq!(all_covs.len(), 3);
 
     // Check first and second covariances are different
-    assert!((all_covs[0][(0, 0)] - all_covs[1][(0, 0)]).abs() > 1e-10);
+    let cov0 = all_covs.get(0).unwrap();
+    let cov1 = all_covs.get(1).unwrap();
+    assert!((cov0[(0, 0)] - cov1[(0, 0)]).abs() > 1e-10);
 
     // Test error cases
     assert!(cloud.get_covariance(100).is_err());
@@ -136,7 +138,7 @@ fn test_direct_points_access() {
     let cloud = PointCloud::from_points(&points).unwrap();
 
     unsafe {
-        let points_data = cloud.points_data().unwrap();
+        let points_data = cloud.points_data();
 
         // Points are stored as 4D homogeneous coordinates
         // Format: x, y, z, w for each point
@@ -178,7 +180,7 @@ fn test_direct_normals_access() {
     let cloud = PointCloud::from_points_and_normals(&points, &normals).unwrap();
 
     unsafe {
-        let normals_data = cloud.normals_data().unwrap();
+        let normals_data = cloud.normals_data();
 
         // Normals are stored as 4D vectors (with w=0)
         assert_eq!(normals_data.len(), 12); // 3 normals * 4 components
@@ -223,7 +225,7 @@ fn test_direct_covariances_access() {
     cloud.set_covariances(&vec![cov1, cov2]).unwrap();
 
     unsafe {
-        let cov_data = cloud.covariances_data().unwrap();
+        let cov_data = cloud.covariances_data();
 
         // 2 matrices * 16 elements each
         assert_eq!(cov_data.len(), 32);
@@ -301,13 +303,13 @@ fn test_empty_cloud_direct_access() {
 
     unsafe {
         // Empty cloud should return empty slices
-        let points = cloud.points_data().unwrap();
+        let points = cloud.points_data();
         assert_eq!(points.len(), 0);
 
-        let normals = cloud.normals_data().unwrap();
+        let normals = cloud.normals_data();
         assert_eq!(normals.len(), 0);
 
-        let covariances = cloud.covariances_data().unwrap();
+        let covariances = cloud.covariances_data();
         assert_eq!(covariances.len(), 0);
     }
 
@@ -450,13 +452,13 @@ fn test_data_persistence_after_operations() {
 
     // Test that direct access still works
     unsafe {
-        let points_direct = cloud.points_data().unwrap();
+        let points_direct = cloud.points_data();
         assert!(points_direct.len() > 0);
 
-        let normals_direct = cloud.normals_data().unwrap();
+        let normals_direct = cloud.normals_data();
         assert!(normals_direct.len() > 0);
 
-        let cov_direct = cloud.covariances_data().unwrap();
+        let cov_direct = cloud.covariances_data();
         assert!(cov_direct.len() > 0);
     }
 }
@@ -487,10 +489,10 @@ fn test_performance_oriented_access() {
 
     // Direct access is most efficient for reading
     unsafe {
-        let points_direct = cloud.points_data().unwrap();
+        let points_direct = cloud.points_data();
         assert_eq!(points_direct.len(), num_points * 4); // 4D homogeneous
 
-        let cov_direct = cloud.covariances_data().unwrap();
+        let cov_direct = cloud.covariances_data();
         assert_eq!(cov_direct.len(), num_points * 16);
 
         // Verify a few samples

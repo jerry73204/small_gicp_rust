@@ -5,6 +5,334 @@ use crate::{
     traits::{Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait},
 };
 use nalgebra::{Matrix4, Point3, Vector3, Vector4};
+use std::ops::Range;
+use tracing::{debug, info, trace, warn};
+
+/// A view over point data that supports both iteration and random access.
+#[derive(Debug, Clone)]
+pub struct PointsView<'a> {
+    data: &'a [f64],
+    len: usize,
+}
+
+impl<'a> PointsView<'a> {
+    /// Create a new points view from raw data.
+    fn new(data: &'a [f64]) -> Self {
+        assert_eq!(data.len() % 4, 0, "Points data must be multiple of 4");
+        Self {
+            data,
+            len: data.len() / 4,
+        }
+    }
+
+    /// Get the number of points.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Check if the view is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Get a point by index with bounds checking.
+    pub fn get(&self, index: usize) -> Option<Point3<f64>> {
+        if index < self.len {
+            let start = index * 4;
+            Some(Point3::new(
+                self.data[start],
+                self.data[start + 1],
+                self.data[start + 2],
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Get the first point.
+    pub fn first(&self) -> Option<Point3<f64>> {
+        self.get(0)
+    }
+
+    /// Get the last point.
+    pub fn last(&self) -> Option<Point3<f64>> {
+        if self.len > 0 {
+            self.get(self.len - 1)
+        } else {
+            None
+        }
+    }
+
+    /// Create a slice view of the points.
+    pub fn slice(&self, range: Range<usize>) -> PointsView<'a> {
+        assert!(range.start <= range.end && range.end <= self.len);
+        let start_byte = range.start * 4;
+        let end_byte = range.end * 4;
+        PointsView::new(&self.data[start_byte..end_byte])
+    }
+}
+
+// Note: We don't implement Index trait since we can't return a reference to Point3<f64>
+// that we construct on the fly. Users should use get() method for bounds-checked access
+// or iterate through the view.
+
+impl<'a> Iterator for PointsView<'a> {
+    type Item = Point3<f64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            let point = Point3::new(self.data[0], self.data[1], self.data[2]);
+            self.data = &self.data[4..];
+            self.len -= 1;
+            Some(point)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a> ExactSizeIterator for PointsView<'a> {}
+
+impl<'a> DoubleEndedIterator for PointsView<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            self.len -= 1;
+            let start = self.len * 4;
+            Some(Point3::new(
+                self.data[start],
+                self.data[start + 1],
+                self.data[start + 2],
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+// IntoIterator is automatically implemented for Iterator types
+
+/// A view over normal data that supports both iteration and random access.
+#[derive(Debug, Clone)]
+pub struct NormalsView<'a> {
+    data: &'a [f64],
+    len: usize,
+}
+
+impl<'a> NormalsView<'a> {
+    /// Create a new normals view from raw data.
+    fn new(data: &'a [f64]) -> Self {
+        assert_eq!(data.len() % 4, 0, "Normals data must be multiple of 4");
+        Self {
+            data,
+            len: data.len() / 4,
+        }
+    }
+
+    /// Get the number of normals.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Check if the view is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Get a normal by index with bounds checking.
+    pub fn get(&self, index: usize) -> Option<Vector3<f64>> {
+        if index < self.len {
+            let start = index * 4;
+            Some(Vector3::new(
+                self.data[start],
+                self.data[start + 1],
+                self.data[start + 2],
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Get the first normal.
+    pub fn first(&self) -> Option<Vector3<f64>> {
+        self.get(0)
+    }
+
+    /// Get the last normal.
+    pub fn last(&self) -> Option<Vector3<f64>> {
+        if self.len > 0 {
+            self.get(self.len - 1)
+        } else {
+            None
+        }
+    }
+
+    /// Create a slice view of the normals.
+    pub fn slice(&self, range: Range<usize>) -> NormalsView<'a> {
+        assert!(range.start <= range.end && range.end <= self.len);
+        let start_byte = range.start * 4;
+        let end_byte = range.end * 4;
+        NormalsView::new(&self.data[start_byte..end_byte])
+    }
+}
+
+impl<'a> Iterator for NormalsView<'a> {
+    type Item = Vector3<f64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            let normal = Vector3::new(self.data[0], self.data[1], self.data[2]);
+            self.data = &self.data[4..];
+            self.len -= 1;
+            Some(normal)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a> ExactSizeIterator for NormalsView<'a> {}
+
+impl<'a> DoubleEndedIterator for NormalsView<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            self.len -= 1;
+            let start = self.len * 4;
+            Some(Vector3::new(
+                self.data[start],
+                self.data[start + 1],
+                self.data[start + 2],
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+// IntoIterator is automatically implemented for Iterator types
+
+/// A view over covariance data that supports both iteration and random access.
+#[derive(Debug, Clone)]
+pub struct CovariancesView<'a> {
+    data: &'a [f64],
+    len: usize,
+}
+
+impl<'a> CovariancesView<'a> {
+    /// Create a new covariances view from raw data.
+    fn new(data: &'a [f64]) -> Self {
+        assert_eq!(
+            data.len() % 16,
+            0,
+            "Covariances data must be multiple of 16"
+        );
+        Self {
+            data,
+            len: data.len() / 16,
+        }
+    }
+
+    /// Get the number of covariances.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Check if the view is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Get a covariance matrix by index with bounds checking.
+    pub fn get(&self, index: usize) -> Option<Matrix4<f64>> {
+        if index < self.len {
+            let start = index * 16;
+            let mut matrix = Matrix4::zeros();
+            for row in 0..4 {
+                for col in 0..4 {
+                    matrix[(row, col)] = self.data[start + row * 4 + col];
+                }
+            }
+            Some(matrix)
+        } else {
+            None
+        }
+    }
+
+    /// Get the first covariance.
+    pub fn first(&self) -> Option<Matrix4<f64>> {
+        self.get(0)
+    }
+
+    /// Get the last covariance.
+    pub fn last(&self) -> Option<Matrix4<f64>> {
+        if self.len > 0 {
+            self.get(self.len - 1)
+        } else {
+            None
+        }
+    }
+
+    /// Create a slice view of the covariances.
+    pub fn slice(&self, range: Range<usize>) -> CovariancesView<'a> {
+        assert!(range.start <= range.end && range.end <= self.len);
+        let start_byte = range.start * 16;
+        let end_byte = range.end * 16;
+        CovariancesView::new(&self.data[start_byte..end_byte])
+    }
+}
+
+impl<'a> Iterator for CovariancesView<'a> {
+    type Item = Matrix4<f64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            let mut matrix = Matrix4::zeros();
+            for row in 0..4 {
+                for col in 0..4 {
+                    matrix[(row, col)] = self.data[row * 4 + col];
+                }
+            }
+            self.data = &self.data[16..];
+            self.len -= 1;
+            Some(matrix)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a> ExactSizeIterator for CovariancesView<'a> {}
+
+impl<'a> DoubleEndedIterator for CovariancesView<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.len > 0 {
+            self.len -= 1;
+            let start = self.len * 16;
+            let mut matrix = Matrix4::zeros();
+            for row in 0..4 {
+                for col in 0..4 {
+                    matrix[(row, col)] = self.data[start + row * 4 + col];
+                }
+            }
+            Some(matrix)
+        } else {
+            None
+        }
+    }
+}
+
+// IntoIterator is automatically implemented for Iterator types
 
 /// A 3D point cloud with optional normal vectors and covariances.
 ///
@@ -18,13 +346,23 @@ pub struct PointCloud {
 impl PointCloud {
     /// Create a new empty point cloud.
     pub fn new() -> Result<Self> {
+        trace!("Creating new empty PointCloud");
         let inner = small_gicp_cxx::PointCloud::new();
+        debug!("Created PointCloud with {} points", inner.len());
         Ok(Self { inner })
     }
 
     /// Create a point cloud from a vector of points.
     pub fn from_points(points: &[Point3<f64>]) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::PointCloud and bulk operations")
+        info!("Creating PointCloud from {} points", points.len());
+        let mut cloud = Self::new()?;
+        cloud.resize(points.len())?;
+        cloud.set_points(points)?;
+        debug!(
+            "Successfully created PointCloud with {} points",
+            cloud.len()
+        );
+        Ok(cloud)
     }
 
     /// Create a point cloud from vectors of points and normals.
@@ -32,7 +370,9 @@ impl PointCloud {
         points: &[Point3<f64>],
         normals: &[Vector3<f64>],
     ) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::PointCloud with normal estimation")
+        let mut cloud = Self::from_points(points)?;
+        cloud.set_normals(normals)?;
+        Ok(cloud)
     }
 
     /// Get the number of points in the cloud.
@@ -52,102 +392,222 @@ impl PointCloud {
 
     /// Reserve space for n points.
     pub fn reserve(&mut self, n: usize) {
-        todo!("Implement using inner.reserve(n)")
+        self.inner.reserve(n);
     }
 
     /// Resize the cloud to n points.
     pub fn resize(&mut self, n: usize) -> Result<()> {
-        todo!("Implement using inner.resize(n)")
+        self.inner.resize(n);
+        Ok(())
     }
 
     /// Clear all points from the cloud.
     pub fn clear(&mut self) {
-        todo!("Implement using inner.clear()")
+        self.inner.clear();
     }
 
     /// Add a point to the cloud.
     pub fn add_point(&mut self, x: f64, y: f64, z: f64) {
-        todo!("Implement using inner.add_point(x, y, z)")
+        self.inner.add_point(x, y, z);
     }
 
     /// Set a point at the given index.
     pub fn set_point(&mut self, index: usize, x: f64, y: f64, z: f64) -> Result<()> {
-        todo!("Implement using inner.set_point(index, Point3d{{x, y, z}})")
+        self.inner.set_point(index, x, y, z);
+        Ok(())
     }
 
     /// Get a point at the given index.
     pub fn get_point(&self, index: usize) -> Result<(f64, f64, f64)> {
-        todo!("Implement using inner.get_point(index)")
+        self.inner
+            .get_point(index)
+            .ok_or_else(|| crate::error::SmallGicpError::IndexOutOfBounds {
+                index,
+                size: self.len(),
+            })
     }
 
     /// Set multiple points efficiently.
     pub fn set_points(&mut self, points: &[Point3<f64>]) -> Result<()> {
-        todo!("Implement using bulk operations from small_gicp_cxx")
+        // Convert Point3<f64> to raw f64 array in (x, y, z, 1.0) format
+        let mut raw_points = Vec::with_capacity(points.len() * 4);
+        for point in points {
+            raw_points.extend_from_slice(&[point.x, point.y, point.z, 1.0]);
+        }
+        self.inner.set_points_bulk(&raw_points);
+        Ok(())
     }
 
-    /// Get all points as a slice.
-    pub fn points(&self) -> &[(f64, f64, f64)] {
-        todo!("Implement using inner.points_data() with proper conversion")
+    /// Get all points as an efficient view that supports both iteration and random access.
+    pub fn points(&self) -> PointsView<'_> {
+        PointsView::new(self.inner.points_data())
+    }
+
+    /// Get raw points data as a slice (x, y, z, 1.0 for each point).
+    pub fn points_raw(&self) -> &[f64] {
+        self.inner.points_data()
+    }
+
+    /// Get raw points data as 4D homogeneous coordinates.
+    pub fn points_raw_xyzw(&self) -> &[[f64; 4]] {
+        let data = self.inner.points_data();
+        assert_eq!(data.len() % 4, 0);
+        // SAFETY: We ensure the slice length is a multiple of 4
+        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const [f64; 4], data.len() / 4) }
+    }
+
+    /// Convert all points to a vector (copies data).
+    pub fn to_points_vec(&self) -> Vec<Point3<f64>> {
+        self.points().collect()
     }
 
     /// Set normal vectors.
     pub fn set_normals(&mut self, normals: &[Vector3<f64>]) -> Result<()> {
-        todo!("Implement using bulk normal operations")
+        // Convert Vector3<f64> to raw f64 array in (nx, ny, nz, 0.0) format
+        let mut raw_normals = Vec::with_capacity(normals.len() * 4);
+        for normal in normals {
+            raw_normals.extend_from_slice(&[normal.x, normal.y, normal.z, 0.0]);
+        }
+        self.inner.set_normals_bulk(&raw_normals);
+        Ok(())
     }
 
-    /// Get normal vectors.
-    pub fn normals(&self) -> Option<&[(f64, f64, f64)]> {
-        todo!("Implement using inner.normals_data() with proper conversion")
+    /// Get normal vectors as an efficient view that supports both iteration and random access.
+    pub fn normals(&self) -> Option<NormalsView<'_>> {
+        if self.has_normals() {
+            Some(NormalsView::new(self.inner.normals_data()))
+        } else {
+            None
+        }
+    }
+
+    /// Get raw normals data as a slice (nx, ny, nz, 0.0 for each normal).
+    pub fn normals_raw(&self) -> &[f64] {
+        self.inner.normals_data()
+    }
+
+    /// Get raw normals data as 4D vectors.
+    pub fn normals_raw_xyzw(&self) -> &[[f64; 4]] {
+        let data = self.inner.normals_data();
+        if data.is_empty() {
+            return &[];
+        }
+        assert_eq!(data.len() % 4, 0);
+        // SAFETY: We ensure the slice length is a multiple of 4
+        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const [f64; 4], data.len() / 4) }
+    }
+
+    /// Convert all normals to a vector (copies data).
+    pub fn to_normals_vec(&self) -> Vec<Vector3<f64>> {
+        self.normals()
+            .map(|view| view.collect())
+            .unwrap_or_default()
     }
 
     /// Check if the cloud has normal vectors.
     pub fn has_normals(&self) -> bool {
-        todo!("Implement by checking if normals_data is non-empty")
+        !self.inner.normals_data().is_empty()
     }
 
     /// Set covariance matrices.
     pub fn set_covariances(&mut self, covariances: &[Matrix4<f64>]) -> Result<()> {
-        todo!("Implement using bulk covariance operations")
+        // Convert Matrix4<f64> to raw f64 array (row-major 4x4 matrices)
+        let mut raw_covariances = Vec::with_capacity(covariances.len() * 16);
+        for covariance in covariances {
+            for row in 0..4 {
+                for col in 0..4 {
+                    raw_covariances.push(covariance[(row, col)]);
+                }
+            }
+        }
+        self.inner.set_covariances_bulk(&raw_covariances);
+        Ok(())
     }
 
-    /// Get covariance matrices.
-    pub fn covariances(&self) -> Option<&[Matrix4<f64>]> {
-        todo!("Implement using inner.covs_data() with proper conversion")
+    /// Get covariance matrices as an efficient view that supports both iteration and random access.
+    pub fn covariances(&self) -> Option<CovariancesView<'_>> {
+        if self.has_covariances() {
+            Some(CovariancesView::new(self.inner.covs_data()))
+        } else {
+            None
+        }
+    }
+
+    /// Get raw covariances data as a slice (16 values per 4x4 matrix in row-major order).
+    pub fn covariances_raw(&self) -> &[f64] {
+        self.inner.covs_data()
+    }
+
+    /// Convert all covariances to a vector (copies data).
+    pub fn to_covariances_vec(&self) -> Vec<Matrix4<f64>> {
+        self.covariances()
+            .map(|view| view.collect())
+            .unwrap_or_default()
     }
 
     /// Check if the cloud has covariance matrices.
     pub fn has_covariances(&self) -> bool {
-        todo!("Implement by checking if covs_data is non-empty")
+        !self.inner.covs_data().is_empty()
     }
 
     /// Estimate normal vectors using k nearest neighbors.
     pub fn estimate_normals(&mut self, k: usize) -> Result<()> {
-        todo!("Implement using inner.estimate_normals(k as i32, 1)")
+        info!(
+            "Estimating normals for {} points using k={} neighbors",
+            self.len(),
+            k
+        );
+        self.inner.estimate_normals(k as i32, 1);
+        debug!("Normal estimation completed");
+        Ok(())
     }
 
     /// Estimate normal vectors using k nearest neighbors with multiple threads.
     pub fn estimate_normals_parallel(&mut self, k: usize, num_threads: usize) -> Result<()> {
-        todo!("Implement using inner.estimate_normals(k as i32, num_threads as i32)")
+        self.inner.estimate_normals(k as i32, num_threads as i32);
+        Ok(())
     }
 
     /// Estimate covariance matrices using k nearest neighbors.
     pub fn estimate_covariances(&mut self, k: usize) -> Result<()> {
-        todo!("Implement using inner.estimate_covariances(k as i32, 1)")
+        self.inner.estimate_covariances(k as i32, 1);
+        Ok(())
     }
 
     /// Estimate covariance matrices using k nearest neighbors with multiple threads.
     pub fn estimate_covariances_parallel(&mut self, k: usize, num_threads: usize) -> Result<()> {
-        todo!("Implement using inner.estimate_covariances(k as i32, num_threads as i32)")
+        self.inner
+            .estimate_covariances(k as i32, num_threads as i32);
+        Ok(())
     }
 
     /// Apply a transformation to all points in the cloud.
     pub fn transform(&mut self, transform: &Matrix4<f64>) -> Result<()> {
-        todo!("Implement using small_gicp_cxx::Transform and inner.transform()")
+        // Convert Matrix4<f64> to Transform struct
+        let mut matrix = [0.0; 16];
+        for row in 0..4 {
+            for col in 0..4 {
+                matrix[row * 4 + col] = transform[(row, col)];
+            }
+        }
+        let transform_struct = small_gicp_cxx::Transform { matrix };
+        self.inner.transform(&transform_struct);
+        Ok(())
     }
 
     /// Create a transformed copy of the cloud.
     pub fn transformed(&self, transform: &Matrix4<f64>) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::Transform and inner.transformed()")
+        // Convert Matrix4<f64> to Transform struct
+        let mut matrix = [0.0; 16];
+        for row in 0..4 {
+            for col in 0..4 {
+                matrix[row * 4 + col] = transform[(row, col)];
+            }
+        }
+        let transform_struct = small_gicp_cxx::Transform { matrix };
+        Ok(Self {
+            inner: self.inner.transformed(&transform_struct),
+        })
     }
 
     /// Access the underlying small-gicp-cxx PointCloud mutably.
@@ -167,65 +627,173 @@ impl PointCloud {
 
     /// Set points from raw f64 data (3 values per point: x, y, z).
     pub fn set_points_bulk(&mut self, points: &[f64]) -> Result<()> {
-        todo!("Implement bulk point setting from raw f64 data")
+        self.inner.set_points_bulk(points);
+        Ok(())
     }
 
     /// Set normals from raw f64 data (3 values per normal: x, y, z).
     pub fn set_normals_bulk(&mut self, normals: &[f64]) -> Result<()> {
-        todo!("Implement bulk normal setting from raw f64 data")
+        self.inner.set_normals_bulk(normals);
+        Ok(())
     }
 
     /// Set covariances from raw f64 data (16 values per covariance matrix).
     pub fn set_covariances_bulk(&mut self, covariances: &[f64]) -> Result<()> {
-        todo!("Implement bulk covariance setting from raw f64 data")
+        self.inner.set_covariances_bulk(covariances);
+        Ok(())
     }
 
     /// Get a covariance matrix at the given index.
     pub fn get_covariance(&self, index: usize) -> Result<Matrix4<f64>> {
-        todo!("Implement individual covariance matrix access")
+        if index >= self.len() {
+            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
+                index,
+                size: self.len(),
+            });
+        }
+
+        let raw_data = self.inner.covs_data();
+        if raw_data.is_empty() {
+            return Err(crate::error::SmallGicpError::InvalidArgument(
+                "Point cloud has no covariance data".to_string(),
+            ));
+        }
+
+        let start_idx = index * 16;
+        let mut matrix = Matrix4::zeros();
+        for row in 0..4 {
+            for col in 0..4 {
+                matrix[(row, col)] = raw_data[start_idx + row * 4 + col];
+            }
+        }
+        Ok(matrix)
     }
 
     /// Set a covariance matrix at the given index.
     pub fn set_covariance(&mut self, index: usize, covariance: Matrix4<f64>) -> Result<()> {
-        todo!("Implement individual covariance matrix setting")
+        // TODO: This would require modifying individual elements in the raw data
+        // For now, we'll return an error and suggest using bulk operations
+        Err(crate::error::SmallGicpError::NotImplemented(
+            "Individual covariance setting not supported. Use set_covariances for bulk operations."
+                .to_string(),
+        ))
     }
 
     /// Get a normal vector at the given index.
     pub fn get_normal(&self, index: usize) -> Result<Vector3<f64>> {
-        todo!("Implement individual normal vector access")
+        if index >= self.len() {
+            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
+                index,
+                size: self.len(),
+            });
+        }
+
+        let raw_data = self.inner.normals_data();
+        if raw_data.is_empty() {
+            return Err(crate::error::SmallGicpError::InvalidArgument(
+                "Point cloud has no normal data".to_string(),
+            ));
+        }
+
+        let start_idx = index * 4;
+        Ok(Vector3::new(
+            raw_data[start_idx],
+            raw_data[start_idx + 1],
+            raw_data[start_idx + 2],
+        ))
     }
 
     /// Copy points to an output array (3 values per point: x, y, z).
     pub fn copy_points_to_array(&self, output: &mut [f64]) -> Result<()> {
-        todo!("Implement copying points to output array")
+        if output.len() != self.len() * 3 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Output array size {} does not match expected size {}",
+                output.len(),
+                self.len() * 3
+            )));
+        }
+
+        for (i, point) in self.points().enumerate() {
+            let start = i * 3;
+            output[start] = point.x;
+            output[start + 1] = point.y;
+            output[start + 2] = point.z;
+        }
+        Ok(())
     }
 
     /// Copy normals to an output array (3 values per normal: x, y, z).
     pub fn copy_normals_to_array(&self, output: &mut [f64]) -> Result<()> {
-        todo!("Implement copying normals to output array")
+        let normals = self.normals().ok_or_else(|| {
+            crate::error::SmallGicpError::InvalidArgument("Point cloud has no normals".to_string())
+        })?;
+
+        if output.len() != normals.len() * 3 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Output array size {} does not match expected size {}",
+                output.len(),
+                normals.len() * 3
+            )));
+        }
+
+        for (i, normal) in normals.enumerate() {
+            let start = i * 3;
+            output[start] = normal.x;
+            output[start + 1] = normal.y;
+            output[start + 2] = normal.z;
+        }
+        Ok(())
     }
 
     /// Copy covariances to an output array (16 values per matrix).
     pub fn copy_covariances_to_array(&self, output: &mut [f64]) -> Result<()> {
-        todo!("Implement copying covariances to output array")
+        let covariances = self.covariances().ok_or_else(|| {
+            crate::error::SmallGicpError::InvalidArgument(
+                "Point cloud has no covariances".to_string(),
+            )
+        })?;
+
+        if output.len() != covariances.len() * 16 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Output array size {} does not match expected size {}",
+                output.len(),
+                covariances.len() * 16
+            )));
+        }
+
+        for (i, matrix) in covariances.enumerate() {
+            let start = i * 16;
+            for row in 0..4 {
+                for col in 0..4 {
+                    output[start + row * 4 + col] = matrix[(row, col)];
+                }
+            }
+        }
+        Ok(())
     }
 
-    /// Get direct access to points data as a slice (UNSAFE).
+    /// Get direct access to points data as a slice.
     /// Returns 4D homogeneous coordinates (x, y, z, w) where w=1.0.
-    pub unsafe fn points_data(&self) -> Result<&[f64]> {
-        todo!("Implement direct points data access")
+    ///
+    /// This is a safe wrapper around the internal data access.
+    pub fn points_data(&self) -> &[f64] {
+        self.inner.points_data()
     }
 
-    /// Get direct access to normals data as a slice (UNSAFE).
+    /// Get direct access to normals data as a slice.
     /// Returns 4D vectors (x, y, z, w) where w=0.0.
-    pub unsafe fn normals_data(&self) -> Result<&[f64]> {
-        todo!("Implement direct normals data access")
+    ///
+    /// This is a safe wrapper around the internal data access.
+    pub fn normals_data(&self) -> &[f64] {
+        self.inner.normals_data()
     }
 
-    /// Get direct access to covariances data as a slice (UNSAFE).
+    /// Get direct access to covariances data as a slice.
     /// Returns flattened 4x4 matrices in row-major order.
-    pub unsafe fn covariances_data(&self) -> Result<&[f64]> {
-        todo!("Implement direct covariances data access")
+    ///
+    /// This is a safe wrapper around the internal data access.
+    pub fn covariances_data(&self) -> &[f64] {
+        self.inner.covs_data()
     }
 
     /// Check if the cloud is empty using the trait method name.
@@ -236,6 +804,28 @@ impl PointCloud {
     /// Check if the cloud has points using the trait method name.
     pub fn has_points(&self) -> bool {
         !self.is_empty()
+    }
+
+    /// Load a point cloud from a PLY file.
+    pub fn load_ply<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+        let path_display = path.as_ref().display().to_string();
+        info!("Loading PointCloud from PLY file: {}", path_display);
+        let inner = small_gicp_cxx::Io::load_ply(path)
+            .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
+        let cloud = Self { inner };
+        info!(
+            "Successfully loaded {} points from {}",
+            cloud.len(),
+            path_display
+        );
+        Ok(cloud)
+    }
+
+    /// Save the point cloud to a PLY file.
+    pub fn save_ply<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+        small_gicp_cxx::Io::save_ply(path, &self.inner)
+            .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
+        Ok(())
     }
 }
 
@@ -255,7 +845,30 @@ impl Default for PointCloud {
 
 impl Clone for PointCloud {
     fn clone(&self) -> Self {
-        todo!("Implement Clone for PointCloud using inner.clone() or copy constructor")
+        // Create a new point cloud and copy data
+        let mut new_cloud = Self::new().unwrap();
+
+        // Copy points
+        if !self.is_empty() {
+            let points_data = self.inner.points_data();
+            if !points_data.is_empty() {
+                new_cloud.inner.set_points_bulk(points_data);
+            }
+
+            // Copy normals if available
+            let normals_data = self.inner.normals_data();
+            if !normals_data.is_empty() {
+                new_cloud.inner.set_normals_bulk(normals_data);
+            }
+
+            // Copy covariances if available
+            let covs_data = self.inner.covs_data();
+            if !covs_data.is_empty() {
+                new_cloud.inner.set_covariances_bulk(covs_data);
+            }
+        }
+
+        new_cloud
     }
 }
 
@@ -270,55 +883,176 @@ unsafe impl Sync for PointCloud {}
 
 impl PointCloudTrait for PointCloud {
     fn size(&self) -> usize {
-        todo!("Implement using self.len()")
+        self.len()
     }
 
     fn point(&self, i: usize) -> Point4<f64> {
-        todo!("Implement using self.get_point(i) and convert to Point4")
+        let (x, y, z) = self.get_point(i).unwrap_or((0.0, 0.0, 0.0));
+        Vector4::new(x, y, z, 1.0)
     }
 
     fn normal(&self, i: usize) -> Option<Normal4<f64>> {
-        todo!("Implement using normals data access")
+        self.get_normal(i)
+            .ok()
+            .map(|n| Vector4::new(n.x, n.y, n.z, 0.0))
     }
 
     fn covariance(&self, i: usize) -> Option<Covariance4<f64>> {
-        todo!("Implement using covariances data access")
+        self.get_covariance(i).ok()
     }
 
     fn has_points(&self) -> bool {
-        todo!("Implement using !self.is_empty()")
+        !self.is_empty()
     }
 
     fn has_normals(&self) -> bool {
-        todo!("Implement using self.has_normals()")
+        self.has_normals()
     }
 
     fn has_covariances(&self) -> bool {
-        todo!("Implement using self.has_covariances()")
+        self.has_covariances()
     }
 }
 
 impl MutablePointCloudTrait for PointCloud {
     fn resize(&mut self, n: usize) {
-        todo!("Implement using self.resize(n)")
+        self.resize(n).unwrap();
     }
 
     fn set_point(&mut self, i: usize, point: Point4<f64>) {
-        todo!("Implement using self.set_point(i, point.x, point.y, point.z)")
+        self.set_point(i, point.x, point.y, point.z).unwrap();
     }
 
     fn set_normal(&mut self, i: usize, normal: Normal4<f64>) {
-        todo!("Implement using normal data access")
+        // For individual normal setting, we need to modify the bulk data
+        // This is not efficient but implements the trait requirement
+        warn!("Individual normal setting is not efficient - consider using bulk operations");
+
+        // Get current normals data or create new if empty
+        let mut normals_data = if self.has_normals() {
+            self.inner.normals_data().to_vec()
+        } else {
+            vec![0.0; self.len() * 4]
+        };
+
+        // Update the specific normal
+        if i < self.len() {
+            let start = i * 4;
+            normals_data[start] = normal.x;
+            normals_data[start + 1] = normal.y;
+            normals_data[start + 2] = normal.z;
+            normals_data[start + 3] = normal.w;
+
+            // Set the updated data back
+            self.inner.set_normals_bulk(&normals_data);
+        }
     }
 
     fn set_covariance(&mut self, i: usize, cov: Covariance4<f64>) {
-        todo!("Implement using covariance data access")
+        // For individual covariance setting, we need to modify the bulk data
+        // This is not efficient but implements the trait requirement
+        warn!("Individual covariance setting is not efficient - consider using bulk operations");
+
+        // Get current covariances data or create new if empty
+        let mut covs_data = if self.has_covariances() {
+            self.inner.covs_data().to_vec()
+        } else {
+            vec![0.0; self.len() * 16]
+        };
+
+        // Update the specific covariance
+        if i < self.len() {
+            let start = i * 16;
+            for row in 0..4 {
+                for col in 0..4 {
+                    covs_data[start + row * 4 + col] = cov[(row, col)];
+                }
+            }
+
+            // Set the updated data back
+            self.inner.set_covariances_bulk(&covs_data);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_points_view() {
+        let points = vec![
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(4.0, 5.0, 6.0),
+            Point3::new(7.0, 8.0, 9.0),
+        ];
+        let cloud = PointCloud::from_points(&points).unwrap();
+        let view = cloud.points();
+
+        // Test iterator
+        let collected: Vec<_> = view.clone().collect();
+        assert_eq!(collected.len(), 3);
+        assert_eq!(collected[0], Point3::new(1.0, 2.0, 3.0));
+
+        // Test random access
+        assert_eq!(view.get(0), Some(Point3::new(1.0, 2.0, 3.0)));
+        assert_eq!(view.get(1), Some(Point3::new(4.0, 5.0, 6.0)));
+        assert_eq!(view.get(3), None);
+
+        // Test size methods
+        assert_eq!(view.len(), 3);
+        assert!(!view.is_empty());
+
+        // Test first/last
+        assert_eq!(view.first(), Some(Point3::new(1.0, 2.0, 3.0)));
+        assert_eq!(view.last(), Some(Point3::new(7.0, 8.0, 9.0)));
+    }
+
+    #[test]
+    fn test_raw_data_access() {
+        let points = vec![Point3::new(1.0, 2.0, 3.0), Point3::new(4.0, 5.0, 6.0)];
+        let cloud = PointCloud::from_points(&points).unwrap();
+
+        // Test raw points data
+        let raw_data = cloud.points_raw();
+        assert_eq!(raw_data.len(), 8); // 2 points * 4 components each
+        assert_eq!(raw_data[0], 1.0); // x of first point
+        assert_eq!(raw_data[1], 2.0); // y of first point
+        assert_eq!(raw_data[2], 3.0); // z of first point
+        assert_eq!(raw_data[3], 1.0); // w of first point
+
+        // Test XYZW array access
+        let xyzw_data = cloud.points_raw_xyzw();
+        assert_eq!(xyzw_data.len(), 2);
+        assert_eq!(xyzw_data[0], [1.0, 2.0, 3.0, 1.0]);
+        assert_eq!(xyzw_data[1], [4.0, 5.0, 6.0, 1.0]);
+
+        // Test to_points_vec
+        let points_vec = cloud.to_points_vec();
+        assert_eq!(points_vec, points);
+    }
+
+    #[test]
+    fn test_view_slicing() {
+        let points = vec![
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(4.0, 5.0, 6.0),
+            Point3::new(7.0, 8.0, 9.0),
+            Point3::new(10.0, 11.0, 12.0),
+        ];
+        let cloud = PointCloud::from_points(&points).unwrap();
+        let view = cloud.points();
+
+        // Test slicing
+        let slice = view.slice(1..3);
+        assert_eq!(slice.len(), 2);
+        assert_eq!(slice.get(0), Some(Point3::new(4.0, 5.0, 6.0)));
+        assert_eq!(slice.get(1), Some(Point3::new(7.0, 8.0, 9.0)));
+
+        // Test empty slice
+        let empty_slice = view.slice(2..2);
+        assert!(empty_slice.is_empty());
+    }
 
     #[test]
     fn test_point_cloud_creation() {
@@ -365,27 +1099,80 @@ pub mod conversions {
 
     /// Convert from any PointCloudTrait to a PointCloud.
     pub fn from_trait<P: PointCloudTrait>(input: &P) -> Result<PointCloud> {
-        todo!("Implement conversion from PointCloudTrait to PointCloud using small-gicp-cxx")
+        let mut output = PointCloud::new()?;
+        output.resize(input.size())?;
+
+        // Copy points
+        for i in 0..input.size() {
+            let point = input.point(i);
+            output.set_point(i, point.x, point.y, point.z)?;
+        }
+
+        // Copy normals if available
+        if input.has_normals() {
+            let mut normals_data = Vec::with_capacity(input.size() * 4);
+            for i in 0..input.size() {
+                if let Some(normal) = input.normal(i) {
+                    normals_data.extend_from_slice(&[normal.x, normal.y, normal.z, normal.w]);
+                } else {
+                    normals_data.extend_from_slice(&[0.0, 0.0, 0.0, 0.0]);
+                }
+            }
+            output.set_normals_bulk(&normals_data)?;
+        }
+
+        // Copy covariances if available
+        if input.has_covariances() {
+            let mut covs_data = Vec::with_capacity(input.size() * 16);
+            for i in 0..input.size() {
+                if let Some(cov) = input.covariance(i) {
+                    for row in 0..4 {
+                        for col in 0..4 {
+                            covs_data.push(cov[(row, col)]);
+                        }
+                    }
+                } else {
+                    // Default identity matrix
+                    for row in 0..4 {
+                        for col in 0..4 {
+                            covs_data.push(if row == col { 1.0 } else { 0.0 });
+                        }
+                    }
+                }
+            }
+            output.set_covariances_bulk(&covs_data)?;
+        }
+
+        Ok(output)
     }
 
     /// Convert 3D points to 4D homogeneous coordinates.
     pub fn points3_to_points4(points: &[Point3<f64>]) -> Vec<Vector4<f64>> {
-        todo!("Implement conversion from 3D points to 4D homogeneous coordinates")
+        points
+            .iter()
+            .map(|p| Vector4::new(p.x, p.y, p.z, 1.0))
+            .collect()
     }
 
     /// Convert 4D homogeneous coordinates to 3D points.
     pub fn points4_to_points3(points: &[Vector4<f64>]) -> Vec<Point3<f64>> {
-        todo!("Implement conversion from 4D homogeneous coordinates to 3D points")
+        points.iter().map(|p| Point3::new(p.x, p.y, p.z)).collect()
     }
 
     /// Convert 3D normals to 4D vectors.
     pub fn normals3_to_normals4(normals: &[Vector3<f64>]) -> Vec<Vector4<f64>> {
-        todo!("Implement conversion from 3D normals to 4D vectors")
+        normals
+            .iter()
+            .map(|n| Vector4::new(n.x, n.y, n.z, 0.0))
+            .collect()
     }
 
     /// Convert 4D vectors to 3D normals.
     pub fn normals4_to_normals3(normals: &[Vector4<f64>]) -> Vec<Vector3<f64>> {
-        todo!("Implement conversion from 4D vectors to 3D normals")
+        normals
+            .iter()
+            .map(|n| Vector3::new(n.x, n.y, n.z))
+            .collect()
     }
 
     /// Copy data from one point cloud to another.
@@ -393,6 +1180,32 @@ pub mod conversions {
         source: &S,
         target: &mut T,
     ) -> Result<()> {
-        todo!("Implement data copying between point clouds")
+        // Resize target to match source
+        target.resize(source.size());
+
+        // Copy points
+        for i in 0..source.size() {
+            target.set_point(i, source.point(i));
+        }
+
+        // Copy normals if available
+        if source.has_normals() {
+            for i in 0..source.size() {
+                if let Some(normal) = source.normal(i) {
+                    target.set_normal(i, normal);
+                }
+            }
+        }
+
+        // Copy covariances if available
+        if source.has_covariances() {
+            for i in 0..source.size() {
+                if let Some(cov) = source.covariance(i) {
+                    target.set_covariance(i, cov);
+                }
+            }
+        }
+
+        Ok(())
     }
 }

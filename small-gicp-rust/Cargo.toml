@@ -16,6 +16,7 @@ cxx = "1.0"
 thiserror = "1.0"
 nalgebra = "0.32"
 rand = "0.8"
+tracing = "0.1.41"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
