@@ -9,8 +9,11 @@
 #include <small_gicp/util/normal_estimation_omp.hpp>
 
 #include <algorithm>
+#include <fstream>
 #include <numeric>
 #include <random>
+
+#include <small_gicp/benchmark/read_points.hpp>
 
 namespace small_gicp_cxx {
 
@@ -596,6 +599,89 @@ void compute_covariances(PointCloud &cloud, int num_neighbors,
                          int num_threads) {
   // Use the existing method which has proper access
   cloud.estimate_covariances(num_neighbors, num_threads);
+}
+
+// I/O function implementations
+std::unique_ptr<PointCloud> load_ply(rust::Str filename) {
+  // Convert rust::Str to std::string
+  std::string filename_str(filename);
+
+  // Create result first
+  auto result = std::make_unique<PointCloud>();
+
+  // Use small_gicp's PLY reader (returns empty vector on error)
+  auto points = small_gicp::read_ply(filename_str);
+  if (points.empty()) {
+    // Return empty cloud on error
+    return result;
+  }
+
+  // Use public methods to build the cloud
+  result->resize(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    const auto &p = points[i];
+    result->set_point(i, Point3d{p.x(), p.y(), p.z()});
+  }
+
+  return result;
+}
+
+void save_ply(rust::Str filename, const PointCloud &cloud) {
+  // Convert rust::Str to std::string
+  std::string filename_str(filename);
+
+  // Binary PLY writer to match the reader
+  std::ofstream ofs(filename_str, std::ios::binary);
+  if (!ofs) {
+    // Silently fail - cxx doesn't support exceptions across FFI
+    std::cerr << "Failed to open file for writing: " << filename_str
+              << std::endl;
+    return;
+  }
+
+  const auto &pc = cloud.get_internal();
+  ofs << "ply\n";
+  ofs << "format binary_little_endian 1.0\n";
+  ofs << "element vertex " << pc.size() << "\n";
+  ofs << "property float x\n";
+  ofs << "property float y\n";
+  ofs << "property float z\n";
+  ofs << "property float w\n"; // Dummy property to work around reader bug
+  if (!pc.normals.empty()) {
+    ofs << "property float nx\n";
+    ofs << "property float ny\n";
+    ofs << "property float nz\n";
+  }
+  ofs << "end_header\n";
+
+  // Write binary data
+  // Always write at least 4 floats per point (x, y, z, w) to match reader
+  // expectations
+  std::vector<float> buffer;
+  size_t floats_per_vertex = pc.normals.empty() ? 4 : 7;
+  buffer.reserve(pc.size() * floats_per_vertex);
+
+  for (size_t i = 0; i < pc.size(); ++i) {
+    const auto &p = pc.point(i);
+    buffer.push_back(static_cast<float>(p.x()));
+    buffer.push_back(static_cast<float>(p.y()));
+    buffer.push_back(static_cast<float>(p.z()));
+    buffer.push_back(1.0f); // w component
+
+    if (!pc.normals.empty()) {
+      const auto &n = pc.normal(i);
+      buffer.push_back(static_cast<float>(n.x()));
+      buffer.push_back(static_cast<float>(n.y()));
+      buffer.push_back(static_cast<float>(n.z()));
+    }
+  }
+
+  ofs.write(reinterpret_cast<const char *>(buffer.data()),
+            buffer.size() * sizeof(float));
+
+  if (!ofs.good()) {
+    std::cerr << "Error writing to PLY file: " << filename_str << std::endl;
+  }
 }
 
 } // namespace small_gicp_cxx

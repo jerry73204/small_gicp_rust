@@ -194,4 +194,8 @@ std::unique_ptr<PointCloud> downsample_random(const PointCloud &cloud,
 void compute_normals(PointCloud &cloud, int num_neighbors, int num_threads);
 void compute_covariances(PointCloud &cloud, int num_neighbors, int num_threads);
 
+// I/O functions
+std::unique_ptr<PointCloud> load_ply(rust::Str filename);
+void save_ply(rust::Str filename, const PointCloud &cloud);
+
 } // namespace small_gicp_cxx

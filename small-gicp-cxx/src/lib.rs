@@ -13,6 +13,7 @@
 //! - **Registration**: ICP, Point-to-Plane ICP, GICP, VGICP algorithms
 //! - **Spatial Data Structures**: KdTree, UnsafeKdTree, GaussianVoxelMap, IncrementalVoxelMap
 //! - **Transformations**: Rigid body transformations with utility functions
+//! - **I/O Support**: Load and save point clouds in PLY format
 //!
 //! ## Example
 //!
@@ -66,6 +67,7 @@
 
 mod ffi;
 mod incremental_voxel_map;
+mod io;
 mod kdtree;
 mod point_cloud;
 mod preprocessing;
@@ -75,6 +77,7 @@ mod unsafe_kdtree;
 mod voxel_map;
 
 pub use incremental_voxel_map::{IncrementalVoxelMap, IncrementalVoxelMapBuilder};
+pub use io::{Io, PointCloudIoExt};
 pub use kdtree::{KdTree, KdTreeBuilder};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{Preprocessing, PreprocessingBuilder};
