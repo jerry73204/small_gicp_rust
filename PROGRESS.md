@@ -8,9 +8,9 @@ This document provides a clear overview of the implementation progress for the C
 |----------------------|----------|---------------------|
 | **C Wrapper**        | ~99%     | Production Ready    |
 | **Rust CXX**         | ~99%     | Production Ready    |
-| **Rust High-Level API** | ~5%   | Skeleton/Planning   |
+| **Rust High-Level API** | ~50%  | Point Cloud + KdTree Complete ✅ |
 
-The C wrapper and CXX bindings are production-ready, while the high-level Rust API is now a clean skeleton ready for implementation.
+The C wrapper and CXX bindings are production-ready, while the high-level Rust API now has a complete compilable skeleton with all required methods stubbed and all integration tests successfully compiling. Some examples may still have compilation errors due to incomplete API coverage, but can be fixed by adding todo!() implementations for missing methods.
 
 ---
 
@@ -18,77 +18,78 @@ The C wrapper and CXX bindings are production-ready, while the high-level Rust A
 
 ### 1. Point Cloud Module
 
-| Feature                  | C Wrapper   | Rust CXX     | Rust API     | Notes                                    |
-|--------------------------|-------------|--------------|--------------|------------------------------------------|
-| **Basic Operations**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Creation, access, resize                 |
-| **Points & Normals**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Individual and bulk operations           |
-| **Covariance Support**   | ✅ Complete | ✅ Complete  | 📋 Planned   | Full Matrix4 support                     |
-| **Direct Memory Access** | ✅ Complete | ✅ Complete  | 📋 Planned   | Raw pointer access for performance       |
-| **Validation Functions** | ✅ Complete | ✅ Complete  | 📋 Planned   | has_points, has_normals, has_covariances |
-| **Bulk Operations**      | ✅ Complete | ✅ Complete  | 📋 Planned   | Efficient bulk data setting/getting      |
-| **I/O (PLY format)**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Load/save functionality                  |
+| Feature                  | C Wrapper   | Rust CXX    | Rust API   | Notes                                    |
+|--------------------------|-------------|-------------|------------|------------------------------------------|
+| **Basic Operations**     | ✅ Complete | ✅ Complete | ✅ Complete | Creation, access, resize                 |
+| **Points & Normals**     | ✅ Complete | ✅ Complete | ✅ Complete | Individual and bulk operations           |
+| **Covariance Support**   | ✅ Complete | ✅ Complete | ✅ Complete | Full Matrix4 support                     |
+| **Direct Memory Access** | ✅ Complete | ✅ Complete | ✅ Complete | Raw pointer access for performance       |
+| **Validation Functions** | ✅ Complete | ✅ Complete | ✅ Complete | has_points, has_normals, has_covariances |
+| **Bulk Operations**      | ✅ Complete | ✅ Complete | ✅ Complete | Efficient bulk data setting/getting      |
+| **I/O (PLY format)**     | ✅ Complete | ✅ Complete | ✅ Complete | Load/save functionality                  |
+| **View API**             | N/A         | N/A         | ✅ Complete | Zero-cost view types for data access     |
 
-**Status: C Wrapper & CXX Complete** - High-level Rust API is planned with comprehensive wrapper structure.
+**Status: Point Cloud Module Complete** - Full implementation with efficient view-based API for points, normals, and covariances. All tests passing.
 
 ### 2. Nearest Neighbor Search (ANN)
 
-| Feature               | C Wrapper   | Rust CXX     | Rust API     | Notes                                            |
-|-----------------------|-------------|--------------|--------------|--------------------------------------------------|
-| **KdTree Creation**   | ✅ Complete | ✅ Complete  | 📋 Planned   | With advanced configuration                      |
-| **Search Operations** | ✅ Complete | ✅ Complete  | 📋 Planned   | NN, k-NN, radius search                          |
-| **Parallel Backends** | ✅ Complete | ✅ Complete  | 📋 Planned   | OpenMP, TBB support                              |
-| **Advanced Features** | ✅ Complete | ✅ Complete  | 📋 Planned   | UnsafeKdTree, custom projections                 |
-| **Voxel Maps**        | ✅ Complete | ✅ Complete  | 📋 Planned   | Incremental operations fully supported           |
-| **Configuration**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Extended config with projection types            |
+| Feature               | C Wrapper   | Rust CXX    | Rust API    | Notes                                  |
+|-----------------------|-------------|-------------|-------------|----------------------------------------|
+| **KdTree Creation**   | ✅ Complete | ✅ Complete | ✅ Complete | Builder pattern with threading support |
+| **Search Operations** | ✅ Complete | ✅ Complete | ✅ Complete | NN, k-NN, radius search with distances |
+| **Parallel Backends** | ✅ Complete | ✅ Complete | ✅ Complete | OpenMP, TBB support via num_threads    |
+| **Advanced Features** | ✅ Complete | ✅ Complete | ✅ Complete | UnsafeKdTree, algorithm utilities      |
+| **Voxel Maps**        | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Incremental operations fully supported |
+| **Configuration**     | ✅ Complete | ✅ Complete | ✅ Complete | Strategy pattern, builder configuration |
 
-**Status: C Wrapper & CXX Complete** - Rust API skeleton includes KdTree and UnsafeKdTree wrappers.
+**Status: KdTree Module Complete** - Full implementation with both safe and unsafe variants, distance-returning search methods, builder pattern, and algorithm utilities. Enhanced FFI with distance-returning methods added to CXX bridge.
 
 ### 3. Registration Module
 
-| Feature                  | C Wrapper   | Rust CXX     | Rust API     | Notes                                |
-|--------------------------|-------------|--------------|--------------|--------------------------------------|
-| **Core Algorithms**      | ✅ Complete | ✅ Complete  | 📋 Planned   | ICP, Plane-ICP, GICP, VGICP          |
-| **Configuration**        | ✅ Complete | ✅ Complete  | 📋 Planned   | Advanced settings, optimizer control |
-| **Robust Kernels**       | ✅ Complete | ✅ Complete  | 📋 Planned   | Huber, Cauchy kernels                |
-| **DOF Restrictions**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Planar, yaw-only, custom masks       |
-| **Parallel Processing**  | ✅ Complete | ✅ Complete  | 📋 Planned   | Reduction strategies, thread control |
-| **Extended Results**     | ✅ Complete | ✅ Complete  | 📋 Planned   | Information matrix, detailed output  |
-| **Direct Factor Access** | ✅ Complete | ✅ Complete  | 📋 Planned   | Error computation functions          |
+| Feature                  | C Wrapper   | Rust CXX    | Rust API   | Notes                                |
+|--------------------------|-------------|-------------|------------|--------------------------------------|
+| **Core Algorithms**      | ✅ Complete | ✅ Complete | 🏗️ Skeleton | ICP, Plane-ICP, GICP, VGICP          |
+| **Configuration**        | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Advanced settings, optimizer control |
+| **Robust Kernels**       | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Huber, Cauchy kernels                |
+| **DOF Restrictions**     | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Planar, yaw-only, custom masks       |
+| **Parallel Processing**  | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Reduction strategies, thread control |
+| **Extended Results**     | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Information matrix, detailed output  |
+| **Direct Factor Access** | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Error computation functions          |
 
-**Status: C Wrapper & CXX Complete** - Rust API has comprehensive registration framework planned.
+**Status: C Wrapper & CXX Complete** - Rust API skeleton complete with all registration types and methods defined.
 
 ### 4. Preprocessing Module
 
-| Feature                   | C Wrapper   | Rust CXX     | Rust API     | Notes                              |
-|---------------------------|-------------|--------------|--------------|-------------------------------------|
-| **Downsampling**          | ✅ Complete | ✅ Complete  | 📋 Planned   | Voxel grid, random sampling        |
-| **Normal Estimation**     | ✅ Complete | ✅ Complete  | 📋 Planned   | With parallel backend selection    |
-| **Covariance Estimation** | ✅ Complete | ✅ Complete  | 📋 Planned   | Individual and combined operations |
-| **Parallel Backends**     | ✅ Complete | ✅ Complete  | 📋 Planned   | OpenMP, TBB support                |
-| **Direct Setters**        | ✅ Complete | ✅ Complete  | 📋 Planned   | Manual feature setting             |
-| **Unified API**           | ✅ Complete | ✅ Complete  | 📋 Planned   | Generic trait-based approach       |
+| Feature                   | C Wrapper   | Rust CXX    | Rust API   | Notes                              |
+|---------------------------|-------------|-------------|------------|------------------------------------|
+| **Downsampling**          | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Voxel grid, random sampling        |
+| **Normal Estimation**     | ✅ Complete | ✅ Complete | 🏗️ Skeleton | With parallel backend selection    |
+| **Covariance Estimation** | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Individual and combined operations |
+| **Parallel Backends**     | ✅ Complete | ✅ Complete | 🏗️ Skeleton | OpenMP, TBB support                |
+| **Direct Setters**        | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Manual feature setting             |
+| **Unified API**           | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Generic trait-based approach       |
 
-**Status: C Wrapper & CXX Complete** - Rust API includes complete preprocessing skeleton.
+**Status: C Wrapper & CXX Complete** - Rust API skeleton complete with all preprocessing functions defined.
 
 ### 5. Voxel Map Module
 
-| Feature                   | C Wrapper   | Rust CXX     | Rust API     | Notes                              |
-|---------------------------|-------------|--------------|--------------|-------------------------------------|
-| **Incremental Voxel Map** | ✅ Complete | ✅ Complete  | 📋 Planned   | Scan-to-model registration support |
-| **Gaussian Voxels**       | ✅ Complete | ✅ Complete  | 📋 Planned   | Statistical voxel information      |
-| **Voxel Search**          | ✅ Complete | ✅ Complete  | 📋 Planned   | Spatial queries and operations     |
-| **Configuration**         | ✅ Complete | ✅ Complete  | 📋 Planned   | Container types, search patterns   |
+| Feature                   | C Wrapper   | Rust CXX    | Rust API   | Notes                              |
+|---------------------------|-------------|-------------|------------|------------------------------------|
+| **Incremental Voxel Map** | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Scan-to-model registration support |
+| **Gaussian Voxels**       | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Statistical voxel information      |
+| **Voxel Search**          | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Spatial queries and operations     |
+| **Configuration**         | ✅ Complete | ✅ Complete | 🏗️ Skeleton | Container types, search patterns   |
 
-**Status: C Wrapper & CXX Complete** - Rust API wrapper ready for implementation.
+**Status: C Wrapper & CXX Complete** - Rust API skeleton complete with IncrementalVoxelMap wrapper defined.
 
 ### 6. Error Handling & Type Safety
 
-| Feature                  | C Wrapper   | Rust CXX     | Rust API     | Notes                         |
-|--------------------------|-------------|--------------|--------------|-------------------------------|
-| **Error Codes**          | ✅ Complete | ✅ Complete  | ✅ Complete  | Comprehensive error reporting |
-| **Error Propagation**    | ⚠️ Manual    | ⚠️ Manual    | ✅ Complete  | Automatic with Result<T>      |
-| **Type Safety**          | ⚠️ Limited   | ⚠️ Limited   | ✅ Complete  | Compile-time error prevention |
-| **CXX Integration**      | N/A         | ✅ Complete  | ✅ Complete  | Safe FFI with cxx bridge      |
+| Feature               | C Wrapper   | Rust CXX    | Rust API    | Notes                         |
+|-----------------------|-------------|-------------|-------------|-------------------------------|
+| **Error Codes**       | ✅ Complete | ✅ Complete | ✅ Complete | Comprehensive error reporting |
+| **Error Propagation** | ⚠️ Manual    | ⚠️ Manual    | ✅ Complete | Automatic with Result<T>      |
+| **Type Safety**       | ⚠️ Limited   | ⚠️ Limited   | ✅ Complete | Compile-time error prevention |
+| **CXX Integration**   | N/A         | ✅ Complete | ✅ Complete | Safe FFI with cxx bridge      |
 
 **Status: Rust API Type Safety Complete** - Error handling framework ready, CXX integration complete.
 
@@ -107,13 +108,14 @@ This provides:
 - Zero-copy conversions where possible
 - Better error handling integration
 
-### Current Status: Clean Slate
-The `small-gicp-rust` crate has been completely cleaned up with:
-- All old FFI implementations removed
-- Comprehensive API skeleton in place
-- `todo!()` implementations with detailed guidance
-- Consistent wrapper patterns established
-- Test structures preserved for future implementation
+### Current Status: Complete API Skeleton
+The `small-gicp-rust` crate has been transformed into a complete, compilable skeleton:
+- **All old FFI implementations removed** and replaced with CXX bridge wrappers
+- **Complete API skeleton** with all methods, constructors, and fields defined
+- **Compilation success**: Both `cargo check` and `cargo test --no-run` pass
+- **Test compatibility**: All test requirements met with proper method signatures
+- **todo!() implementations** with detailed guidance for actual implementation
+- **Consistent wrapper patterns** established across all modules
 
 ---
 
@@ -131,8 +133,9 @@ The `small-gicp-rust` crate has been completely cleaned up with:
 - Complete feature parity with C wrapper
 
 ### 🔄 Phase 3: High-Level Rust API - **IN PROGRESS**
-- **Current**: Clean skeleton with todo!() implementations
-- **Next**: Systematic implementation of core features
+- **Current**: Complete API skeleton with all methods defined and tests compiling
+- **Status**: All required methods, constructors, and fields added with todo!() implementations
+- **Next**: Systematic implementation of core features using CXX bridge
 - **Goal**: Ergonomic, safe, high-performance Rust API
 
 ### 📋 Phase 4: Production Readiness - **PLANNED**
@@ -161,8 +164,8 @@ impl RustType {
 ```
 
 ### Implementation Priority
-1. **Point Cloud Operations** - Foundation for all other features
-2. **KdTree Construction** - Required for registration algorithms  
+1. ✅ **Point Cloud Operations** - Foundation for all other features (COMPLETE)
+2. ✅ **KdTree Construction** - Required for registration algorithms (COMPLETE)
 3. **Basic Registration** - Core ICP functionality
 4. **Preprocessing** - Downsampling and normal estimation
 5. **Advanced Registration** - GICP, VGICP, robust kernels
@@ -185,10 +188,14 @@ impl RustType {
 - **Type Safety**: Compile-time guarantees for FFI operations
 
 ### Rust API Progress
-- **Clean Architecture**: Systematic removal of old unsafe FFI
-- **Comprehensive Planning**: Complete API skeleton with implementation guidance
-- **Type Safety**: Error handling and validation framework complete
-- **Ready for Implementation**: Clear roadmap and consistent patterns established
+- **Point Cloud Module**: Complete implementation with efficient view-based API ✅
+- **KdTree Module**: Complete implementation with safe/unsafe variants, distance-returning search ✅
+- **Enhanced FFI**: Added distance-returning methods to CXX bridge ✅
+- **Builder Patterns**: KdTree construction with strategy and threading configuration ✅
+- **Algorithm Utilities**: Generic search functions and correspondence building ✅
+- **Type Safety**: Error handling and validation framework complete ✅
+- **CXX Integration**: Successfully migrated from unsafe sys FFI to safe CXX bridge ✅
+- **Test Foundation**: KdTree unit tests passing, integration test foundation ready ✅
 
 ---
 
@@ -220,4 +227,4 @@ The migration from unsafe FFI to safe CXX bridge provides a robust foundation fo
 ---
 
 *Last updated: 2025-06-15*
-*Next review: After Rust API implementation begins*
+*Next review: After core Rust API implementation begins*
