@@ -1,7 +1,12 @@
 //! KdTree spatial indexing for efficient nearest neighbor search.
 
-use crate::{error::Result, point_cloud::PointCloud, traits::PointCloudTrait};
+use crate::{
+    error::{Result, SmallGicpError},
+    point_cloud::PointCloud,
+    traits::PointCloudTrait,
+};
 use nalgebra::Point3;
+use tracing::{debug, trace};
 
 /// A KdTree for efficient nearest neighbor search in point clouds.
 pub struct KdTree {
@@ -12,32 +17,108 @@ pub struct KdTree {
 impl KdTree {
     /// Build a KdTree from a point cloud.
     pub fn new(cloud: &PointCloud) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::KdTree::build(cloud.inner(), num_threads)")
+        debug!("Building KdTree with 1 thread");
+        let cxx_kdtree = small_gicp_cxx::KdTree::build(cloud.inner(), 1);
+        Ok(Self { inner: cxx_kdtree })
     }
 
     /// Build a KdTree from a point cloud with specified number of threads.
     pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::KdTree::build(cloud.inner(), num_threads)")
+        debug!("Building KdTree with {} threads", num_threads);
+        let cxx_kdtree = small_gicp_cxx::KdTree::build(cloud.inner(), num_threads as i32);
+        Ok(Self { inner: cxx_kdtree })
     }
 
     /// Build a KdTree from any point cloud that implements PointCloudTrait.
     pub fn from_trait<P: PointCloudTrait>(cloud: &P) -> Result<Self> {
-        todo!("Implement generic KdTree construction from trait")
+        debug!("Building KdTree from trait implementation");
+        // Convert to PointCloud first
+        let mut pc = PointCloud::new()?;
+        for i in 0..cloud.size() {
+            let point = cloud.point(i);
+            pc.add_point(point.x, point.y, point.z);
+        }
+        Self::new(&pc)
     }
 
     /// Find the nearest neighbor to a query point.
     pub fn nearest_neighbor(&self, point: &Point3<f64>) -> Option<(usize, f64)> {
-        todo!("Implement using inner.nearest_neighbor(Point3d{{point.x, point.y, point.z}})")
+        trace!(
+            "Searching nearest neighbor for point ({}, {}, {})",
+            point.x,
+            point.y,
+            point.z
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.nearest_neighbor_with_distance(query);
+        if result.index == usize::MAX {
+            None
+        } else {
+            Some((result.index, result.squared_distance))
+        }
     }
 
     /// Find k nearest neighbors to a query point.
     pub fn knn_search(&self, point: &Point3<f64>, k: usize) -> Vec<(usize, f64)> {
-        todo!("Implement using inner.knn_search(Point3d{{point.x, point.y, point.z}}, k)")
+        trace!(
+            "KNN search for point ({}, {}, {}) with k={}",
+            point.x,
+            point.y,
+            point.z,
+            k
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.knn_search_with_distances(query, k);
+        result
+            .indices
+            .into_iter()
+            .zip(result.squared_distances.into_iter())
+            .collect()
     }
 
     /// Find all neighbors within a given radius.
     pub fn radius_search(&self, point: &Point3<f64>, radius: f64) -> Vec<(usize, f64)> {
-        todo!("Implement using inner.radius_search(Point3d{{point.x, point.y, point.z}}, radius)")
+        trace!(
+            "Radius search for point ({}, {}, {}) with radius={}",
+            point.x,
+            point.y,
+            point.z,
+            radius
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.radius_search_with_distances(query, radius);
+        result
+            .indices
+            .into_iter()
+            .zip(result.squared_distances.into_iter())
+            .collect()
+    }
+
+    /// Find the nearest neighbor with maximum distance constraint.
+    pub fn nearest_neighbor_with_max_distance(
+        &self,
+        point: &Point3<f64>,
+        max_distance: f64,
+    ) -> Option<(usize, f64)> {
+        debug!("Nearest neighbor search with max_distance={}", max_distance);
+        let result = self.nearest_neighbor(point)?;
+        if result.1.sqrt() <= max_distance {
+            Some(result)
+        } else {
+            None
+        }
     }
 
     /// Find the nearest neighbor with configuration settings.
@@ -46,7 +127,13 @@ impl KdTree {
         point: &Point3<f64>,
         settings: &crate::config::KnnConfig,
     ) -> Option<(usize, f64)> {
-        todo!("Implement nearest neighbor search with KnnConfig settings")
+        debug!("Nearest neighbor search with epsilon={}", settings.epsilon);
+        // For now, epsilon is used as a max distance threshold
+        if settings.epsilon > 0.0 {
+            self.nearest_neighbor_with_max_distance(point, settings.epsilon)
+        } else {
+            self.nearest_neighbor(point)
+        }
     }
 
     /// Access the underlying small-gicp-cxx KdTree.
@@ -82,12 +169,16 @@ pub struct UnsafeKdTree {
 impl UnsafeKdTree {
     /// Build an UnsafeKdTree from a point cloud.
     pub fn new(cloud: &PointCloud) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads)")
+        debug!("Building UnsafeKdTree with 1 thread");
+        let cxx_kdtree = small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), 1);
+        Ok(Self { inner: cxx_kdtree })
     }
 
     /// Build an UnsafeKdTree from a point cloud with specified number of threads.
     pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
-        todo!("Implement using small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads)")
+        debug!("Building UnsafeKdTree with {} threads", num_threads);
+        let cxx_kdtree = small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads as i32);
+        Ok(Self { inner: cxx_kdtree })
     }
 
     /// Find the nearest neighbor to a query point.
@@ -96,7 +187,23 @@ impl UnsafeKdTree {
     /// This method performs unsafe operations for better performance.
     /// The caller must ensure the point cloud used to build this tree is still valid.
     pub unsafe fn nearest_neighbor(&self, point: &Point3<f64>) -> Option<(usize, f64)> {
-        todo!("Implement using inner.unsafe_nearest_neighbor(Point3d{{point.x, point.y, point.z}})")
+        trace!(
+            "Unsafe nearest neighbor search for point ({}, {}, {})",
+            point.x,
+            point.y,
+            point.z
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.nearest_neighbor_with_distance(query);
+        if result.index == usize::MAX {
+            None
+        } else {
+            Some((result.index, result.squared_distance))
+        }
     }
 
     /// Find k nearest neighbors to a query point.
@@ -105,7 +212,24 @@ impl UnsafeKdTree {
     /// This method performs unsafe operations for better performance.
     /// The caller must ensure the point cloud used to build this tree is still valid.
     pub unsafe fn knn_search(&self, point: &Point3<f64>, k: usize) -> Vec<(usize, f64)> {
-        todo!("Implement using inner.unsafe_knn_search(Point3d{{point.x, point.y, point.z}}, k)")
+        trace!(
+            "Unsafe KNN search for point ({}, {}, {}) with k={}",
+            point.x,
+            point.y,
+            point.z,
+            k
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.knn_search_with_distances(query, k);
+        result
+            .indices
+            .into_iter()
+            .zip(result.squared_distances.into_iter())
+            .collect()
     }
 
     /// Find all neighbors within a given radius.
@@ -114,7 +238,24 @@ impl UnsafeKdTree {
     /// This method performs unsafe operations for better performance.
     /// The caller must ensure the point cloud used to build this tree is still valid.
     pub unsafe fn radius_search(&self, point: &Point3<f64>, radius: f64) -> Vec<(usize, f64)> {
-        todo!("Implement using inner.unsafe_radius_search(Point3d{{point.x, point.y, point.z}}, radius)")
+        trace!(
+            "Unsafe radius search for point ({}, {}, {}) with radius={}",
+            point.x,
+            point.y,
+            point.z,
+            radius
+        );
+        let query = small_gicp_cxx::Point3d {
+            x: point.x,
+            y: point.y,
+            z: point.z,
+        };
+        let result = self.inner.radius_search_with_distances(query, radius);
+        result
+            .indices
+            .into_iter()
+            .zip(result.squared_distances.into_iter())
+            .collect()
     }
 
     /// Access the underlying small-gicp-cxx UnsafeKdTree.
@@ -180,9 +321,21 @@ impl KdTreeBuilder {
                 }
             }
             KdTreeStrategy::Unsafe => {
-                // For now, just use the safe version
-                // TODO: Support building UnsafeKdTree and converting to KdTree wrapper
-                todo!("Implement unsafe KdTree strategy")
+                // Build an UnsafeKdTree and wrap it in a safe interface
+                debug!("Building KdTree using unsafe strategy");
+                let unsafe_tree = if self.num_threads == 1 {
+                    UnsafeKdTree::new(cloud)?
+                } else {
+                    UnsafeKdTree::new_parallel(cloud, self.num_threads)?
+                };
+
+                // For now, we convert to a regular KdTree since our API doesn't expose unsafe operations
+                // In the future, we could have a wrapper that provides safe access to unsafe tree
+                if self.num_threads == 1 {
+                    KdTree::new(cloud)
+                } else {
+                    KdTree::new_parallel(cloud, self.num_threads)
+                }
             }
         }
     }
@@ -277,7 +430,8 @@ pub mod algorithms {
         cloud: &P,
         query_point: &Point3<f64>,
     ) -> Option<(usize, f64)> {
-        todo!("Implement generic nearest neighbor search")
+        debug!("Generic nearest neighbor search");
+        kdtree.nearest_neighbor(query_point)
     }
 
     /// Generic k-nearest neighbor search function.
@@ -287,7 +441,8 @@ pub mod algorithms {
         query_point: &Point3<f64>,
         k: usize,
     ) -> Vec<(usize, f64)> {
-        todo!("Implement generic k-nearest neighbor search")
+        debug!("Generic KNN search with k={}", k);
+        kdtree.knn_search(query_point, k)
     }
 
     /// Generic radius search function.
@@ -297,7 +452,8 @@ pub mod algorithms {
         query_point: &Point3<f64>,
         radius: f64,
     ) -> Vec<(usize, f64)> {
-        todo!("Implement generic radius search")
+        debug!("Generic radius search with radius={}", radius);
+        kdtree.radius_search(query_point, radius)
     }
 
     /// Build correspondences between two point clouds.
@@ -307,7 +463,24 @@ pub mod algorithms {
         target_kdtree: &KdTree,
         max_distance: f64,
     ) -> Vec<(usize, usize, f64)> {
-        todo!("Implement correspondence building")
+        debug!(
+            "Building correspondences with max_distance={}",
+            max_distance
+        );
+        let mut correspondences = Vec::new();
+        let max_dist_sq = max_distance * max_distance;
+
+        for i in 0..source.size() {
+            let source_point_4d = source.point(i);
+            let source_point = Point3::new(source_point_4d.x, source_point_4d.y, source_point_4d.z);
+            if let Some((target_idx, sq_dist)) = target_kdtree.nearest_neighbor(&source_point) {
+                if sq_dist <= max_dist_sq {
+                    correspondences.push((i, target_idx, sq_dist.sqrt()));
+                }
+            }
+        }
+
+        correspondences
     }
 
     /// Find the closest point in a point cloud to a query point.
@@ -316,7 +489,17 @@ pub mod algorithms {
         cloud: &P,
         query_point: &Point3<f64>,
     ) -> Result<(usize, Point3<f64>, f64)> {
-        todo!("Implement find closest point using KdTree and PointCloudTrait")
+        debug!("Finding closest point");
+        if let Some((index, sq_dist)) = kdtree.nearest_neighbor(query_point) {
+            let point_4d = cloud.point(index);
+            let point = Point3::new(point_4d.x, point_4d.y, point_4d.z);
+            Ok((index, point, sq_dist.sqrt()))
+        } else {
+            Err(SmallGicpError::IndexOutOfBounds {
+                index: 0,
+                size: cloud.size(),
+            })
+        }
     }
 
     /// Find k nearest points in a point cloud to a query point.
@@ -326,6 +509,16 @@ pub mod algorithms {
         query_point: &Point3<f64>,
         k: usize,
     ) -> Result<Vec<(usize, Point3<f64>, f64)>> {
-        todo!("Implement find k nearest points using KdTree and PointCloudTrait")
+        debug!("Finding {} nearest points", k);
+        let knn_results = kdtree.knn_search(query_point, k);
+        let mut results = Vec::with_capacity(knn_results.len());
+
+        for (index, sq_dist) in knn_results {
+            let point_4d = cloud.point(index);
+            let point = Point3::new(point_4d.x, point_4d.y, point_4d.z);
+            results.push((index, point, sq_dist.sqrt()));
+        }
+
+        Ok(results)
     }
 }

@@ -19,6 +19,24 @@ pub mod ffi {
         pub matrix: [f64; 16],
     }
 
+    /// Nearest neighbor search result with index and distance
+    #[derive(Debug, Clone, Copy)]
+    pub struct NearestNeighborResult {
+        /// Index of the nearest neighbor
+        pub index: usize,
+        /// Squared distance to the nearest neighbor
+        pub squared_distance: f64,
+    }
+
+    /// K-nearest neighbor search result with indices and distances
+    #[derive(Debug, Clone)]
+    pub struct KnnSearchResult {
+        /// Indices of the k nearest neighbors
+        pub indices: Vec<usize>,
+        /// Squared distances to the k nearest neighbors
+        pub squared_distances: Vec<f64>,
+    }
+
     /// Result of point cloud registration
     #[derive(Debug, Clone)]
     pub struct RegistrationResult {
@@ -92,12 +110,37 @@ pub mod ffi {
         fn knn_search(self: &KdTree, point: Point3d, k: usize) -> Vec<usize>;
         fn radius_search(self: &KdTree, point: Point3d, radius: f64) -> Vec<usize>;
 
+        // Distance-returning search methods
+        fn nearest_neighbor_with_distance(self: &KdTree, point: Point3d) -> NearestNeighborResult;
+        fn knn_search_with_distances(self: &KdTree, point: Point3d, k: usize) -> KnnSearchResult;
+        fn radius_search_with_distances(
+            self: &KdTree,
+            point: Point3d,
+            radius: f64,
+        ) -> KnnSearchResult;
+
         // UnsafeKdTree type and methods (high-performance variant)
         type UnsafeKdTree;
 
         fn unsafe_nearest_neighbor(self: &UnsafeKdTree, point: Point3d) -> usize;
         fn unsafe_knn_search(self: &UnsafeKdTree, point: Point3d, k: usize) -> Vec<usize>;
         fn unsafe_radius_search(self: &UnsafeKdTree, point: Point3d, radius: f64) -> Vec<usize>;
+
+        // Distance-returning unsafe search methods
+        fn unsafe_nearest_neighbor_with_distance(
+            self: &UnsafeKdTree,
+            point: Point3d,
+        ) -> NearestNeighborResult;
+        fn unsafe_knn_search_with_distances(
+            self: &UnsafeKdTree,
+            point: Point3d,
+            k: usize,
+        ) -> KnnSearchResult;
+        fn unsafe_radius_search_with_distances(
+            self: &UnsafeKdTree,
+            point: Point3d,
+            radius: f64,
+        ) -> KnnSearchResult;
 
         // GaussianVoxelMap type and methods
         type GaussianVoxelMap;

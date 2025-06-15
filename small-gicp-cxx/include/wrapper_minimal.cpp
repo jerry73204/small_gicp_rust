@@ -13,6 +13,7 @@
 #include <numeric>
 #include <random>
 
+#include <limits>
 #include <small_gicp/benchmark/read_points.hpp>
 
 namespace small_gicp_cxx {
@@ -256,6 +257,64 @@ rust::Vec<size_t> KdTree::radius_search(Point3d point, double radius) const {
   return result;
 }
 
+// Distance-returning search methods
+NearestNeighborResult
+KdTree::nearest_neighbor_with_distance(Point3d point) const {
+  Eigen::Vector4d query(point.x, point.y, point.z, 1.0);
+  size_t index;
+  double sq_distance;
+  NearestNeighborResult result;
+
+  if (tree_->nearest_neighbor_search(query, &index, &sq_distance) == 1) {
+    result.index = index;
+    result.squared_distance = sq_distance;
+  } else {
+    result.index = SIZE_MAX;
+    result.squared_distance = std::numeric_limits<double>::infinity();
+  }
+
+  return result;
+}
+
+KnnSearchResult KdTree::knn_search_with_distances(Point3d point,
+                                                  size_t k) const {
+  Eigen::Vector4d query(point.x, point.y, point.z, 1.0);
+  std::vector<size_t> indices(k);
+  std::vector<double> sq_distances(k);
+
+  size_t num_found =
+      tree_->knn_search(query, k, indices.data(), sq_distances.data());
+
+  KnnSearchResult result;
+  for (size_t i = 0; i < num_found; ++i) {
+    result.indices.push_back(indices[i]);
+    result.squared_distances.push_back(sq_distances[i]);
+  }
+  return result;
+}
+
+KnnSearchResult KdTree::radius_search_with_distances(Point3d point,
+                                                     double radius) const {
+  // Note: This is a placeholder implementation using knn_search with filtering
+  // A proper implementation would require radius_search in the underlying
+  // library
+  KnnSearchResult result;
+
+  // Use a large k for approximate radius search
+  const size_t max_k = 1000;
+  auto knn_result = knn_search_with_distances(point, max_k);
+
+  double radius_sq = radius * radius;
+  for (size_t i = 0; i < knn_result.indices.size(); ++i) {
+    if (knn_result.squared_distances[i] <= radius_sq) {
+      result.indices.push_back(knn_result.indices[i]);
+      result.squared_distances.push_back(knn_result.squared_distances[i]);
+    }
+  }
+
+  return result;
+}
+
 // Minimal GaussianVoxelMap
 GaussianVoxelMap::GaussianVoxelMap(double voxel_size)
     : voxelmap_(std::make_shared<small_gicp::GaussianVoxelMap>(voxel_size)) {}
@@ -493,6 +552,63 @@ rust::Vec<size_t> UnsafeKdTree::unsafe_radius_search(Point3d point,
   // In practice, radius search can be implemented using knn_search with
   // filtering
   rust::Vec<size_t> result;
+  return result;
+}
+
+// Distance-returning unsafe search methods
+NearestNeighborResult
+UnsafeKdTree::unsafe_nearest_neighbor_with_distance(Point3d point) const {
+  Eigen::Vector4d query(point.x, point.y, point.z, 1.0);
+  size_t index;
+  double sq_distance;
+  NearestNeighborResult result;
+
+  if (tree_->nearest_neighbor_search(query, &index, &sq_distance) == 1) {
+    result.index = index;
+    result.squared_distance = sq_distance;
+  } else {
+    result.index = SIZE_MAX;
+    result.squared_distance = std::numeric_limits<double>::infinity();
+  }
+
+  return result;
+}
+
+KnnSearchResult UnsafeKdTree::unsafe_knn_search_with_distances(Point3d point,
+                                                               size_t k) const {
+  Eigen::Vector4d query(point.x, point.y, point.z, 1.0);
+  std::vector<size_t> indices(k);
+  std::vector<double> sq_distances(k);
+
+  size_t num_found =
+      tree_->knn_search(query, k, indices.data(), sq_distances.data());
+
+  KnnSearchResult result;
+  for (size_t i = 0; i < num_found; ++i) {
+    result.indices.push_back(indices[i]);
+    result.squared_distances.push_back(sq_distances[i]);
+  }
+  return result;
+}
+
+KnnSearchResult
+UnsafeKdTree::unsafe_radius_search_with_distances(Point3d point,
+                                                  double radius) const {
+  // Note: This is a placeholder implementation using knn_search with filtering
+  KnnSearchResult result;
+
+  // Use a large k for approximate radius search
+  const size_t max_k = 1000;
+  auto knn_result = unsafe_knn_search_with_distances(point, max_k);
+
+  double radius_sq = radius * radius;
+  for (size_t i = 0; i < knn_result.indices.size(); ++i) {
+    if (knn_result.squared_distances[i] <= radius_sq) {
+      result.indices.push_back(knn_result.indices[i]);
+      result.squared_distances.push_back(knn_result.squared_distances[i]);
+    }
+  }
+
   return result;
 }
 

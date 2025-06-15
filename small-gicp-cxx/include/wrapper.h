@@ -21,6 +21,8 @@ struct Point3d;
 struct Transform;
 struct RegistrationResult;
 struct RegistrationSettings;
+struct NearestNeighborResult;
+struct KnnSearchResult;
 
 // Wrapper class for PointCloud
 class PointCloud {
@@ -78,6 +80,12 @@ public:
   rust::Vec<size_t> knn_search(Point3d point, size_t k) const;
   rust::Vec<size_t> radius_search(Point3d point, double radius) const;
 
+  // Distance-returning search methods
+  NearestNeighborResult nearest_neighbor_with_distance(Point3d point) const;
+  KnnSearchResult knn_search_with_distances(Point3d point, size_t k) const;
+  KnnSearchResult radius_search_with_distances(Point3d point,
+                                               double radius) const;
+
   // Internal access for registration
   small_gicp::KdTree<small_gicp::PointCloud> &get_internal() { return *tree_; }
   const small_gicp::KdTree<small_gicp::PointCloud> &get_internal() const {
@@ -97,6 +105,14 @@ public:
   size_t unsafe_nearest_neighbor(Point3d point) const;
   rust::Vec<size_t> unsafe_knn_search(Point3d point, size_t k) const;
   rust::Vec<size_t> unsafe_radius_search(Point3d point, double radius) const;
+
+  // Distance-returning unsafe search methods
+  NearestNeighborResult
+  unsafe_nearest_neighbor_with_distance(Point3d point) const;
+  KnnSearchResult unsafe_knn_search_with_distances(Point3d point,
+                                                   size_t k) const;
+  KnnSearchResult unsafe_radius_search_with_distances(Point3d point,
+                                                      double radius) const;
 
   // Internal access for registration
   small_gicp::UnsafeKdTree<small_gicp::PointCloud> &get_internal() {

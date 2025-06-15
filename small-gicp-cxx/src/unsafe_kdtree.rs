@@ -1,6 +1,9 @@
 use crate::{
     ffi::{
-        ffi::{create_unsafe_kdtree, UnsafeKdTree as FfiUnsafeKdTree},
+        ffi::{
+            create_unsafe_kdtree, KnnSearchResult, NearestNeighborResult,
+            UnsafeKdTree as FfiUnsafeKdTree,
+        },
         Point3d,
     },
     PointCloud,
@@ -42,6 +45,22 @@ impl UnsafeKdTree {
     /// Find all neighbors within a radius
     pub fn radius_search(&self, x: f64, y: f64, z: f64, radius: f64) -> Vec<usize> {
         self.inner.unsafe_radius_search(Point3d { x, y, z }, radius)
+    }
+
+    /// Find the nearest neighbor with distance
+    pub fn nearest_neighbor_with_distance(&self, point: Point3d) -> NearestNeighborResult {
+        self.inner.unsafe_nearest_neighbor_with_distance(point)
+    }
+
+    /// Find k nearest neighbors with distances
+    pub fn knn_search_with_distances(&self, point: Point3d, k: usize) -> KnnSearchResult {
+        self.inner.unsafe_knn_search_with_distances(point, k)
+    }
+
+    /// Find all neighbors within a radius with distances
+    pub fn radius_search_with_distances(&self, point: Point3d, radius: f64) -> KnnSearchResult {
+        self.inner
+            .unsafe_radius_search_with_distances(point, radius)
     }
 
     /// Get internal FFI handle (for registration algorithms)
