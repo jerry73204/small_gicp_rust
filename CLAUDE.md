@@ -69,6 +69,7 @@ pytest src/test/python_test.py
 ```bash
 # Run `cargo clippy --all-features --all-targets` to check the Rust code quality.
 # Run `cargo +nightly fmt` to format Rust code.
+# Run `cargo test --all-features --all-targets` to check the Rust implementation.
 ```
 
 ## Architecture Overview
@@ -124,3 +125,19 @@ The Python bindings (`src/python/`) expose core functionality:
 ## Wrapper Specific Notes
 
 - The script file small_gicp_c/build.sh can be used to test the CMake build of the C wrapper.
+
+## FFI Considerations
+
+- The FFI crate only provides interface for the C++ library and essential Rust type conversion. Avoid adding excessive features.
+
+## Development Approach
+
+- The Rust library can leave todo!() and comments if the required FFI item is not implemented yet.
+
+## Logging
+
+- Use tracing crate for debug logging in Rust.
+
+## Development Best Practices
+
+- Always run `cargo build --all-targets ...` after working on Rust code to verify if it compiles.
