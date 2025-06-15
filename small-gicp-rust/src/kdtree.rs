@@ -1,544 +1,331 @@
-//! Generic KdTree implementation that works with any PointCloudTrait.
-//!
-//! This module provides a unified KdTree that can work with any implementation
-//! of PointCloudTrait, automatically choosing the best backend strategy.
+//! KdTree spatial indexing for efficient nearest neighbor search.
 
-use crate::{
-    config::{KdTreeConfig, KnnConfig},
-    error::{Result, SmallGicpError},
-    kdtree_internal::CKdTree,
-    point_cloud::conversions,
-    traits::{helpers, PointCloudTrait},
-};
+use crate::{error::Result, point_cloud::PointCloud, traits::PointCloudTrait};
 use nalgebra::Point3;
-use std::marker::PhantomData;
 
-/// Re-export the internal unsafe kdtree for advanced users
-pub use crate::kdtree_internal::UnsafeKdTree;
-
-/// Strategy for KdTree backend selection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KdTreeStrategy {
-    /// Always use the C wrapper backend (most reliable)
-    CWrapper,
-    /// Use C wrapper when possible, fallback for custom types
-    Adaptive,
-    /// Future: Pure Rust implementation (not yet implemented)
-    #[allow(dead_code)]
-    PureRust,
+/// A KdTree for efficient nearest neighbor search in point clouds.
+pub struct KdTree {
+    // TODO: Wrap small_gicp_cxx::KdTree
+    inner: small_gicp_cxx::KdTree,
 }
 
-impl Default for KdTreeStrategy {
-    fn default() -> Self {
-        KdTreeStrategy::Adaptive
+impl KdTree {
+    /// Build a KdTree from a point cloud.
+    pub fn new(cloud: &PointCloud) -> Result<Self> {
+        todo!("Implement using small_gicp_cxx::KdTree::build(cloud.inner(), num_threads)")
+    }
+
+    /// Build a KdTree from a point cloud with specified number of threads.
+    pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
+        todo!("Implement using small_gicp_cxx::KdTree::build(cloud.inner(), num_threads)")
+    }
+
+    /// Build a KdTree from any point cloud that implements PointCloudTrait.
+    pub fn from_trait<P: PointCloudTrait>(cloud: &P) -> Result<Self> {
+        todo!("Implement generic KdTree construction from trait")
+    }
+
+    /// Find the nearest neighbor to a query point.
+    pub fn nearest_neighbor(&self, point: &Point3<f64>) -> Option<(usize, f64)> {
+        todo!("Implement using inner.nearest_neighbor(Point3d{{point.x, point.y, point.z}})")
+    }
+
+    /// Find k nearest neighbors to a query point.
+    pub fn knn_search(&self, point: &Point3<f64>, k: usize) -> Vec<(usize, f64)> {
+        todo!("Implement using inner.knn_search(Point3d{{point.x, point.y, point.z}}, k)")
+    }
+
+    /// Find all neighbors within a given radius.
+    pub fn radius_search(&self, point: &Point3<f64>, radius: f64) -> Vec<(usize, f64)> {
+        todo!("Implement using inner.radius_search(Point3d{{point.x, point.y, point.z}}, radius)")
+    }
+
+    /// Find the nearest neighbor with configuration settings.
+    pub fn nearest_neighbor_with_settings(
+        &self,
+        point: &Point3<f64>,
+        settings: &crate::config::KnnConfig,
+    ) -> Option<(usize, f64)> {
+        todo!("Implement nearest neighbor search with KnnConfig settings")
+    }
+
+    /// Access the underlying small-gicp-cxx KdTree.
+    pub fn inner(&self) -> &small_gicp_cxx::KdTree {
+        &self.inner
+    }
+
+    /// Convert from a small-gicp-cxx KdTree.
+    pub fn from_cxx(inner: small_gicp_cxx::KdTree) -> Self {
+        Self { inner }
+    }
+
+    /// Convert to a small-gicp-cxx KdTree.
+    pub fn into_cxx(self) -> small_gicp_cxx::KdTree {
+        self.inner
+    }
+
+    /// Get backend information string.
+    pub fn backend_info(&self) -> &'static str {
+        "small-gicp-cxx KdTree"
     }
 }
 
-/// A unified KdTree that works with any PointCloudTrait implementation.
+/// An unsafe KdTree variant for high-performance applications.
 ///
-/// This struct provides a unified interface for nearest neighbor search
-/// that automatically selects the best backend based on the point cloud type.
-///
-/// # Examples
-///
-/// ```rust
-/// use nalgebra::Point3;
-/// use small_gicp_rust::{
-///     config::KdTreeConfig, kdtree::KdTree, point_cloud::PointCloud, traits::PointCloudTrait,
-/// };
-///
-/// // Works with C wrapper PointCloud
-/// let cloud = PointCloud::from_points(&[Point3::new(1.0, 2.0, 3.0)])?;
-/// let kdtree = KdTree::new(&cloud, &KdTreeConfig::default())?;
-/// let (index, distance) = kdtree.nearest_neighbor(Point3::new(1.0, 2.0, 3.0))?;
-///
-/// // Also works with custom implementations
-/// // let custom_cloud = MyCustomPointCloud::new();
-/// // let kdtree = KdTree::new(&custom_cloud, &KdTreeConfig::default())?;
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug)]
-pub struct KdTree<'a, P: PointCloudTrait> {
-    backend: KdTreeBackend,
-    phantom: PhantomData<&'a P>,
+/// This provides better performance at the cost of some safety guarantees.
+/// Use with caution in performance-critical applications.
+pub struct UnsafeKdTree {
+    // TODO: Wrap small_gicp_cxx::UnsafeKdTree
+    inner: small_gicp_cxx::UnsafeKdTree,
 }
 
-/// Internal backend storage for different KdTree implementations.
-#[derive(Debug)]
-enum KdTreeBackend {
-    /// Uses the C wrapper KdTree with owned point cloud data
-    CWrapper(CKdTree),
-    /// Uses the unsafe C wrapper KdTree with borrowed data
-    UnsafeCWrapper(crate::kdtree_internal::UnsafeKdTree),
-    /// Future: Pure Rust implementation
-    #[allow(dead_code)]
-    PureRust,
-}
-
-impl<'a, P: PointCloudTrait> KdTree<'a, P> {
-    /// Create a new KdTree from any point cloud type.
-    ///
-    /// This constructor automatically selects the best backend strategy:
-    /// - For C wrapper PointCloud: uses direct C backend
-    /// - For custom types: converts to C wrapper then uses C backend
-    ///
-    /// # Arguments
-    /// * `cloud` - The point cloud to build the tree from
-    /// * `config` - KdTree configuration
-    ///
-    /// # Returns
-    /// A KdTree that provides unified access to nearest neighbor search
-    pub fn new(cloud: &'a P, config: &KdTreeConfig) -> Result<Self> {
-        Self::new_with_strategy(cloud, config, KdTreeStrategy::default())
+impl UnsafeKdTree {
+    /// Build an UnsafeKdTree from a point cloud.
+    pub fn new(cloud: &PointCloud) -> Result<Self> {
+        todo!("Implement using small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads)")
     }
 
-    /// Create a new KdTree with explicit backend strategy.
-    ///
-    /// # Arguments
-    /// * `cloud` - The point cloud to build the tree from
-    /// * `config` - KdTree configuration
-    /// * `strategy` - Backend selection strategy
-    pub fn new_with_strategy(
-        cloud: &'a P,
-        config: &KdTreeConfig,
-        strategy: KdTreeStrategy,
-    ) -> Result<Self> {
-        if cloud.empty() {
-            return Err(SmallGicpError::EmptyPointCloud);
-        }
-
-        let backend = match strategy {
-            KdTreeStrategy::CWrapper => Self::create_c_wrapper_backend(cloud, config)?,
-            KdTreeStrategy::Adaptive => Self::create_adaptive_backend(cloud, config)?,
-            KdTreeStrategy::PureRust => {
-                return Err(SmallGicpError::NotImplemented(
-                    "Pure Rust KdTree not yet implemented".to_string(),
-                ))
-            }
-        };
-
-        Ok(KdTree {
-            backend,
-            phantom: PhantomData,
-        })
-    }
-
-    /// Create a KdTree using the C wrapper backend.
-    ///
-    /// This method converts any point cloud to the C wrapper format,
-    /// which provides maximum compatibility and performance.
-    fn create_c_wrapper_backend(cloud: &P, config: &KdTreeConfig) -> Result<KdTreeBackend> {
-        // Convert to C wrapper format
-        let c_cloud = conversions::from_trait(cloud)?;
-        let kdtree = CKdTree::new(&c_cloud, config)?;
-        Ok(KdTreeBackend::CWrapper(kdtree))
-    }
-
-    /// Create a KdTree using adaptive backend selection.
-    ///
-    /// This tries to use the most efficient backend for the given point cloud type.
-    fn create_adaptive_backend(cloud: &P, config: &KdTreeConfig) -> Result<KdTreeBackend> {
-        // For now, adaptive strategy always uses C wrapper conversion
-        // In the future, this could detect if the cloud is already a C wrapper
-        // and use it directly, or use different strategies for different types
-        Self::create_c_wrapper_backend(cloud, config)
+    /// Build an UnsafeKdTree from a point cloud with specified number of threads.
+    pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
+        todo!("Implement using small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads)")
     }
 
     /// Find the nearest neighbor to a query point.
     ///
-    /// # Arguments
-    /// * `query` - The query point (3D coordinates)
-    ///
-    /// # Returns
-    /// A tuple of (point_index, squared_distance)
-    pub fn nearest_neighbor(&self, query: Point3<f64>) -> Result<(usize, f64)> {
-        match &self.backend {
-            KdTreeBackend::CWrapper(kdtree) => kdtree.nearest_neighbor(query),
-            KdTreeBackend::UnsafeCWrapper(kdtree) => kdtree.nearest_neighbor(query),
-            KdTreeBackend::PureRust => Err(SmallGicpError::NotImplemented(
-                "Pure Rust KdTree not yet implemented".to_string(),
-            )),
-        }
-    }
-
-    /// Find the nearest neighbor with custom search settings.
-    ///
-    /// # Arguments
-    /// * `query` - The query point (3D coordinates)
-    /// * `settings` - KNN search settings for early termination
-    ///
-    /// # Returns
-    /// A tuple of (point_index, squared_distance)
-    pub fn nearest_neighbor_with_settings(
-        &self,
-        query: Point3<f64>,
-        settings: &KnnConfig,
-    ) -> Result<(usize, f64)> {
-        match &self.backend {
-            KdTreeBackend::CWrapper(kdtree) => {
-                kdtree.nearest_neighbor_with_settings(query, settings)
-            }
-            KdTreeBackend::UnsafeCWrapper(kdtree) => {
-                kdtree.nearest_neighbor_with_settings(query, settings)
-            }
-            KdTreeBackend::PureRust => Err(SmallGicpError::NotImplemented(
-                "Pure Rust KdTree not yet implemented".to_string(),
-            )),
-        }
+    /// # Safety
+    /// This method performs unsafe operations for better performance.
+    /// The caller must ensure the point cloud used to build this tree is still valid.
+    pub unsafe fn nearest_neighbor(&self, point: &Point3<f64>) -> Option<(usize, f64)> {
+        todo!("Implement using inner.unsafe_nearest_neighbor(Point3d{{point.x, point.y, point.z}})")
     }
 
     /// Find k nearest neighbors to a query point.
     ///
-    /// # Arguments
-    /// * `query` - The query point (3D coordinates)
-    /// * `k` - Number of neighbors to find
-    ///
-    /// # Returns
-    /// A vector of tuples (point_index, squared_distance) sorted by distance
-    pub fn knn_search(&self, query: Point3<f64>, k: usize) -> Result<Vec<(usize, f64)>> {
-        match &self.backend {
-            KdTreeBackend::CWrapper(kdtree) => kdtree.knn_search(query, k),
-            KdTreeBackend::UnsafeCWrapper(kdtree) => kdtree.knn_search(query, k),
-            KdTreeBackend::PureRust => Err(SmallGicpError::NotImplemented(
-                "Pure Rust KdTree not yet implemented".to_string(),
-            )),
-        }
-    }
-
-    /// Find k nearest neighbors with custom search settings.
-    ///
-    /// # Arguments
-    /// * `query` - The query point (3D coordinates)
-    /// * `k` - Number of neighbors to find
-    /// * `settings` - KNN search settings for early termination
-    ///
-    /// # Returns
-    /// A vector of tuples (point_index, squared_distance) sorted by distance
-    pub fn knn_search_with_settings(
-        &self,
-        query: Point3<f64>,
-        k: usize,
-        settings: &KnnConfig,
-    ) -> Result<Vec<(usize, f64)>> {
-        match &self.backend {
-            KdTreeBackend::CWrapper(kdtree) => kdtree.knn_search_with_settings(query, k, settings),
-            KdTreeBackend::UnsafeCWrapper(kdtree) => {
-                kdtree.knn_search_with_settings(query, k, settings)
-            }
-            KdTreeBackend::PureRust => Err(SmallGicpError::NotImplemented(
-                "Pure Rust KdTree not yet implemented".to_string(),
-            )),
-        }
+    /// # Safety
+    /// This method performs unsafe operations for better performance.
+    /// The caller must ensure the point cloud used to build this tree is still valid.
+    pub unsafe fn knn_search(&self, point: &Point3<f64>, k: usize) -> Vec<(usize, f64)> {
+        todo!("Implement using inner.unsafe_knn_search(Point3d{{point.x, point.y, point.z}}, k)")
     }
 
     /// Find all neighbors within a given radius.
     ///
-    /// # Arguments
-    /// * `query` - The query point (3D coordinates)
-    /// * `radius` - The search radius
-    /// * `max_neighbors` - Maximum number of neighbors to return
-    ///
-    /// # Returns
-    /// A vector of tuples (point_index, squared_distance) within the radius
-    pub fn radius_search(
-        &self,
-        query: Point3<f64>,
-        radius: f64,
-        max_neighbors: usize,
-    ) -> Result<Vec<(usize, f64)>> {
-        match &self.backend {
-            KdTreeBackend::CWrapper(kdtree) => kdtree.radius_search(query, radius, max_neighbors),
-            KdTreeBackend::UnsafeCWrapper(kdtree) => {
-                kdtree.radius_search(query, radius, max_neighbors)
-            }
-            KdTreeBackend::PureRust => Err(SmallGicpError::NotImplemented(
-                "Pure Rust KdTree not yet implemented".to_string(),
-            )),
+    /// # Safety
+    /// This method performs unsafe operations for better performance.
+    /// The caller must ensure the point cloud used to build this tree is still valid.
+    pub unsafe fn radius_search(&self, point: &Point3<f64>, radius: f64) -> Vec<(usize, f64)> {
+        todo!("Implement using inner.unsafe_radius_search(Point3d{{point.x, point.y, point.z}}, radius)")
+    }
+
+    /// Access the underlying small-gicp-cxx UnsafeKdTree.
+    pub fn inner(&self) -> &small_gicp_cxx::UnsafeKdTree {
+        &self.inner
+    }
+
+    /// Convert from a small-gicp-cxx UnsafeKdTree.
+    pub fn from_cxx(inner: small_gicp_cxx::UnsafeKdTree) -> Self {
+        Self { inner }
+    }
+
+    /// Convert to a small-gicp-cxx UnsafeKdTree.
+    pub fn into_cxx(self) -> small_gicp_cxx::UnsafeKdTree {
+        self.inner
+    }
+}
+
+/// Strategy for KdTree construction and search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KdTreeStrategy {
+    /// Standard KdTree with safety guarantees.
+    Safe,
+    /// Unsafe KdTree for maximum performance.
+    Unsafe,
+}
+
+/// Builder for configuring KdTree construction.
+pub struct KdTreeBuilder {
+    strategy: KdTreeStrategy,
+    num_threads: usize,
+}
+
+impl KdTreeBuilder {
+    /// Create a new KdTree builder with default settings.
+    pub fn new() -> Self {
+        Self {
+            strategy: KdTreeStrategy::Safe,
+            num_threads: 1,
         }
     }
 
-    /// Get information about the backend being used.
-    pub fn backend_info(&self) -> &'static str {
-        match &self.backend {
-            KdTreeBackend::CWrapper(_) => "C Wrapper (Owned)",
-            KdTreeBackend::UnsafeCWrapper(_) => "C Wrapper (Unsafe)",
-            KdTreeBackend::PureRust => "Pure Rust",
+    /// Set the KdTree strategy.
+    pub fn strategy(mut self, strategy: KdTreeStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Set the number of threads for parallel construction.
+    pub fn num_threads(mut self, num_threads: usize) -> Self {
+        self.num_threads = num_threads;
+        self
+    }
+
+    /// Build a KdTree from a point cloud.
+    pub fn build(self, cloud: &PointCloud) -> Result<KdTree> {
+        match self.strategy {
+            KdTreeStrategy::Safe => {
+                if self.num_threads == 1 {
+                    KdTree::new(cloud)
+                } else {
+                    KdTree::new_parallel(cloud, self.num_threads)
+                }
+            }
+            KdTreeStrategy::Unsafe => {
+                // For now, just use the safe version
+                // TODO: Support building UnsafeKdTree and converting to KdTree wrapper
+                todo!("Implement unsafe KdTree strategy")
+            }
         }
     }
 }
 
-/// Generic algorithms that work with any PointCloudTrait + KdTree combination.
-pub mod algorithms {
-    use super::*;
-    use crate::traits::{Point4, PointCloudTrait};
-
-    /// Find the closest point in the cloud to a query using trait-based access.
-    ///
-    /// This demonstrates how generic algorithms can combine trait-based point cloud
-    /// access with efficient KdTree search.
-    ///
-    /// # Arguments
-    /// * `cloud` - Any point cloud implementing PointCloudTrait
-    /// * `kdtree` - A KdTree built from the same cloud
-    /// * `query` - The query point as a 4D vector
-    ///
-    /// # Returns
-    /// A tuple of (point_index, actual_point, squared_distance)
-    pub fn find_closest_point_generic<P: PointCloudTrait>(
-        cloud: &P,
-        kdtree: &KdTree<P>,
-        query: Point4<f64>,
-    ) -> Result<(usize, Point4<f64>, f64)> {
-        let query_3d = helpers::point_to_vector3(query);
-        let query_point3 = Point3::new(query_3d.x, query_3d.y, query_3d.z);
-
-        let (index, sq_distance) = kdtree.nearest_neighbor(query_point3)?;
-        let actual_point = cloud.point(index);
-
-        Ok((index, actual_point, sq_distance))
-    }
-
-    /// Compute k-nearest neighbors and return both indices and actual points.
-    ///
-    /// # Arguments
-    /// * `cloud` - Any point cloud implementing PointCloudTrait
-    /// * `kdtree` - A KdTree built from the same cloud
-    /// * `query` - The query point as a 4D vector
-    /// * `k` - Number of neighbors to find
-    ///
-    /// # Returns
-    /// A vector of tuples (point_index, actual_point, squared_distance)
-    pub fn find_knn_points_generic<P: PointCloudTrait>(
-        cloud: &P,
-        kdtree: &KdTree<P>,
-        query: Point4<f64>,
-        k: usize,
-    ) -> Result<Vec<(usize, Point4<f64>, f64)>> {
-        let query_3d = helpers::point_to_vector3(query);
-        let query_point3 = Point3::new(query_3d.x, query_3d.y, query_3d.z);
-
-        let knn_results = kdtree.knn_search(query_point3, k)?;
-
-        let results = knn_results
-            .into_iter()
-            .map(|(index, sq_distance)| {
-                let actual_point = cloud.point(index);
-                (index, actual_point, sq_distance)
-            })
-            .collect();
-
-        Ok(results)
-    }
-
-    /// Filter points by distance using generic trait + KdTree combination.
-    ///
-    /// This shows how generic algorithms can efficiently process large datasets
-    /// by combining trait-based iteration with spatial search.
-    ///
-    /// # Arguments
-    /// * `cloud` - Any point cloud implementing PointCloudTrait
-    /// * `kdtree` - A KdTree built from the same cloud
-    /// * `query_points` - Query points to search around
-    /// * `max_distance` - Maximum distance threshold
-    ///
-    /// # Returns
-    /// A vector of point indices that are within max_distance of any query point
-    pub fn find_points_within_distance<P: PointCloudTrait>(
-        cloud: &P,
-        kdtree: &KdTree<P>,
-        query_points: &[Point4<f64>],
-        max_distance: f64,
-    ) -> Result<Vec<usize>> {
-        let mut result_indices = std::collections::HashSet::new();
-        let max_neighbors = cloud.size().min(1000); // Reasonable limit
-
-        for query in query_points {
-            let query_3d = helpers::point_to_vector3(*query);
-            let query_point3 = Point3::new(query_3d.x, query_3d.y, query_3d.z);
-
-            let nearby_points = kdtree.radius_search(query_point3, max_distance, max_neighbors)?;
-
-            for (index, _) in nearby_points {
-                result_indices.insert(index);
-            }
-        }
-
-        Ok(result_indices.into_iter().collect())
+impl Default for KdTreeBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        config::KdTreeConfig,
-        point_cloud::PointCloud,
-        traits::{helpers, MutablePointCloudTrait, Point4, PointCloudTrait},
-    };
-    use nalgebra::{Point3, Vector4};
+    use nalgebra::Point3;
 
-    // Test with C wrapper PointCloud
     #[test]
-    fn test_kdtree_with_c_wrapper() -> Result<()> {
-        let points = vec![
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(1.0, 0.0, 0.0),
-            Point3::new(0.0, 1.0, 0.0),
-            Point3::new(1.0, 1.0, 0.0),
-        ];
-        let cloud = PointCloud::from_points(&points)?;
+    fn test_kdtree_builder() {
+        let builder = KdTreeBuilder::new();
+        assert_eq!(builder.strategy, KdTreeStrategy::Safe);
+        assert_eq!(builder.num_threads, 1);
 
-        let config = KdTreeConfig::default();
-        let kdtree = KdTree::new(&cloud, &config)?;
-
-        // Test nearest neighbor
-        let query = Point3::new(0.1, 0.1, 0.0);
-        let (index, sq_distance) = kdtree.nearest_neighbor(query)?;
-
-        assert_eq!(index, 0);
-        assert!(sq_distance < 0.1);
-
-        // Test k-nearest neighbors
-        let knn_results = kdtree.knn_search(query, 2)?;
-        assert_eq!(knn_results.len(), 2);
-        assert_eq!(knn_results[0].0, 0); // Closest should be first
-
-        // Test radius search
-        let radius_results = kdtree.radius_search(query, 1.5, 10)?;
-        assert_eq!(radius_results.len(), 4); // All points within radius
-
-        println!("KdTree backend: {}", kdtree.backend_info());
-        Ok(())
-    }
-
-    // Test with custom implementation
-    #[derive(Debug)]
-    struct TestPointCloud {
-        points: Vec<Point4<f64>>,
-    }
-
-    impl TestPointCloud {
-        fn new(points: Vec<Point3<f64>>) -> Self {
-            let points_4d = points
-                .into_iter()
-                .map(|p| helpers::point_from_xyz(p.x, p.y, p.z))
-                .collect();
-            Self { points: points_4d }
-        }
-    }
-
-    impl PointCloudTrait for TestPointCloud {
-        fn size(&self) -> usize {
-            self.points.len()
-        }
-
-        fn has_points(&self) -> bool {
-            true
-        }
-
-        fn point(&self, index: usize) -> Point4<f64> {
-            self.points[index]
-        }
-    }
-
-    impl MutablePointCloudTrait for TestPointCloud {
-        fn resize(&mut self, size: usize) {
-            self.points.resize(size, Vector4::zeros());
-        }
-
-        fn set_point(&mut self, index: usize, point: Point4<f64>) {
-            self.points[index] = point;
-        }
+        let builder = builder.strategy(KdTreeStrategy::Unsafe).num_threads(4);
+        assert_eq!(builder.strategy, KdTreeStrategy::Unsafe);
+        assert_eq!(builder.num_threads, 4);
     }
 
     #[test]
-    fn test_kdtree_with_custom_cloud() -> Result<()> {
-        let points = vec![
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(2.0, 0.0, 0.0),
-            Point3::new(0.0, 2.0, 0.0),
-            Point3::new(2.0, 2.0, 0.0),
-        ];
-        let cloud = TestPointCloud::new(points);
-
-        let config = KdTreeConfig::default();
-        let kdtree = KdTree::new(&cloud, &config)?;
-
-        // Test nearest neighbor
-        let query = Point3::new(0.1, 0.1, 0.0);
-        let (index, sq_distance) = kdtree.nearest_neighbor(query)?;
-
-        assert_eq!(index, 0);
-        assert!(sq_distance < 0.1);
-
-        println!("Custom cloud KdTree backend: {}", kdtree.backend_info());
-        Ok(())
+    fn test_kdtree_strategy() {
+        assert_eq!(KdTreeStrategy::Safe, KdTreeStrategy::Safe);
+        assert_ne!(KdTreeStrategy::Safe, KdTreeStrategy::Unsafe);
     }
 
-    #[test]
-    fn test_generic_algorithms() -> Result<()> {
-        let points = vec![
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(1.0, 0.0, 0.0),
-            Point3::new(0.0, 1.0, 0.0),
-        ];
-        let cloud = PointCloud::from_points(&points)?;
-        let kdtree = KdTree::new(&cloud, &KdTreeConfig::default())?;
+    // TODO: Add integration tests once implementation is complete
+    // #[test]
+    // fn test_kdtree_construction() {
+    //     let points = vec![
+    //         Point3::new(0.0, 0.0, 0.0),
+    //         Point3::new(1.0, 0.0, 0.0),
+    //         Point3::new(0.0, 1.0, 0.0),
+    //         Point3::new(1.0, 1.0, 0.0),
+    //     ];
+    //     let cloud = PointCloud::from_points(&points).unwrap();
+    //     let kdtree = KdTree::new(&cloud).unwrap();
+    //
+    //     let query = Point3::new(0.5, 0.5, 0.0);
+    //     let result = kdtree.nearest_neighbor(&query);
+    //     assert!(result.is_some());
+    // }
 
-        // Test closest point algorithm
-        let query = helpers::point_from_xyz(0.1, 0.1, 0.0);
-        let (index, actual_point, sq_distance) =
-            algorithms::find_closest_point_generic(&cloud, &kdtree, query)?;
+    // #[test]
+    // fn test_knn_search() {
+    //     let points = vec![
+    //         Point3::new(0.0, 0.0, 0.0),
+    //         Point3::new(1.0, 0.0, 0.0),
+    //         Point3::new(0.0, 1.0, 0.0),
+    //         Point3::new(1.0, 1.0, 0.0),
+    //     ];
+    //     let cloud = PointCloud::from_points(&points).unwrap();
+    //     let kdtree = KdTree::new(&cloud).unwrap();
+    //
+    //     let query = Point3::new(0.5, 0.5, 0.0);
+    //     let results = kdtree.knn_search(&query, 2);
+    //     assert_eq!(results.len(), 2);
+    // }
 
-        assert_eq!(index, 0);
-        assert!((actual_point.x - 0.0).abs() < f64::EPSILON);
-        assert!(sq_distance < 0.1);
+    // #[test]
+    // fn test_radius_search() {
+    //     let points = vec![
+    //         Point3::new(0.0, 0.0, 0.0),
+    //         Point3::new(1.0, 0.0, 0.0),
+    //         Point3::new(0.0, 1.0, 0.0),
+    //         Point3::new(1.0, 1.0, 0.0),
+    //     ];
+    //     let cloud = PointCloud::from_points(&points).unwrap();
+    //     let kdtree = KdTree::new(&cloud).unwrap();
+    //
+    //     let query = Point3::new(0.5, 0.5, 0.0);
+    //     let results = kdtree.radius_search(&query, 1.0);
+    //     assert!(results.len() > 0);
+    // }
+}
 
-        // Test KNN algorithm
-        let knn_results = algorithms::find_knn_points_generic(&cloud, &kdtree, query, 2)?;
-        assert_eq!(knn_results.len(), 2);
-        assert_eq!(knn_results[0].0, 0);
+/// Generic algorithms for working with KdTrees and point clouds.
+pub mod algorithms {
+    use super::*;
+    use crate::{error::Result, traits::PointCloudTrait};
 
-        // Test distance filtering
-        let query_points = vec![helpers::point_from_xyz(0.5, 0.5, 0.0)];
-        let nearby_indices =
-            algorithms::find_points_within_distance(&cloud, &kdtree, &query_points, 1.0)?;
-        assert!(!nearby_indices.is_empty());
-
-        Ok(())
+    /// Generic nearest neighbor search function.
+    pub fn nearest_neighbor<P: PointCloudTrait>(
+        kdtree: &KdTree,
+        cloud: &P,
+        query_point: &Point3<f64>,
+    ) -> Option<(usize, f64)> {
+        todo!("Implement generic nearest neighbor search")
     }
 
-    #[test]
-    fn test_strategy_selection() -> Result<()> {
-        let points = vec![Point3::new(1.0, 2.0, 3.0)];
-        let cloud = PointCloud::from_points(&points)?;
-        let config = KdTreeConfig::default();
-
-        // Test explicit C wrapper strategy
-        let kdtree_c = KdTree::new_with_strategy(&cloud, &config, KdTreeStrategy::CWrapper)?;
-        assert!(kdtree_c.backend_info().contains("C Wrapper"));
-
-        // Test adaptive strategy
-        let kdtree_adaptive = KdTree::new_with_strategy(&cloud, &config, KdTreeStrategy::Adaptive)?;
-        assert!(kdtree_adaptive.backend_info().contains("C Wrapper"));
-
-        // Test unsupported strategy
-        let result = KdTree::new_with_strategy(&cloud, &config, KdTreeStrategy::PureRust);
-        assert!(result.is_err());
-
-        Ok(())
+    /// Generic k-nearest neighbor search function.
+    pub fn knn_search<P: PointCloudTrait>(
+        kdtree: &KdTree,
+        cloud: &P,
+        query_point: &Point3<f64>,
+        k: usize,
+    ) -> Vec<(usize, f64)> {
+        todo!("Implement generic k-nearest neighbor search")
     }
 
-    #[test]
-    fn test_empty_cloud_error() {
-        let cloud = TestPointCloud::new(vec![]);
-        let config = KdTreeConfig::default();
+    /// Generic radius search function.
+    pub fn radius_search<P: PointCloudTrait>(
+        kdtree: &KdTree,
+        cloud: &P,
+        query_point: &Point3<f64>,
+        radius: f64,
+    ) -> Vec<(usize, f64)> {
+        todo!("Implement generic radius search")
+    }
 
-        let result = KdTree::new(&cloud, &config);
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            SmallGicpError::EmptyPointCloud
-        ));
+    /// Build correspondences between two point clouds.
+    pub fn build_correspondences<S: PointCloudTrait, T: PointCloudTrait>(
+        source: &S,
+        target: &T,
+        target_kdtree: &KdTree,
+        max_distance: f64,
+    ) -> Vec<(usize, usize, f64)> {
+        todo!("Implement correspondence building")
+    }
+
+    /// Find the closest point in a point cloud to a query point.
+    pub fn find_closest_point_generic<P: PointCloudTrait>(
+        kdtree: &KdTree,
+        cloud: &P,
+        query_point: &Point3<f64>,
+    ) -> Result<(usize, Point3<f64>, f64)> {
+        todo!("Implement find closest point using KdTree and PointCloudTrait")
+    }
+
+    /// Find k nearest points in a point cloud to a query point.
+    pub fn find_knn_points_generic<P: PointCloudTrait>(
+        kdtree: &KdTree,
+        cloud: &P,
+        query_point: &Point3<f64>,
+        k: usize,
+    ) -> Result<Vec<(usize, Point3<f64>, f64)>> {
+        todo!("Implement find k nearest points using KdTree and PointCloudTrait")
     }
 }

@@ -1,7 +1,8 @@
-//! Safe Rust bindings for the small_gicp point cloud registration library.
+//! Pure Rust API for the small_gicp point cloud registration library.
 //!
-//! This crate provides a high-level, safe interface to the small_gicp C++ library
-//! for point cloud registration algorithms including ICP, GICP, and VGICP.
+//! This crate provides a high-level, idiomatic Rust interface for point cloud
+//! registration algorithms including ICP, GICP, and VGICP. It uses the small-gicp-cxx
+//! crate internally for the actual C++ implementation.
 //!
 //! # Features
 //!
@@ -11,14 +12,18 @@
 //! - **Registration algorithms**: ICP, Plane ICP, GICP, and VGICP
 //! - **Thread safety**: All operations can be parallelized
 //! - **Memory safety**: Automatic resource management with RAII
+//! - **Generic programming**: Trait-based design for custom point cloud types
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust,no_run
 //! use nalgebra::Point3;
 //! use small_gicp_rust::prelude::*;
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//! // TODO: This API is not yet implemented
+//! // The following shows the intended interface:
+//!
 //! // Create point clouds
 //! let target_points = vec![
 //!     Point3::new(0.0, 0.0, 0.0),

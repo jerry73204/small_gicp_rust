@@ -440,7 +440,7 @@ fn test_data_persistence_after_operations() {
 
     // Verify data integrity
     let point0 = cloud.get_point(0).unwrap();
-    assert_relative_eq!(point0.x, 1.0, epsilon = 1e-10);
+    assert_relative_eq!(point0.0, 1.0, epsilon = 1e-10);
 
     let normal0 = cloud.get_normal(0).unwrap();
     assert_relative_eq!(normal0.z, 1.0, epsilon = 1e-10);

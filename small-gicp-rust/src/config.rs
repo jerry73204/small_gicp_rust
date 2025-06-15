@@ -620,70 +620,71 @@ impl Default for LocalFeatureEstimationConfig {
     }
 }
 
-// Conversion implementations for backend enums
-impl From<DownsamplingBackend> for small_gicp_sys::small_gicp_downsampling_backend_t {
-    fn from(backend: DownsamplingBackend) -> Self {
-        match backend {
-            DownsamplingBackend::Default => {
-                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_DEFAULT
-            }
-            DownsamplingBackend::OpenMp => {
-                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_OPENMP
-            }
-            DownsamplingBackend::Tbb => {
-                small_gicp_sys::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_TBB
-            }
-        }
-    }
-}
+// TODO: Conversion implementations for backend enums
+// These will be implemented once the appropriate types are exposed in small_gicp_cxx
+// impl From<DownsamplingBackend> for small_gicp_cxx::small_gicp_downsampling_backend_t {
+//     fn from(backend: DownsamplingBackend) -> Self {
+//         match backend {
+//             DownsamplingBackend::Default => {
+//                 small_gicp_cxx::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_DEFAULT
+//             }
+//             DownsamplingBackend::OpenMp => {
+//                 small_gicp_cxx::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_OPENMP
+//             }
+//             DownsamplingBackend::Tbb => {
+//                 small_gicp_cxx::small_gicp_downsampling_backend_t_SMALL_GICP_DOWNSAMPLING_BACKEND_TBB
+//             }
+//         }
+//     }
+// }
 
-impl From<NormalEstimationBackend> for small_gicp_sys::small_gicp_normal_estimation_backend_t {
-    fn from(backend: NormalEstimationBackend) -> Self {
-        match backend {
-            NormalEstimationBackend::Default => {
-                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_DEFAULT
-            }
-            NormalEstimationBackend::OpenMp => {
-                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_OPENMP
-            }
-            NormalEstimationBackend::Tbb => {
-                small_gicp_sys::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_TBB
-            }
-        }
-    }
-}
+// impl From<NormalEstimationBackend> for small_gicp_cxx::small_gicp_normal_estimation_backend_t {
+//     fn from(backend: NormalEstimationBackend) -> Self {
+//         match backend {
+//             NormalEstimationBackend::Default => {
+//                 small_gicp_cxx::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_DEFAULT
+//             }
+//             NormalEstimationBackend::OpenMp => {
+//                 small_gicp_cxx::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_OPENMP
+//             }
+//             NormalEstimationBackend::Tbb => {
+//                 small_gicp_cxx::small_gicp_normal_estimation_backend_t_SMALL_GICP_NORMAL_ESTIMATION_BACKEND_TBB
+//             }
+//         }
+//     }
+// }
 
-impl From<LocalFeaturesBackend> for small_gicp_sys::small_gicp_local_features_backend_t {
-    fn from(backend: LocalFeaturesBackend) -> Self {
-        match backend {
-            LocalFeaturesBackend::Default => {
-                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_DEFAULT
-            }
-            LocalFeaturesBackend::OpenMp => {
-                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_OPENMP
-            }
-            LocalFeaturesBackend::Tbb => {
-                small_gicp_sys::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_TBB
-            }
-        }
-    }
-}
+// impl From<LocalFeaturesBackend> for small_gicp_cxx::small_gicp_local_features_backend_t {
+//     fn from(backend: LocalFeaturesBackend) -> Self {
+//         match backend {
+//             LocalFeaturesBackend::Default => {
+//                 small_gicp_cxx::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_DEFAULT
+//             }
+//             LocalFeaturesBackend::OpenMp => {
+//                 small_gicp_cxx::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_OPENMP
+//             }
+//             LocalFeaturesBackend::Tbb => {
+//                 small_gicp_cxx::small_gicp_local_features_backend_t_SMALL_GICP_LOCAL_FEATURES_BACKEND_TBB
+//             }
+//         }
+//     }
+// }
 
-impl From<LocalFeatureSetterType> for small_gicp_sys::small_gicp_setter_type_t {
-    fn from(setter_type: LocalFeatureSetterType) -> Self {
-        match setter_type {
-            LocalFeatureSetterType::Normal => {
-                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL
-            }
-            LocalFeatureSetterType::Covariance => {
-                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_COVARIANCE
-            }
-            LocalFeatureSetterType::NormalCovariance => {
-                small_gicp_sys::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL_COVARIANCE
-            }
-        }
-    }
-}
+// impl From<LocalFeatureSetterType> for small_gicp_cxx::small_gicp_setter_type_t {
+//     fn from(setter_type: LocalFeatureSetterType) -> Self {
+//         match setter_type {
+//             LocalFeatureSetterType::Normal => {
+//                 small_gicp_cxx::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL
+//             }
+//             LocalFeatureSetterType::Covariance => {
+//                 small_gicp_cxx::small_gicp_setter_type_t_SMALL_GICP_SETTER_COVARIANCE
+//             }
+//             LocalFeatureSetterType::NormalCovariance => {
+//                 small_gicp_cxx::small_gicp_setter_type_t_SMALL_GICP_SETTER_NORMAL_COVARIANCE
+//             }
+//         }
+//     }
+// }
 
 /// Parallel reduction strategy types for registration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

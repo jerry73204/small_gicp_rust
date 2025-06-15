@@ -1,924 +1,438 @@
-//! Point cloud registration algorithms.
+//! Point cloud registration algorithms and utilities.
 
 use crate::{
-    config::{DofRestrictionConfig, GaussianVoxelMapConfig, RobustKernelConfig, RobustKernelType},
-    error::{check_error, Result, SmallGicpError},
-    kdtree_internal::CKdTree,
+    config::{DofRestrictionConfig, RobustKernelConfig, RobustKernelType},
+    error::{Result, SmallGicpError},
+    kdtree::KdTree,
     point_cloud::PointCloud,
 };
-use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
-use std::ptr;
+use nalgebra::{Isometry3, Matrix4};
 
-/// Registration algorithm types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegistrationType {
-    /// Iterative Closest Point (point-to-point)
-    Icp,
-    /// Point-to-plane ICP
-    PlaneIcp,
-    /// Generalized ICP
-    Gicp,
-    /// Voxelized Generalized ICP
-    Vgicp,
+/// Settings for point cloud registration algorithms.
+#[derive(Debug, Clone)]
+pub struct RegistrationSettings {
+    /// Maximum number of iterations.
+    pub max_iterations: u32,
+    /// Convergence threshold for rotation (radians).
+    pub rotation_epsilon: f64,
+    /// Convergence threshold for translation (meters).
+    pub transformation_epsilon: f64,
+    /// Maximum correspondence distance.
+    pub max_correspondence_distance: f64,
+    /// Number of threads to use (0 = auto).
+    pub num_threads: u32,
+    /// Type of registration algorithm to use.
+    pub registration_type: RegistrationType,
+    /// Initial guess for the transformation.
+    pub initial_guess: Option<Isometry3<f64>>,
 }
 
-impl From<RegistrationType> for small_gicp_sys::small_gicp_registration_type_t {
-    fn from(reg_type: RegistrationType) -> Self {
-        match reg_type {
-            RegistrationType::Icp => small_gicp_sys::small_gicp_registration_type_t::SMALL_GICP_ICP,
-            RegistrationType::PlaneIcp => {
-                small_gicp_sys::small_gicp_registration_type_t::SMALL_GICP_PLANE_ICP
-            }
-            RegistrationType::Gicp => {
-                small_gicp_sys::small_gicp_registration_type_t::SMALL_GICP_GICP
-            }
-            RegistrationType::Vgicp => {
-                small_gicp_sys::small_gicp_registration_type_t::SMALL_GICP_VGICP
-            }
+impl Default for RegistrationSettings {
+    fn default() -> Self {
+        Self {
+            max_iterations: 50,
+            rotation_epsilon: 1e-6,
+            transformation_epsilon: 1e-6,
+            max_correspondence_distance: 1.0,
+            num_threads: 0,
+            registration_type: RegistrationType::Icp,
+            initial_guess: None,
         }
+    }
+}
+
+impl RegistrationSettings {
+    /// Create new registration settings with the given registration type.
+    pub fn new(registration_type: RegistrationType) -> Self {
+        Self {
+            registration_type,
+            ..Self::default()
+        }
+    }
+
+    /// Set the number of threads.
+    pub fn with_num_threads(mut self, num_threads: u32) -> Self {
+        self.num_threads = num_threads;
+        self
+    }
+
+    /// Set the initial guess transformation.
+    pub fn with_initial_guess(mut self, initial_guess: Option<Isometry3<f64>>) -> Self {
+        self.initial_guess = initial_guess;
+        self
+    }
+
+    /// Set the maximum number of iterations.
+    pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
+    /// Set the maximum correspondence distance.
+    pub fn with_max_correspondence_distance(mut self, distance: f64) -> Self {
+        self.max_correspondence_distance = distance;
+        self
     }
 }
 
 /// Result of a point cloud registration.
 #[derive(Debug, Clone)]
 pub struct RegistrationResult {
-    /// The estimated transformation from source to target coordinate frame
-    pub transformation: Isometry3<f64>,
-    /// Whether the registration converged
+    /// Final transformation matrix.
+    pub transformation: Matrix4<f64>,
+    /// Whether the registration converged.
     pub converged: bool,
-    /// Number of iterations performed
-    pub iterations: i32,
-    /// Number of inlier correspondences
-    pub num_inliers: i32,
-    /// Final registration error
+    /// Number of iterations performed.
+    pub iterations: u32,
+    /// Final registration error.
     pub error: f64,
-}
-
-/// Extended result of a point cloud registration including information matrix.
-#[derive(Debug, Clone)]
-pub struct ExtendedRegistrationResult {
-    /// The estimated transformation from source to target coordinate frame
-    pub transformation: Isometry3<f64>,
-    /// Whether the registration converged
-    pub converged: bool,
-    /// Number of iterations performed
-    pub iterations: i32,
-    /// Number of inlier correspondences
-    pub num_inliers: i32,
-    /// Final registration error
-    pub error: f64,
-    /// Information matrix (6x6) representing the covariance inverse.
-    /// This provides uncertainty information about the estimated transformation.
-    /// Layout: [row0, row1, row2, row3, row4, row5] where each row has 6 elements.
-    pub information_matrix: [f64; 36],
-    /// Information vector (6x1) from the optimization.
-    /// Layout: [tx, ty, tz, rx, ry, rz]
-    pub information_vector: [f64; 6],
+    /// Number of inlier correspondences.
+    pub num_inliers: usize,
 }
 
 impl RegistrationResult {
-    /// Get the transformation as a 4x4 matrix.
-    pub fn transformation_matrix(&self) -> Matrix4<f64> {
-        self.transformation.to_homogeneous()
+    /// Extract the translation part of the transformation.
+    pub fn translation(&self) -> nalgebra::Vector3<f64> {
+        todo!("Extract translation from transformation matrix")
     }
 
-    /// Get the translation component.
-    pub fn translation(&self) -> Vector3<f64> {
-        self.transformation.translation.vector
+    /// Extract the rotation part of the transformation.
+    pub fn rotation(&self) -> nalgebra::UnitQuaternion<f64> {
+        todo!("Extract rotation from transformation matrix")
     }
 
-    /// Get the rotation component.
-    pub fn rotation(&self) -> UnitQuaternion<f64> {
-        self.transformation.rotation
-    }
-
-    /// Transform a point using this transformation.
-    pub fn transform_point(&self, point: Point3<f64>) -> Point3<f64> {
-        self.transformation * point
-    }
-
-    /// Transform a point cloud using this transformation.
-    pub fn transform_point_cloud(&self, cloud: &PointCloud) -> Result<PointCloud> {
-        let points = cloud.points()?;
-        let transformed_points: Vec<Point3<f64>> =
-            points.iter().map(|p| self.transform_point(*p)).collect();
-
-        PointCloud::from_points(&transformed_points)
+    /// Transform a point using the registration result transformation.
+    pub fn transform_point(&self, point: nalgebra::Point3<f64>) -> nalgebra::Point3<f64> {
+        todo!("Transform point using self.transformation matrix")
     }
 }
 
-impl ExtendedRegistrationResult {
-    /// Get the transformation as a 4x4 matrix.
-    pub fn transformation_matrix(&self) -> Matrix4<f64> {
-        self.transformation.to_homogeneous()
-    }
-
-    /// Get the translation component.
-    pub fn translation(&self) -> Vector3<f64> {
-        self.transformation.translation.vector
-    }
-
-    /// Get the rotation component.
-    pub fn rotation(&self) -> UnitQuaternion<f64> {
-        self.transformation.rotation
-    }
-
-    /// Transform a point using this transformation.
-    pub fn transform_point(&self, point: Point3<f64>) -> Point3<f64> {
-        self.transformation * point
-    }
-
-    /// Transform a point cloud using this transformation.
-    pub fn transform_point_cloud(&self, cloud: &PointCloud) -> Result<PointCloud> {
-        let points = cloud.points()?;
-        let transformed_points: Vec<Point3<f64>> =
-            points.iter().map(|p| self.transform_point(*p)).collect();
-
-        PointCloud::from_points(&transformed_points)
-    }
-
-    /// Get the information matrix as a 6x6 nalgebra matrix.
-    /// This represents the inverse of the covariance matrix.
-    pub fn information_matrix_6x6(&self) -> nalgebra::Matrix6<f64> {
-        nalgebra::Matrix6::from_row_slice(&self.information_matrix)
-    }
-
-    /// Get the information vector as a 6x1 nalgebra vector.
-    pub fn information_vector_6x1(&self) -> nalgebra::Vector6<f64> {
-        nalgebra::Vector6::from_row_slice(&self.information_vector)
-    }
-
-    /// Convert to basic RegistrationResult (without information matrix).
-    pub fn to_basic(&self) -> RegistrationResult {
-        RegistrationResult {
-            transformation: self.transformation,
-            converged: self.converged,
-            iterations: self.iterations,
-            num_inliers: self.num_inliers,
-            error: self.error,
-        }
-    }
-}
-
-impl From<small_gicp_sys::small_gicp_registration_result_t> for RegistrationResult {
-    fn from(result: small_gicp_sys::small_gicp_registration_result_t) -> Self {
-        // Convert row-major 4x4 matrix to Isometry3
-        let matrix = Matrix4::from_row_slice(&result.T_target_source);
-
-        // Extract translation and rotation
-        let translation = Translation3::new(matrix[(0, 3)], matrix[(1, 3)], matrix[(2, 3)]);
-        let rotation_matrix = matrix.fixed_view::<3, 3>(0, 0);
-        let rotation = UnitQuaternion::from_matrix(&rotation_matrix.into());
-
-        let transformation = Isometry3::from_parts(translation, rotation);
-
-        RegistrationResult {
-            transformation,
-            converged: result.converged,
-            iterations: result.iterations,
-            num_inliers: result.num_inliers,
-            error: result.error,
-        }
-    }
-}
-
-impl From<small_gicp_sys::small_gicp_registration_result_extended_t>
-    for ExtendedRegistrationResult
-{
-    fn from(result: small_gicp_sys::small_gicp_registration_result_extended_t) -> Self {
-        // Convert row-major 4x4 matrix to Isometry3
-        let matrix = Matrix4::from_row_slice(&result.T_target_source);
-
-        // Extract translation and rotation
-        let translation = Translation3::new(matrix[(0, 3)], matrix[(1, 3)], matrix[(2, 3)]);
-        let rotation_matrix = matrix.fixed_view::<3, 3>(0, 0);
-        let rotation = UnitQuaternion::from_matrix(&rotation_matrix.into());
-
-        let transformation = Isometry3::from_parts(translation, rotation);
-
-        ExtendedRegistrationResult {
-            transformation,
-            converged: result.converged,
-            iterations: result.iterations,
-            num_inliers: result.num_inliers,
-            error: result.error,
-            information_matrix: result.H,
-            information_vector: result.b,
-        }
-    }
-}
-
-/// Registration parameters and settings.
+/// Extended registration result with additional information.
 #[derive(Debug, Clone)]
-pub struct RegistrationSettings {
-    /// Registration algorithm type
-    pub registration_type: RegistrationType,
-    /// Number of threads to use (1 for single-threaded)
-    pub num_threads: usize,
-    /// Initial transformation guess (identity if None)
-    pub initial_guess: Option<Isometry3<f64>>,
+pub struct ExtendedRegistrationResult {
+    /// Basic registration result.
+    pub result: RegistrationResult,
+    /// Information matrix (inverse covariance).
+    pub information_matrix: Matrix4<f64>,
+    /// Number of valid correspondences.
+    pub num_correspondences: usize,
 }
 
-impl Default for RegistrationSettings {
-    fn default() -> Self {
-        RegistrationSettings {
-            registration_type: RegistrationType::Gicp,
-            num_threads: 1,
-            initial_guess: None,
-        }
-    }
+/// Type of registration algorithm to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegistrationType {
+    /// Point-to-point ICP.
+    Icp,
+    /// Point-to-plane ICP.
+    PlaneIcp,
+    /// Generalized ICP.
+    Gicp,
+    /// Voxelized GICP.
+    Vgicp,
 }
 
-/// Voxelized point cloud for VGICP registration.
-#[derive(Debug)]
-pub struct GaussianVoxelMap {
-    pub(crate) handle: *mut small_gicp_sys::small_gicp_gaussian_voxelmap_t,
-}
-
-impl GaussianVoxelMap {
-    /// Create a Gaussian voxel map from a point cloud.
-    ///
-    /// # Arguments
-    /// * `cloud` - The point cloud to voxelize
-    /// * `config` - Gaussian voxel map configuration
-    pub fn new(cloud: &PointCloud, config: &GaussianVoxelMapConfig) -> Result<Self> {
-        if cloud.is_empty() {
-            return Err(SmallGicpError::EmptyPointCloud);
-        }
-
-        let GaussianVoxelMapConfig {
-            voxel_resolution,
-            num_threads,
-        } = *config;
-
-        let mut handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_gaussian_voxelmap_create(
-                cloud.handle,
-                voxel_resolution,
-                num_threads as i32,
-                &mut handle,
-            )
-        };
-        check_error(error)?;
-        Ok(GaussianVoxelMap { handle })
-    }
-
-    /// Create a Gaussian voxel map from a point cloud (legacy method).
-    ///
-    /// # Arguments
-    /// * `cloud` - The point cloud to voxelize
-    /// * `voxel_resolution` - Size of each voxel
-    /// * `num_threads` - Number of threads to use
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use new() with GaussianVoxelMapConfig instead"
-    )]
-    pub fn new_legacy(
-        cloud: &PointCloud,
-        voxel_resolution: f64,
-        num_threads: usize,
-    ) -> Result<Self> {
-        let config = GaussianVoxelMapConfig {
-            voxel_resolution,
-            num_threads,
-        };
-        Self::new(cloud, &config)
-    }
-}
-
-impl Drop for GaussianVoxelMap {
-    fn drop(&mut self) {
-        if !self.handle.is_null() {
-            unsafe {
-                small_gicp_sys::small_gicp_gaussian_voxelmap_destroy(self.handle);
-            }
-        }
-    }
-}
-
-// Ensure GaussianVoxelMap is Send and Sync
-unsafe impl Send for GaussianVoxelMap {}
-unsafe impl Sync for GaussianVoxelMap {}
-
-/// Robust kernel for outlier rejection during registration.
-#[derive(Debug)]
+/// Robust kernel for outlier rejection.
+#[derive(Debug, Clone)]
 pub struct RobustKernel {
-    pub(crate) handle: *mut small_gicp_sys::small_gicp_robust_kernel_t,
+    /// Type of robust kernel.
+    pub kernel_type: RobustKernelType,
+    /// Kernel parameter (threshold).
+    pub parameter: f64,
 }
 
 impl RobustKernel {
-    /// Create a new robust kernel.
-    ///
-    /// # Arguments
-    /// * `config` - Robust kernel configuration
-    pub fn new(config: &RobustKernelConfig) -> Result<Self> {
-        let kernel_type = match config.kernel_type {
-            RobustKernelType::None => {
-                return Err(SmallGicpError::InvalidParameter {
-                    param: "kernel_type",
-                    value: "None".to_string(),
-                });
-            }
-            RobustKernelType::Huber => 1, // SMALL_GICP_ROBUST_KERNEL_HUBER
-            RobustKernelType::Cauchy => 2, // SMALL_GICP_ROBUST_KERNEL_CAUCHY
-        };
-
-        let mut handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_create_robust_kernel(
-                kernel_type,
-                config.scale_parameter,
-                &mut handle,
-            )
-        };
-        check_error(error)?;
-        Ok(RobustKernel { handle })
-    }
-
-    /// Create a Huber robust kernel with the specified scale parameter.
-    ///
-    /// # Arguments
-    /// * `scale` - Scale parameter (threshold for switching between quadratic and linear regions)
-    pub fn huber(scale: f64) -> Result<Self> {
-        let config = RobustKernelConfig {
-            kernel_type: RobustKernelType::Huber,
-            scale_parameter: scale,
-        };
-        Self::new(&config)
-    }
-
-    /// Create a Cauchy robust kernel with the specified scale parameter.
-    ///
-    /// # Arguments
-    /// * `scale` - Scale parameter controlling influence of outliers
-    pub fn cauchy(scale: f64) -> Result<Self> {
-        let config = RobustKernelConfig {
-            kernel_type: RobustKernelType::Cauchy,
-            scale_parameter: scale,
-        };
-        Self::new(&config)
-    }
-
-    /// Compute the robust weight for a given error value.
-    ///
-    /// # Arguments
-    /// * `error` - Error value to compute weight for
-    ///
-    /// # Returns
-    /// Robust weight between 0.0 and 1.0
-    pub fn compute_weight(&self, error: f64) -> Result<f64> {
-        let mut weight = 0.0;
-        let error_code = unsafe {
-            small_gicp_sys::small_gicp_compute_robust_weight(self.handle, error, &mut weight)
-        };
-        check_error(error_code)?;
-        Ok(weight)
-    }
-}
-
-impl Drop for RobustKernel {
-    fn drop(&mut self) {
-        if !self.handle.is_null() {
-            unsafe {
-                small_gicp_sys::small_gicp_destroy_robust_kernel(self.handle);
-            }
+    /// Create a new robust kernel from type and parameter.
+    pub fn with_type(kernel_type: RobustKernelType, parameter: f64) -> Self {
+        Self {
+            kernel_type,
+            parameter,
         }
     }
+
+    /// Create a new robust kernel from configuration.
+    pub fn from_config(config: &RobustKernelConfig) -> Result<Self> {
+        if config.kernel_type == RobustKernelType::None {
+            return Err(SmallGicpError::InvalidParameter {
+                param: "kernel_type",
+                value: "None is not a valid kernel type".to_string(),
+            });
+        }
+        Ok(Self {
+            kernel_type: config.kernel_type,
+            parameter: config.scale_parameter,
+        })
+    }
+
+    /// Create a Huber robust kernel with the given threshold.
+    pub fn huber(threshold: f64) -> Result<Self> {
+        Ok(Self {
+            kernel_type: RobustKernelType::Huber,
+            parameter: threshold,
+        })
+    }
+
+    /// Compute the weight for a given error value.
+    pub fn compute_weight(&self, error: f64) -> Result<f64> {
+        todo!("Implement robust kernel weight computation using small-gicp-cxx")
+    }
+
+    /// Create a Cauchy robust kernel with the given threshold.
+    pub fn cauchy(threshold: f64) -> Result<Self> {
+        Ok(Self {
+            kernel_type: RobustKernelType::Cauchy,
+            parameter: threshold,
+        })
+    }
+
+    /// Create a new robust kernel from configuration (for tests).
+    pub fn new(config: &RobustKernelConfig) -> Result<Self> {
+        Self::from_config(config)
+    }
 }
 
-// Ensure RobustKernel is Send and Sync
-unsafe impl Send for RobustKernel {}
-unsafe impl Sync for RobustKernel {}
-
-/// DOF (Degrees of Freedom) restriction for constrained registration.
-#[derive(Debug)]
+/// Degrees of freedom restriction for registration.
+#[derive(Debug, Clone)]
 pub struct DofRestriction {
-    pub(crate) handle: *mut small_gicp_sys::small_gicp_restrict_dof_factor_t,
+    /// Mask for translation DOF (x, y, z).
+    pub translation_mask: [bool; 3],
+    /// Mask for rotation DOF (roll, pitch, yaw).
+    pub rotation_mask: [bool; 3],
 }
 
 impl DofRestriction {
-    /// Create a new DOF restriction.
-    ///
-    /// # Arguments
-    /// * `config` - DOF restriction configuration
-    pub fn new(config: &DofRestrictionConfig) -> Result<Self> {
-        let mut handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_create_dof_restriction(
-                config.restriction_factor,
-                config.rotation_mask.as_ptr(),
-                config.translation_mask.as_ptr(),
-                &mut handle,
-            )
-        };
-        check_error(error)?;
-        Ok(DofRestriction { handle })
-    }
-
-    /// Create a DOF restriction for 2D planar registration.
-    /// Allows X/Y rotation and all translations, but restricts Z rotation.
-    pub fn planar_2d() -> Result<Self> {
-        let config = DofRestrictionConfig::planar_2d();
-        Self::new(&config)
-    }
-
-    /// Create a DOF restriction that only allows yaw rotation (rotation around Z-axis).
-    /// Restricts X/Y rotation but allows Z rotation and all translations.
-    pub fn yaw_only() -> Result<Self> {
-        let config = DofRestrictionConfig::yaw_only();
-        Self::new(&config)
-    }
-
-    /// Create a DOF restriction that only allows XY translation.
-    /// Restricts all rotations and Z translation.
-    pub fn xy_translation_only() -> Result<Self> {
-        let config = DofRestrictionConfig::xy_translation_only();
-        Self::new(&config)
-    }
-}
-
-impl Drop for DofRestriction {
-    fn drop(&mut self) {
-        if !self.handle.is_null() {
-            unsafe {
-                small_gicp_sys::small_gicp_destroy_dof_restriction(self.handle);
-            }
+    /// Create a new DOF restriction with custom masks.
+    pub fn with_masks(translation_mask: [bool; 3], rotation_mask: [bool; 3]) -> Self {
+        Self {
+            translation_mask,
+            rotation_mask,
         }
     }
+
+    /// Create a new DOF restriction from configuration.
+    pub fn from_config(config: &DofRestrictionConfig) -> Result<Self> {
+        // Convert f64 masks to bool masks (> 0.5 = true)
+        let translation_mask = [
+            config.translation_mask[0] > 0.5,
+            config.translation_mask[1] > 0.5,
+            config.translation_mask[2] > 0.5,
+        ];
+        let rotation_mask = [
+            config.rotation_mask[0] > 0.5,
+            config.rotation_mask[1] > 0.5,
+            config.rotation_mask[2] > 0.5,
+        ];
+        Ok(Self {
+            translation_mask,
+            rotation_mask,
+        })
+    }
+
+    /// No DOF restrictions (6-DOF registration).
+    pub fn none() -> Self {
+        Self {
+            translation_mask: [true, true, true],
+            rotation_mask: [true, true, true],
+        }
+    }
+
+    /// Restrict to 2D planar motion (x, y, yaw).
+    pub fn planar_2d() -> Result<Self> {
+        Ok(Self {
+            translation_mask: [true, true, false],
+            rotation_mask: [false, false, true],
+        })
+    }
+
+    /// Restrict to yaw rotation only.
+    pub fn yaw_only() -> Result<Self> {
+        Ok(Self {
+            translation_mask: [true, true, true],
+            rotation_mask: [false, false, true],
+        })
+    }
+
+    /// Restrict to XY translation only.
+    pub fn xy_translation_only() -> Result<Self> {
+        Ok(Self {
+            translation_mask: [true, true, false],
+            rotation_mask: [false, false, false],
+        })
+    }
+
+    /// Create a new DOF restriction from configuration (for tests).
+    pub fn new(config: &DofRestrictionConfig) -> Result<Self> {
+        Self::from_config(config)
+    }
 }
 
-// Ensure DofRestriction is Send and Sync
-unsafe impl Send for DofRestriction {}
-unsafe impl Sync for DofRestriction {}
+/// Gaussian voxel map for VGICP registration.
+pub struct GaussianVoxelMap {
+    // TODO: Wrap small_gicp_cxx::VoxelMap
+    inner: small_gicp_cxx::VoxelMap,
+}
 
-/// Perform point cloud registration.
-///
-/// This function automatically preprocesses the point clouds and performs registration.
-///
-/// # Arguments
-/// * `target` - The target point cloud
-/// * `source` - The source point cloud to align to the target
-/// * `settings` - Registration settings
-///
-/// # Returns
-/// Registration result containing the transformation and statistics
+impl GaussianVoxelMap {
+    /// Create a new Gaussian voxel map from a point cloud and config.
+    pub fn new<T>(cloud: &PointCloud, config: &T) -> Result<Self> {
+        todo!("Implement using small_gicp_cxx::VoxelMap with point cloud and config")
+    }
+
+    /// Create a new Gaussian voxel map with voxel size.
+    pub fn with_voxel_size(voxel_size: f64) -> Self {
+        todo!("Implement using small_gicp_cxx::VoxelMap::new(voxel_size)")
+    }
+
+    /// Insert a point cloud into the voxel map.
+    pub fn insert(&mut self, cloud: &PointCloud) -> Result<()> {
+        todo!("Implement using inner.insert(cloud.inner())")
+    }
+
+    /// Get the number of voxels.
+    pub fn size(&self) -> usize {
+        todo!("Implement using inner.size()")
+    }
+}
+
+/// Perform point cloud registration using ICP algorithm.
 pub fn register(
     target: &PointCloud,
     source: &PointCloud,
     settings: &RegistrationSettings,
 ) -> Result<RegistrationResult> {
-    if target.is_empty() || source.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // Convert initial guess to row-major 4x4 matrix
-    let initial_guess_matrix = if let Some(guess) = settings.initial_guess {
-        let matrix = guess.to_homogeneous();
-        Some([
-            matrix[(0, 0)],
-            matrix[(0, 1)],
-            matrix[(0, 2)],
-            matrix[(0, 3)],
-            matrix[(1, 0)],
-            matrix[(1, 1)],
-            matrix[(1, 2)],
-            matrix[(1, 3)],
-            matrix[(2, 0)],
-            matrix[(2, 1)],
-            matrix[(2, 2)],
-            matrix[(2, 3)],
-            matrix[(3, 0)],
-            matrix[(3, 1)],
-            matrix[(3, 2)],
-            matrix[(3, 3)],
-        ])
-    } else {
-        None
-    };
-
-    let initial_guess_ptr = initial_guess_matrix
-        .as_ref()
-        .map(|m| m.as_ptr())
-        .unwrap_or(ptr::null());
-
-    let mut result = small_gicp_sys::small_gicp_registration_result_t {
-        T_target_source: [0.0; 16],
-        converged: false,
-        iterations: 0,
-        num_inliers: 0,
-        error: 0.0,
-    };
-
-    let error = unsafe {
-        small_gicp_sys::small_gicp_align(
-            target.handle,
-            source.handle,
-            settings.registration_type.into(),
-            initial_guess_ptr,
-            settings.num_threads as i32,
-            &mut result,
-        )
-    };
-
-    check_error(error)?;
-
-    let registration_result = RegistrationResult::from(result);
-
-    if !registration_result.converged {
-        return Err(SmallGicpError::RegistrationFailed {
-            iterations: registration_result.iterations,
-        });
-    }
-
-    Ok(registration_result)
+    todo!("Implement using small_gicp_cxx registration functions")
 }
 
-/// Perform registration with preprocessed point clouds.
-///
-/// This function assumes the point clouds have already been preprocessed
-/// (downsampled, normals computed, etc.).
-///
-/// # Arguments
-/// * `target` - The preprocessed target point cloud
-/// * `source` - The preprocessed source point cloud
-/// * `target_tree` - KdTree for the target point cloud
-/// * `settings` - Registration settings
-///
-/// # Returns
-/// Registration result containing the transformation and statistics
-pub fn register_preprocessed(
+/// Perform point cloud registration with a pre-built target KdTree.
+pub fn register_with_kdtree(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &CKdTree,
+    target_tree: &KdTree,
     settings: &RegistrationSettings,
 ) -> Result<RegistrationResult> {
-    if target.is_empty() || source.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // Convert initial guess to row-major 4x4 matrix
-    let initial_guess_matrix = if let Some(guess) = settings.initial_guess {
-        let matrix = guess.to_homogeneous();
-        Some([
-            matrix[(0, 0)],
-            matrix[(0, 1)],
-            matrix[(0, 2)],
-            matrix[(0, 3)],
-            matrix[(1, 0)],
-            matrix[(1, 1)],
-            matrix[(1, 2)],
-            matrix[(1, 3)],
-            matrix[(2, 0)],
-            matrix[(2, 1)],
-            matrix[(2, 2)],
-            matrix[(2, 3)],
-            matrix[(3, 0)],
-            matrix[(3, 1)],
-            matrix[(3, 2)],
-            matrix[(3, 3)],
-        ])
-    } else {
-        None
-    };
-
-    let initial_guess_ptr = initial_guess_matrix
-        .as_ref()
-        .map(|m| m.as_ptr())
-        .unwrap_or(ptr::null());
-
-    let mut result = small_gicp_sys::small_gicp_registration_result_t {
-        T_target_source: [0.0; 16],
-        converged: false,
-        iterations: 0,
-        num_inliers: 0,
-        error: 0.0,
-    };
-
-    let error = unsafe {
-        small_gicp_sys::small_gicp_align_preprocessed(
-            target.handle,
-            source.handle,
-            target_tree.handle,
-            settings.registration_type.into(),
-            initial_guess_ptr,
-            settings.num_threads as i32,
-            &mut result,
-        )
-    };
-
-    check_error(error)?;
-
-    let registration_result = RegistrationResult::from(result);
-
-    if !registration_result.converged {
-        return Err(SmallGicpError::RegistrationFailed {
-            iterations: registration_result.iterations,
-        });
-    }
-
-    Ok(registration_result)
+    todo!("Implement using small_gicp_cxx registration functions with KdTree")
 }
 
-/// Perform VGICP registration using a Gaussian voxel map.
-///
-/// # Arguments
-/// * `target_voxelmap` - The target voxel map
-/// * `source` - The source point cloud
-/// * `settings` - Registration settings
-///
-/// # Returns
-/// Registration result containing the transformation and statistics
-pub fn register_vgicp(
-    target_voxelmap: &GaussianVoxelMap,
-    source: &PointCloud,
-    settings: &RegistrationSettings,
-) -> Result<RegistrationResult> {
-    if source.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // Convert initial guess to row-major 4x4 matrix
-    let initial_guess_matrix = if let Some(guess) = settings.initial_guess {
-        let matrix = guess.to_homogeneous();
-        Some([
-            matrix[(0, 0)],
-            matrix[(0, 1)],
-            matrix[(0, 2)],
-            matrix[(0, 3)],
-            matrix[(1, 0)],
-            matrix[(1, 1)],
-            matrix[(1, 2)],
-            matrix[(1, 3)],
-            matrix[(2, 0)],
-            matrix[(2, 1)],
-            matrix[(2, 2)],
-            matrix[(2, 3)],
-            matrix[(3, 0)],
-            matrix[(3, 1)],
-            matrix[(3, 2)],
-            matrix[(3, 3)],
-        ])
-    } else {
-        None
-    };
-
-    let initial_guess_ptr = initial_guess_matrix
-        .as_ref()
-        .map(|m| m.as_ptr())
-        .unwrap_or(ptr::null());
-
-    let mut result = small_gicp_sys::small_gicp_registration_result_t {
-        T_target_source: [0.0; 16],
-        converged: false,
-        iterations: 0,
-        num_inliers: 0,
-        error: 0.0,
-    };
-
-    let error = unsafe {
-        small_gicp_sys::small_gicp_align_vgicp(
-            target_voxelmap.handle,
-            source.handle,
-            initial_guess_ptr,
-            settings.num_threads as i32,
-            &mut result,
-        )
-    };
-
-    check_error(error)?;
-
-    let registration_result = RegistrationResult::from(result);
-
-    if !registration_result.converged {
-        return Err(SmallGicpError::RegistrationFailed {
-            iterations: registration_result.iterations,
-        });
-    }
-
-    Ok(registration_result)
-}
-
-/// Perform advanced registration with full pipeline control.
-///
-/// This function provides complete control over the registration process,
-/// including robust kernels, DOF restrictions, and extended results.
-///
-/// # Arguments
-/// * `target` - The target point cloud (should be preprocessed)
-/// * `source` - The source point cloud to align to the target (should be preprocessed)
-/// * `target_tree` - KdTree for the target point cloud
-/// * `settings` - Registration settings
-/// * `robust_kernel` - Optional robust kernel for outlier rejection
-/// * `dof_restriction` - Optional DOF restriction for constrained registration
-/// * `initial_guess` - Optional initial transformation guess
-///
-/// # Returns
-/// Extended registration result with information matrix
+/// Perform advanced registration with additional options.
 pub fn register_advanced(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &CKdTree,
-    settings: &RegistrationSettings,
+    registration_type: RegistrationType,
+    initial_guess: Option<&Isometry3<f64>>,
     robust_kernel: Option<&RobustKernel>,
     dof_restriction: Option<&DofRestriction>,
-    initial_guess: Option<Isometry3<f64>>,
+    settings: &RegistrationSettings,
 ) -> Result<ExtendedRegistrationResult> {
-    if target.is_empty() || source.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // Create default registration settings
-    let mut reg_setting = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_create_default_registration_setting(
-            settings.registration_type.into(),
-            &mut reg_setting,
-        )
-    };
-    check_error(error)?;
-
-    // Create termination criteria
-    let mut criteria = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_create_termination_criteria(
-            1e-4,                                // Default translation eps
-            0.05 * std::f64::consts::PI / 180.0, // Default rotation eps in radians
-            &mut criteria,
-        )
-    };
-    check_error(error)?;
-
-    // Create optimizer setting
-    let mut optimizer = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_create_default_optimizer_setting(
-            1, // SMALL_GICP_OPTIMIZER_LEVENBERG_MARQUARDT
-            &mut optimizer,
-        )
-    };
-    check_error(error)?;
-
-    // Create correspondence rejector
-    let mut rejector = ptr::null_mut();
-    let error = unsafe {
-        small_gicp_sys::small_gicp_create_correspondence_rejector(
-            1,   // SMALL_GICP_REJECTOR_DISTANCE
-            1.0, // Default max distance
-            &mut rejector,
-        )
-    };
-    check_error(error)?;
-
-    // Convert initial guess to row-major 4x4 matrix
-    let initial_guess_matrix = if let Some(guess) = initial_guess {
-        let matrix = guess.to_homogeneous();
-        Some([
-            matrix[(0, 0)],
-            matrix[(0, 1)],
-            matrix[(0, 2)],
-            matrix[(0, 3)],
-            matrix[(1, 0)],
-            matrix[(1, 1)],
-            matrix[(1, 2)],
-            matrix[(1, 3)],
-            matrix[(2, 0)],
-            matrix[(2, 1)],
-            matrix[(2, 2)],
-            matrix[(2, 3)],
-            matrix[(3, 0)],
-            matrix[(3, 1)],
-            matrix[(3, 2)],
-            matrix[(3, 3)],
-        ])
-    } else {
-        None
-    };
-
-    let initial_guess_ptr = initial_guess_matrix
-        .as_ref()
-        .map(|m| m.as_ptr())
-        .unwrap_or(ptr::null());
-
-    let robust_kernel_ptr = robust_kernel.map(|k| k.handle).unwrap_or(ptr::null_mut());
-    let dof_restriction_ptr = dof_restriction.map(|d| d.handle).unwrap_or(ptr::null_mut());
-
-    let mut result = small_gicp_sys::small_gicp_registration_result_extended_t {
-        T_target_source: [0.0; 16],
-        converged: false,
-        iterations: 0,
-        num_inliers: 0,
-        error: 0.0,
-        H: [0.0; 36],
-        b: [0.0; 6],
-    };
-
-    let error = unsafe {
-        small_gicp_sys::small_gicp_align_advanced(
-            target.handle,
-            source.handle,
-            target_tree.handle,
-            initial_guess_ptr,
-            reg_setting,
-            criteria,
-            optimizer,
-            rejector,
-            robust_kernel_ptr,
-            dof_restriction_ptr,
-            &mut result,
-        )
-    };
-
-    // Cleanup
-    unsafe {
-        small_gicp_sys::small_gicp_destroy_correspondence_rejector(rejector);
-        small_gicp_sys::small_gicp_destroy_optimizer_setting(optimizer);
-        small_gicp_sys::small_gicp_destroy_termination_criteria(criteria);
-        small_gicp_sys::small_gicp_destroy_registration_setting(reg_setting);
-    }
-
-    check_error(error)?;
-
-    let registration_result = ExtendedRegistrationResult::from(result);
-
-    if !registration_result.converged {
-        return Err(SmallGicpError::RegistrationFailed {
-            iterations: registration_result.iterations,
-        });
-    }
-
-    Ok(registration_result)
+    todo!("Implement using small_gicp_cxx advanced registration functions")
 }
 
-/// Advanced registration with complete configuration control.
-///
-/// This function provides access to all advanced registration parameters
-/// including optimizer type selection, parallel processing configuration,
-/// and extended correspondence rejection settings.
-///
-/// # Arguments
-/// * `target` - Target point cloud
-/// * `source` - Source point cloud  
-/// * `target_tree` - KdTree for the target point cloud
-/// * `config` - Complete registration configuration
-/// * `initial_guess` - Optional initial transformation guess
-///
-/// # Returns
-/// Extended registration result with information matrix
-pub fn register_with_complete_config(
+/// Perform registration using preprocessed point clouds.
+pub fn register_preprocessed(
     target: &PointCloud,
     source: &PointCloud,
-    target_tree: &CKdTree,
-    config: &crate::config::CompleteRegistrationConfig,
-    initial_guess: Option<&Isometry3<f64>>,
-) -> Result<ExtendedRegistrationResult> {
-    if target.is_empty() || source.is_empty() {
-        return Err(SmallGicpError::EmptyPointCloud);
-    }
-
-    // For now, use the existing register_advanced function as the implementation
-    // TODO: Implement full configuration support when C wrapper functions are available
-    let robust_kernel = if config.robust_kernel.kernel_type != RobustKernelType::None {
-        Some(RobustKernel::new(&config.robust_kernel)?)
-    } else {
-        None
-    };
-
-    let dof_restriction = config
-        .dof_restriction
-        .as_ref()
-        .map(|dof| DofRestriction::new(dof))
-        .transpose()?;
-
-    let settings = RegistrationSettings {
-        registration_type: config.registration.registration_type,
-        num_threads: config.registration.num_threads,
-        initial_guess: initial_guess.copied(),
-    };
-
-    register_advanced(
-        target,
-        source,
-        target_tree,
-        &settings,
-        robust_kernel.as_ref(),
-        dof_restriction.as_ref(),
-        initial_guess.copied(),
-    )
+    target_tree: &KdTree,
+    settings: &RegistrationSettings,
+) -> Result<RegistrationResult> {
+    todo!("Implement using small_gicp_cxx registration functions")
 }
 
-/// Set global parallel reduction strategy for registration operations.
-///
-/// This function configures the parallel processing strategy that will be used
-/// for subsequent registration operations.
-///
-/// # Arguments
-/// * `config` - Parallel processing configuration
-pub fn set_parallel_reduction_strategy(
-    _config: &crate::config::ParallelProcessingConfig,
-) -> Result<()> {
-    // Note: This function is a placeholder for future implementation
-    // The actual small_gicp_set_reduction_strategy function may not be available in the current C wrapper
-    // For now, we'll return success to maintain API compatibility
-    Ok(())
+/// Perform VGICP registration using a Gaussian voxel map.
+pub fn register_vgicp(
+    target_voxelmap: &GaussianVoxelMap,
+    source: &PointCloud,
+    initial_guess: Option<&Isometry3<f64>>,
+    settings: &RegistrationSettings,
+) -> Result<RegistrationResult> {
+    todo!("Implement using small_gicp_cxx VGICP registration")
+}
+
+/// Estimate the transformation between two point clouds using correspondences.
+pub fn estimate_transformation(
+    source_points: &[(f64, f64, f64)],
+    target_points: &[(f64, f64, f64)],
+) -> Result<Matrix4<f64>> {
+    todo!("Implement transformation estimation from correspondences")
+}
+
+/// Compute registration error for a given transformation.
+pub fn compute_error(
+    source: &PointCloud,
+    target: &PointCloud,
+    transformation: &Matrix4<f64>,
+    max_correspondence_distance: f64,
+) -> Result<f64> {
+    todo!("Implement error computation using small_gicp_cxx functions")
+}
+
+/// Find correspondences between two point clouds.
+pub fn find_correspondences(
+    source: &PointCloud,
+    target: &PointCloud,
+    target_tree: &KdTree,
+    max_distance: f64,
+) -> Result<Vec<(usize, usize, f64)>> {
+    todo!("Implement correspondence finding using KdTree search")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::Point3;
+
+    #[test]
+    fn test_registration_settings_default() {
+        let settings = RegistrationSettings::default();
+        assert_eq!(settings.max_iterations, 50);
+        assert_eq!(settings.num_threads, 0);
+    }
+
+    #[test]
+    fn test_dof_restriction() {
+        let none = DofRestriction::none();
+        assert!(none.translation_mask.iter().all(|&x| x));
+        assert!(none.rotation_mask.iter().all(|&x| x));
+
+        let planar = DofRestriction::planar_2d().unwrap();
+        assert_eq!(planar.translation_mask, [true, true, false]);
+        assert_eq!(planar.rotation_mask, [false, false, true]);
+    }
+
+    #[test]
+    fn test_registration_type() {
+        let reg_type = RegistrationType::Icp;
+        assert_eq!(reg_type, RegistrationType::Icp);
+        assert_ne!(reg_type, RegistrationType::Gicp);
+    }
+
+    #[test]
+    fn test_robust_kernel() {
+        let kernel = RobustKernel {
+            kernel_type: RobustKernelType::Huber,
+            parameter: 1.0,
+        };
+        assert_eq!(kernel.kernel_type, RobustKernelType::Huber);
+        assert_eq!(kernel.parameter, 1.0);
+    }
+
+    // TODO: Add integration tests once implementation is complete
+    // #[test]
+    // fn test_basic_registration() {
+    //     let target_points = vec![
+    //         Point3::new(0.0, 0.0, 0.0),
+    //         Point3::new(1.0, 0.0, 0.0),
+    //         Point3::new(0.0, 1.0, 0.0),
+    //     ];
+    //     let source_points = vec![
+    //         Point3::new(0.1, 0.1, 0.0),
+    //         Point3::new(1.1, 0.1, 0.0),
+    //         Point3::new(0.1, 1.1, 0.0),
+    //     ];
+    //
+    //     let target = PointCloud::from_points(&target_points).unwrap();
+    //     let source = PointCloud::from_points(&source_points).unwrap();
+    //     let settings = RegistrationSettings::default();
+    //
+    //     let result = register(&target, &source, &settings).unwrap();
+    //     assert!(result.converged);
+    //     assert!(result.error < 0.1);
+    // }
 }

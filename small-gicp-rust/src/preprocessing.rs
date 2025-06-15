@@ -1,11 +1,10 @@
 //! Point cloud preprocessing utilities.
 
 use crate::{
-    error::{check_error, Result, SmallGicpError},
+    error::{Result, SmallGicpError},
     kdtree_internal::CKdTree,
     point_cloud::PointCloud,
 };
-use std::ptr;
 
 /// Get the default number of threads based on available parallelism.
 /// Falls back to 4 if unable to determine available parallelism.
@@ -25,7 +24,6 @@ pub enum DownsamplingMethod {
 }
 
 /// Result of preprocessing operations.
-#[derive(Debug)]
 pub struct PreprocessingResult {
     /// The preprocessed point cloud
     pub cloud: PointCloud,
@@ -75,35 +73,20 @@ impl PointCloud {
             return Err(SmallGicpError::EmptyPointCloud);
         }
 
-        let mut preprocessed_cloud_handle = ptr::null_mut();
-        let mut kdtree_handle = ptr::null_mut();
-
-        let error = unsafe {
-            small_gicp_sys::small_gicp_preprocess_points(
-                self.handle,
-                downsampling_resolution,
-                num_neighbors as i32,
-                num_threads as i32,
-                &mut preprocessed_cloud_handle,
-                &mut kdtree_handle,
-            )
-        };
-
-        check_error(error)?;
-
-        let preprocessed_cloud = PointCloud {
-            handle: preprocessed_cloud_handle,
-        };
-
-        assert!(!kdtree_handle.is_null());
-        let kdtree = CKdTree {
-            handle: kdtree_handle,
-        };
-
-        Ok(PreprocessingResult {
-            cloud: preprocessed_cloud,
-            kdtree,
-        })
+        todo!(
+            "Implement preprocess_points using small-gicp-cxx. 
+            This should:
+            1. Perform voxel grid downsampling with resolution {}
+            2. Estimate normals and covariances using {} neighbors
+            3. Build a KdTree from the preprocessed cloud
+            4. Use {} threads for parallel processing
+            
+            Consider using the PointCloudWrapper and KdTreeWrapper from small-gicp-cxx
+            to implement this complete preprocessing pipeline.",
+            downsampling_resolution,
+            num_neighbors,
+            num_threads
+        );
     }
 }
 
@@ -139,22 +122,17 @@ impl PointCloud {
             ));
         }
 
-        let mut downsampled_handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_voxelgrid_sampling_with_backend(
-                self.handle,
-                leaf_size,
-                backend.into(),
-                num_threads as i32,
-                &mut downsampled_handle,
-            )
-        };
-
-        check_error(error)?;
-
-        Ok(PointCloud {
-            handle: downsampled_handle,
-        })
+        todo!(
+            "Implement voxelgrid_sampling using small-gicp-cxx.
+            This should:
+            1. Use the appropriate voxelgrid downsampling function from small-gicp-cxx
+            2. Apply leaf_size of {} for voxel grid resolution
+            3. Use backend {:?} for parallel processing
+            4. Use {} threads for parallel execution
+            
+            Consider using small_gicp::voxelgrid_sampling_* functions with the appropriate backend.",
+            leaf_size, backend, num_threads
+        );
     }
 
     /// Apply voxel grid downsampling with default backend (legacy version).
@@ -180,21 +158,17 @@ impl PointCloud {
             ));
         }
 
-        let mut downsampled_handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_voxelgrid_sampling(
-                self.handle,
-                leaf_size,
-                num_threads as i32,
-                &mut downsampled_handle,
-            )
-        };
-
-        check_error(error)?;
-
-        Ok(PointCloud {
-            handle: downsampled_handle,
-        })
+        todo!(
+            "Implement voxelgrid_sampling_simple using small-gicp-cxx.
+            This should:
+            1. Use the default voxelgrid downsampling function from small-gicp-cxx
+            2. Apply leaf_size of {} for voxel grid resolution
+            3. Use {} threads for parallel execution
+            
+            Consider using small_gicp::voxelgrid_sampling() function.",
+            leaf_size,
+            num_threads
+        );
     }
 }
 
@@ -219,23 +193,19 @@ impl PointCloud {
 
         if num_samples >= self.len() {
             // Return a clone if we're sampling more points than available
-            return Ok(self.clone());
+            todo!("Return cloned PointCloud")
         }
 
-        let mut downsampled_handle = ptr::null_mut();
-        let error = unsafe {
-            small_gicp_sys::small_gicp_random_sampling(
-                self.handle,
-                num_samples,
-                &mut downsampled_handle,
-            )
-        };
-
-        check_error(error)?;
-
-        Ok(PointCloud {
-            handle: downsampled_handle,
-        })
+        todo!(
+            "Implement random_sampling using small-gicp-cxx.
+            This should:
+            1. Use the random sampling function from small-gicp-cxx
+            2. Sample {} points from the input cloud
+            3. Return a new PointCloud with the randomly selected points
+            
+            Consider using small_gicp::random_sampling() function.",
+            num_samples
+        );
     }
 
     /// Apply random downsampling with configuration support.
@@ -260,33 +230,21 @@ impl PointCloud {
 
         if num_samples >= self.len() {
             // Return a clone if we're sampling more points than available
-            return Ok(self.clone());
+            todo!("Return cloned PointCloud")
         }
 
-        let mut downsampled_handle = ptr::null_mut();
-        let error = match seed {
-            Some(seed_val) => unsafe {
-                small_gicp_sys::small_gicp_random_sampling_with_seed(
-                    self.handle,
-                    num_samples,
-                    seed_val as u32,
-                    &mut downsampled_handle,
-                )
-            },
-            None => unsafe {
-                small_gicp_sys::small_gicp_random_sampling(
-                    self.handle,
-                    num_samples,
-                    &mut downsampled_handle,
-                )
-            },
-        };
-
-        check_error(error)?;
-
-        Ok(PointCloud {
-            handle: downsampled_handle,
-        })
+        todo!(
+            "Implement random_sampling_with_config using small-gicp-cxx.
+            This should:
+            1. Sample {} points from the input cloud
+            2. Use random seed {:?} if provided for reproducible results
+            3. Return a new PointCloud with the randomly selected points
+            
+            Consider using small_gicp::random_sampling() or small_gicp::random_sampling_with_seed() 
+            functions depending on whether seed is provided.",
+            num_samples,
+            seed
+        );
     }
 }
 
@@ -316,17 +274,20 @@ pub fn estimate_normals(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_normals_with_backend(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors as i32,
-            backend.into(),
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_normals using small-gicp-cxx.
+        This should:
+        1. Use the normal estimation function from small-gicp-cxx
+        2. Estimate normals using {} neighbors for each point
+        3. Use backend {:?} for parallel processing
+        4. Use {} threads for parallel execution
+        5. Modify the input cloud in-place to add normal information
+        
+        Consider using small_gicp::estimate_normals_* functions with the appropriate backend.",
+        num_neighbors,
+        backend,
+        num_threads
+    );
 }
 
 /// Estimate normals using automatic backend selection (legacy version).
@@ -352,16 +313,18 @@ pub fn estimate_normals_simple(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_normals(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors,
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_normals_simple using small-gicp-cxx.
+        This should:
+        1. Use the default normal estimation function from small-gicp-cxx
+        2. Estimate normals using {} neighbors for each point
+        3. Use {} threads for parallel execution
+        4. Modify the input cloud in-place to add normal information
+        
+        Consider using small_gicp::estimate_normals() function with default backend.",
+        num_neighbors,
+        num_threads
+    );
 }
 
 /// Estimate covariances for a point cloud using a KdTree.
@@ -392,17 +355,20 @@ pub fn estimate_covariances(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_covariances_with_backend(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors as i32,
-            backend.into(),
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_covariances using small-gicp-cxx.
+        This should:
+        1. Use the covariance estimation function from small-gicp-cxx
+        2. Estimate covariances using {} neighbors for each point
+        3. Use backend {:?} for parallel processing
+        4. Use {} threads for parallel execution
+        5. Modify the input cloud in-place to add covariance information
+        
+        Consider using small_gicp::estimate_covariances_* functions with the appropriate backend.",
+        num_neighbors,
+        backend,
+        num_threads
+    );
 }
 
 /// Estimate covariances using automatic backend selection (legacy version).
@@ -428,16 +394,18 @@ pub fn estimate_covariances_simple(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_covariances(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors,
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_covariances_simple using small-gicp-cxx.
+        This should:
+        1. Use the default covariance estimation function from small-gicp-cxx
+        2. Estimate covariances using {} neighbors for each point
+        3. Use {} threads for parallel execution
+        4. Modify the input cloud in-place to add covariance information
+        
+        Consider using small_gicp::estimate_covariances() function with default backend.",
+        num_neighbors,
+        num_threads
+    );
 }
 
 /// Estimate both normals and covariances for a point cloud.
@@ -468,17 +436,19 @@ pub fn estimate_normals_and_covariances(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_normals_covariances_with_backend(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors as i32,
-            backend.into(),
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_normals_and_covariances using small-gicp-cxx.
+        This should:
+        1. Use the combined normal and covariance estimation function from small-gicp-cxx
+        2. Estimate both normals and covariances using {} neighbors for each point
+        3. Use backend {:?} for parallel processing
+        4. Use {} threads for parallel execution
+        5. Modify the input cloud in-place to add both normal and covariance information
+        
+        This is more efficient than calling normal and covariance estimation separately.
+        Consider using small_gicp::estimate_normals_covariances_* functions with the appropriate backend.",
+        num_neighbors, backend, num_threads
+    );
 }
 
 /// Estimate both normals and covariances using automatic backend selection (legacy version).
@@ -504,16 +474,19 @@ pub fn estimate_normals_and_covariances_simple(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_normals_covariances(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors,
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_normals_and_covariances_simple using small-gicp-cxx.
+        This should:
+        1. Use the default combined normal and covariance estimation function from small-gicp-cxx
+        2. Estimate both normals and covariances using {} neighbors for each point
+        3. Use {} threads for parallel execution
+        4. Modify the input cloud in-place to add both normal and covariance information
+        
+        This is more efficient than calling normal and covariance estimation separately.
+        Consider using small_gicp::estimate_normals_covariances() function with default backend.",
+        num_neighbors,
+        num_threads
+    );
 }
 
 /// Estimate local features for a single point in a point cloud.
@@ -547,17 +520,19 @@ pub fn estimate_local_features_single_point(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_local_features_single_point(
-            cloud.handle,
-            kdtree.handle,
-            point_index,
-            num_neighbors,
-            setter_type.into(),
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_local_features_single_point using small-gicp-cxx.
+        This should:
+        1. Estimate local features for point at index {}
+        2. Use {} neighbors for local feature estimation
+        3. Apply setter_type {:?} to determine what features to estimate
+        4. Modify the input cloud in-place to add feature information
+        
+        Consider using small_gicp::estimate_local_features functions from small-gicp-cxx.",
+        point_index,
+        num_neighbors,
+        setter_type
+    );
 }
 
 /// Estimate local features for an entire point cloud using advanced configuration.
@@ -588,18 +563,19 @@ pub fn estimate_local_features_cloud(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_local_features_cloud(
-            cloud.handle,
-            kdtree.handle,
-            num_neighbors,
-            setter_type.into(),
-            backend.into(),
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_local_features_cloud using small-gicp-cxx.
+        This should:
+        1. Estimate local features for all points in the cloud
+        2. Use {} neighbors for local feature estimation
+        3. Apply setter_type {:?} to determine what features to estimate
+        4. Use backend {:?} for parallel processing
+        5. Use {} threads for parallel execution
+        6. Modify the input cloud in-place to add feature information
+        
+        Consider using small_gicp::estimate_local_features_* functions with the appropriate backend.",
+        num_neighbors, setter_type, backend, num_threads
+    );
 }
 
 /// Estimate local features for an entire point cloud without external KdTree.
@@ -632,17 +608,24 @@ pub fn estimate_local_features_auto(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_estimate_local_features_auto(
-            cloud.handle,
-            num_neighbors,
-            setter_type.into(),
-            backend.into(),
-            num_threads as i32,
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement estimate_local_features_auto using small-gicp-cxx.
+        This should:
+        1. Automatically build a KdTree internally for the cloud
+        2. Estimate local features for all points in the cloud
+        3. Use {} neighbors for local feature estimation
+        4. Apply setter_type {:?} to determine what features to estimate
+        5. Use backend {:?} for parallel processing
+        6. Use {} threads for parallel execution
+        7. Modify the input cloud in-place to add feature information
+        
+        This is more convenient when you don't need the KdTree for other operations.
+        Consider using small_gicp::estimate_local_features_auto_* functions.",
+        num_neighbors,
+        setter_type,
+        backend,
+        num_threads
+    );
 }
 
 /// Direct setter interface - set normal for a point given eigenvectors.
@@ -666,15 +649,18 @@ pub fn set_normal_direct(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_normal_setter_set(
-            cloud.handle,
-            point_index,
-            eigenvectors.as_ptr(),
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement set_normal_direct using small-gicp-cxx.
+        This should:
+        1. Set normal for point at index {} directly
+        2. Use the provided 3x3 eigenvector matrix in row-major order
+        3. Modify the input cloud in-place to set normal information
+        
+        The eigenvector matrix represents the local coordinate frame,
+        with the normal typically being the third eigenvector.
+        Consider using direct point cloud manipulation methods.",
+        point_index
+    );
 }
 
 /// Direct setter interface - set covariance for a point given eigenvectors.
@@ -698,15 +684,18 @@ pub fn set_covariance_direct(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_covariance_setter_set(
-            cloud.handle,
-            point_index,
-            eigenvectors.as_ptr(),
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement set_covariance_direct using small-gicp-cxx.
+        This should:
+        1. Set covariance for point at index {} directly
+        2. Use the provided 3x3 eigenvector matrix in row-major order
+        3. Modify the input cloud in-place to set covariance information
+        
+        The eigenvector matrix represents the local coordinate frame,
+        used to compute the covariance matrix for GICP registration.
+        Consider using direct point cloud manipulation methods.",
+        point_index
+    );
 }
 
 /// Direct setter interface - set normal and covariance for a point given eigenvectors.
@@ -730,15 +719,18 @@ pub fn set_normal_covariance_direct(
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_normal_covariance_setter_set(
-            cloud.handle,
-            point_index,
-            eigenvectors.as_ptr(),
-        )
-    };
-
-    check_error(error)
+    todo!(
+        "Implement set_normal_covariance_direct using small-gicp-cxx.
+        This should:
+        1. Set both normal and covariance for point at index {} directly
+        2. Use the provided 3x3 eigenvector matrix in row-major order
+        3. Modify the input cloud in-place to set both normal and covariance information
+        
+        This is more efficient than setting normal and covariance separately.
+        The eigenvector matrix represents the local coordinate frame.
+        Consider using direct point cloud manipulation methods.",
+        point_index
+    );
 }
 
 /// Set invalid normal for a point (marks as unreliable).
@@ -757,10 +749,16 @@ pub fn set_normal_invalid(cloud: &mut PointCloud, point_index: usize) -> Result<
         ));
     }
 
-    let error =
-        unsafe { small_gicp_sys::small_gicp_normal_setter_set_invalid(cloud.handle, point_index) };
-
-    check_error(error)
+    todo!(
+        "Implement set_normal_invalid using small-gicp-cxx.
+        This should:
+        1. Mark the normal at point index {} as invalid/unreliable
+        2. Modify the input cloud in-place to set normal as invalid
+        
+        This is useful when normal estimation fails or produces unreliable results.
+        Consider using direct point cloud manipulation methods or special marker values.",
+        point_index
+    );
 }
 
 /// Set invalid covariance for a point (marks as unreliable).
@@ -779,11 +777,16 @@ pub fn set_covariance_invalid(cloud: &mut PointCloud, point_index: usize) -> Res
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_covariance_setter_set_invalid(cloud.handle, point_index)
-    };
-
-    check_error(error)
+    todo!(
+        "Implement set_covariance_invalid using small-gicp-cxx.
+        This should:
+        1. Mark the covariance at point index {} as invalid/unreliable
+        2. Modify the input cloud in-place to set covariance as invalid
+        
+        This is useful when covariance estimation fails or produces unreliable results.
+        Consider using direct point cloud manipulation methods or special marker values.",
+        point_index
+    );
 }
 
 /// Set invalid normal and covariance for a point (marks as unreliable).
@@ -802,11 +805,16 @@ pub fn set_normal_covariance_invalid(cloud: &mut PointCloud, point_index: usize)
         ));
     }
 
-    let error = unsafe {
-        small_gicp_sys::small_gicp_normal_covariance_setter_set_invalid(cloud.handle, point_index)
-    };
-
-    check_error(error)
+    todo!(
+        "Implement set_normal_covariance_invalid using small-gicp-cxx.
+        This should:
+        1. Mark both normal and covariance at point index {} as invalid/unreliable
+        2. Modify the input cloud in-place to set both features as invalid
+        
+        This is useful when feature estimation fails or produces unreliable results.
+        Consider using direct point cloud manipulation methods or special marker values.",
+        point_index
+    );
 }
 
 #[cfg(test)]
@@ -908,7 +916,9 @@ mod tests {
         for i in 0..4 {
             let p1 = downsampled1.get_point(i).unwrap();
             let p2 = downsampled2.get_point(i).unwrap();
-            assert!((p1 - p2).magnitude() < 1e-10);
+            let diff = (p1.0 - p2.0, p1.1 - p2.1, p1.2 - p2.2);
+            let magnitude = (diff.0 * diff.0 + diff.1 * diff.1 + diff.2 * diff.2).sqrt();
+            assert!(magnitude < 1e-10);
         }
     }
 
@@ -1138,18 +1148,20 @@ impl Downsampling {
         voxel_size: f64,
         config: &DownsamplingConfig,
     ) -> Result<PointCloud> {
-        let c_cloud = crate::point_cloud::conversions::from_trait(input)?;
-        // Use the existing voxelgrid_sampling method
-        let voxel_config = VoxelGridConfig {
-            leaf_size: voxel_size,
-            backend: match config.backend {
-                ParallelBackend::Default => DownsamplingBackend::Default,
-                ParallelBackend::OpenMp => DownsamplingBackend::OpenMp,
-                ParallelBackend::Tbb => DownsamplingBackend::Tbb,
-            },
-            num_threads: config.num_threads,
-        };
-        c_cloud.voxelgrid_sampling(&voxel_config)
+        todo!(
+            "Implement voxel_grid_c_backend using small-gicp-cxx.
+            This should:
+            1. Convert the input trait object to a format compatible with small-gicp-cxx
+            2. Apply voxel grid downsampling with size {}
+            3. Use backend {:?} for parallel processing
+            4. Use {} threads for parallel execution
+            5. Convert result back to PointCloud
+            
+            Consider using small_gicp::voxelgrid_sampling_* functions.",
+            voxel_size,
+            config.backend,
+            config.num_threads
+        );
     }
 
     /// Use C wrapper backend for random downsampling.
@@ -1158,16 +1170,18 @@ impl Downsampling {
         target_size: usize,
         config: &DownsamplingConfig,
     ) -> Result<PointCloud> {
-        let c_cloud = crate::point_cloud::conversions::from_trait(input)?;
-        if let Some(seed) = config.seed {
-            let random_config = RandomSamplingConfig {
-                num_samples: target_size,
-                seed: Some(seed),
-            };
-            c_cloud.random_sampling_with_config(&random_config)
-        } else {
-            c_cloud.random_sampling(target_size)
-        }
+        todo!(
+            "Implement random_sampling_c_backend using small-gicp-cxx.
+            This should:
+            1. Convert the input trait object to a format compatible with small-gicp-cxx
+            2. Apply random sampling to select {} points
+            3. Use seed {:?} if provided for reproducible results
+            4. Use {} threads for parallel execution
+            5. Convert result back to PointCloud
+            
+            Consider using small_gicp::random_sampling or small_gicp::random_sampling_with_seed functions.",
+            target_size, config.seed, config.num_threads
+        );
     }
 
     /// Pure Rust implementation of voxel grid downsampling.
@@ -1283,25 +1297,21 @@ impl NormalEstimation {
         cloud: &mut P,
         config: &NormalEstimationConfig,
     ) -> Result<()> {
-        // Convert to C wrapper, estimate normals, then copy back
-        let mut c_cloud = crate::point_cloud::conversions::from_trait(cloud)?;
-        // Create a KdTree for normal estimation
-        let kdtree_config = crate::config::KdTreeConfig::default();
-        let kdtree = crate::kdtree::KdTree::new(&c_cloud, &kdtree_config)?;
-
-        // Use strategy pattern to get the internal CKdTree
-        // For now, we'll work around this limitation by using the C wrapper directly
-        // This is a temporary approach until we fully unify the preprocessing API
-
-        // Copy normals back
-        for i in 0..cloud.size() {
-            if let Ok(normal_3d) = c_cloud.get_normal(i) {
-                let normal_4d = helpers::normal_from_xyz(normal_3d.x, normal_3d.y, normal_3d.z);
-                cloud.set_normal(i, normal_4d);
-            }
-        }
-
-        Ok(())
+        todo!(
+            "Implement estimate_normals_c_backend using small-gicp-cxx.
+            This should:
+            1. Convert the input trait object to a format compatible with small-gicp-cxx
+            2. Build a KdTree for neighborhood search
+            3. Estimate normals using {} neighbors for each point
+            4. Use backend {:?} for parallel processing
+            5. Use {} threads for parallel execution
+            6. Copy estimated normals back to the original cloud trait
+            
+            Consider using small_gicp::estimate_normals_* functions with the appropriate backend.",
+            config.num_neighbors,
+            config.backend,
+            config.num_threads
+        );
     }
 
     /// Pure Rust implementation of normal estimation.
@@ -1338,18 +1348,15 @@ pub mod convenience {
         input: &P,
         voxel_size: f64,
     ) -> Result<PointCloud> {
-        // First downsample
-        let downsampled = preprocess_cloud(input, voxel_size)?;
-
-        // Convert to mutable trait for normal estimation
-        let mut result = downsampled;
-        let normal_config = NormalEstimationConfig::default();
-        NormalEstimation::estimate_normals(
-            &mut result,
-            &normal_config,
-            PreprocessingStrategy::default(),
-        )?;
-
-        Ok(result)
+        todo!(
+            "Implement preprocess_cloud_with_normals using small-gicp-cxx.
+            This should:
+            1. First downsample the cloud using voxel size {}
+            2. Then estimate normals for the downsampled cloud
+            3. Return a PointCloud with both downsampling and normal estimation applied
+            
+            This is a convenience function that combines multiple preprocessing steps.",
+            voxel_size
+        );
     }
 }

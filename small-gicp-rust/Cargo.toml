@@ -11,7 +11,8 @@ categories = ["science", "algorithms", "mathematics"]
 readme = "README.md"
 
 [dependencies]
-small-gicp-sys = { path = "../small-gicp-sys", version = "0.1" }
+small-gicp-cxx = { path = "../small-gicp-cxx", version = "0.1" }
+cxx = "1.0"
 thiserror = "1.0"
 nalgebra = "0.32"
 rand = "0.8"

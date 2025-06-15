@@ -861,9 +861,10 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "criterion",
+ "cxx",
  "nalgebra",
  "rand",
- "small-gicp-sys",
+ "small-gicp-cxx",
  "thiserror",
 ]
 
