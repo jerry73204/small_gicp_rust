@@ -54,6 +54,100 @@ impl IncrementalVoxelMap {
         self.inner.pin_mut().incremental_finalize();
     }
 
+    /// Get the voxel size
+    pub fn voxel_size(&self) -> f64 {
+        self.inner.incremental_get_voxel_size()
+    }
+
+    /// Get the number of voxels
+    pub fn num_voxels(&self) -> usize {
+        self.inner.incremental_get_num_voxels()
+    }
+
+    /// Check if there's a voxel at the given coordinates
+    pub fn has_voxel_at_coords(&self, x: i32, y: i32, z: i32) -> bool {
+        self.inner.incremental_has_voxel_at_coords(x, y, z)
+    }
+
+    /// Insert a single point into the voxel map
+    pub fn insert_point(&mut self, x: f64, y: f64, z: f64) {
+        self.inner.pin_mut().incremental_insert_point(x, y, z);
+    }
+
+    /// Insert a point cloud with transformation
+    pub fn insert_with_transform(&mut self, cloud: &PointCloud, transform: &crate::Transform) {
+        self.inner
+            .pin_mut()
+            .incremental_insert_with_transform(cloud.as_ffi(), transform);
+    }
+
+    /// Set the search offset pattern
+    pub fn set_search_offsets(&mut self, num_offsets: i32) {
+        self.inner
+            .pin_mut()
+            .incremental_set_search_offsets(num_offsets);
+    }
+
+    /// Get voxel data at specific coordinates
+    pub fn get_voxel_data(
+        &self,
+        x: i32,
+        y: i32,
+        z: i32,
+    ) -> Option<crate::ffi::ffi::GaussianVoxelData> {
+        if !self.has_voxel_at_coords(x, y, z) {
+            return None;
+        }
+        Some(self.inner.incremental_get_voxel_data(x, y, z))
+    }
+
+    /// Find voxels within a radius
+    pub fn find_voxels_in_radius(
+        &self,
+        x: f64,
+        y: f64,
+        z: f64,
+        radius: f64,
+    ) -> Vec<crate::ffi::ffi::VoxelInfoData> {
+        self.inner
+            .incremental_find_voxels_in_radius(x, y, z, radius)
+    }
+
+    /// Nearest neighbor search
+    pub fn nearest_neighbor_search(
+        &self,
+        x: f64,
+        y: f64,
+        z: f64,
+    ) -> crate::ffi::ffi::NearestNeighborResult {
+        self.inner.incremental_nearest_neighbor_search(x, y, z)
+    }
+
+    /// K-nearest neighbors search
+    pub fn knn_search(&self, x: f64, y: f64, z: f64, k: usize) -> crate::ffi::ffi::KnnSearchResult {
+        self.inner.incremental_knn_search(x, y, z, k)
+    }
+
+    /// Get voxel coordinates for a point
+    pub fn get_voxel_coords(&self, x: f64, y: f64, z: f64) -> [i32; 3] {
+        self.inner.incremental_get_voxel_coords(x, y, z)
+    }
+
+    /// Get voxel index for given coordinates
+    pub fn get_voxel_index(&self, x: i32, y: i32, z: i32) -> Option<usize> {
+        let index = self.inner.incremental_get_voxel_index(x, y, z);
+        if index == usize::MAX {
+            None
+        } else {
+            Some(index)
+        }
+    }
+
+    /// Get Gaussian voxel data by index
+    pub fn get_gaussian_voxel_by_index(&self, index: usize) -> crate::ffi::ffi::GaussianVoxelData {
+        self.inner.incremental_get_gaussian_voxel_by_index(index)
+    }
+
     /// Get internal FFI handle (for registration algorithms)
     pub(crate) fn as_ffi(&self) -> &FfiIncrementalVoxelMap {
         &self.inner

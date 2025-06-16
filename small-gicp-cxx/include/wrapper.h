@@ -23,6 +23,8 @@ struct RegistrationResult;
 struct RegistrationSettings;
 struct NearestNeighborResult;
 struct KnnSearchResult;
+struct GaussianVoxelData;
+struct VoxelInfoData;
 
 // Wrapper class for PointCloud
 class PointCloud {
@@ -133,6 +135,10 @@ public:
 
   void insert(const PointCloud &cloud);
   size_t size() const;
+  double get_voxel_size() const;
+  size_t get_num_voxels() const;
+  void clear_voxels();
+  bool has_voxel_at_coords(int x, int y, int z) const;
 
   // Internal access for registration
   small_gicp::GaussianVoxelMap &get_internal() { return *voxelmap_; }
@@ -153,6 +159,25 @@ public:
   size_t incremental_size() const;
   void incremental_clear();
   void incremental_finalize();
+  double incremental_get_voxel_size() const;
+  size_t incremental_get_num_voxels() const;
+  void incremental_insert_point(double x, double y, double z);
+  void incremental_insert_with_transform(const PointCloud &cloud,
+                                         const Transform &transform);
+  bool incremental_has_voxel_at_coords(int x, int y, int z) const;
+  void incremental_set_search_offsets(int num_offsets);
+  GaussianVoxelData incremental_get_voxel_data(int x, int y, int z) const;
+  rust::Vec<VoxelInfoData>
+  incremental_find_voxels_in_radius(double x, double y, double z,
+                                    double radius) const;
+  NearestNeighborResult incremental_nearest_neighbor_search(double x, double y,
+                                                            double z) const;
+  KnnSearchResult incremental_knn_search(double x, double y, double z,
+                                         size_t k) const;
+  std::array<int32_t, 3> incremental_get_voxel_coords(double x, double y,
+                                                      double z) const;
+  size_t incremental_get_voxel_index(int x, int y, int z) const;
+  GaussianVoxelData incremental_get_gaussian_voxel_by_index(size_t index) const;
 
   // Internal access for registration
   small_gicp::IncrementalVoxelMap<small_gicp::GaussianVoxel> &get_internal() {

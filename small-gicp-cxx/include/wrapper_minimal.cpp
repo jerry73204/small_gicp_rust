@@ -6,6 +6,7 @@
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
+#include <small_gicp/util/fast_floor.hpp>
 #include <small_gicp/util/normal_estimation_omp.hpp>
 
 #include <algorithm>
@@ -325,6 +326,26 @@ void GaussianVoxelMap::insert(const PointCloud &cloud) {
 
 size_t GaussianVoxelMap::size() const { return voxelmap_->size(); }
 
+double GaussianVoxelMap::get_voxel_size() const {
+  return 1.0 / voxelmap_->inv_leaf_size;
+}
+
+size_t GaussianVoxelMap::get_num_voxels() const {
+  return voxelmap_->flat_voxels.size();
+}
+
+void GaussianVoxelMap::clear_voxels() {
+  // GaussianVoxelMap doesn't have a clear method - create a new one
+  double voxel_size = get_voxel_size();
+  voxelmap_ = std::make_shared<small_gicp::GaussianVoxelMap>(voxel_size);
+}
+
+bool GaussianVoxelMap::has_voxel_at_coords(int x, int y, int z) const {
+  Eigen::Vector3i coords(x, y, z);
+  auto found = voxelmap_->voxels.find(coords);
+  return found != voxelmap_->voxels.end();
+}
+
 // ICP registration implementation
 RegistrationResult align_points_icp(const PointCloud &source,
                                     const PointCloud &target,
@@ -635,6 +656,225 @@ void IncrementalVoxelMap::incremental_clear() {
 void IncrementalVoxelMap::incremental_finalize() {
   // Note: IncrementalVoxelMap finalizes voxels automatically during insertion
   // This is a no-op placeholder for API compatibility
+}
+
+double IncrementalVoxelMap::incremental_get_voxel_size() const {
+  return 1.0 / voxelmap_->inv_leaf_size;
+}
+
+size_t IncrementalVoxelMap::incremental_get_num_voxels() const {
+  return voxelmap_->flat_voxels.size();
+}
+
+void IncrementalVoxelMap::incremental_insert_point(double x, double y,
+                                                   double z) {
+  // Create a temporary point cloud with a single point
+  PointCloud temp_cloud;
+  temp_cloud.add_point(Point3d{x, y, z});
+  voxelmap_->insert(temp_cloud.get_internal());
+}
+
+void IncrementalVoxelMap::incremental_insert_with_transform(
+    const PointCloud &cloud, const Transform &transform) {
+  // Convert transform to Eigen matrix
+  Eigen::Matrix4d transform_matrix;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      transform_matrix(i, j) = transform.matrix[i * 4 + j];
+    }
+  }
+  Eigen::Isometry3d T(transform_matrix);
+
+  voxelmap_->insert(cloud.get_internal(), T);
+}
+
+bool IncrementalVoxelMap::incremental_has_voxel_at_coords(int x, int y,
+                                                          int z) const {
+  Eigen::Vector3i coords(x, y, z);
+  auto found = voxelmap_->voxels.find(coords);
+  return found != voxelmap_->voxels.end();
+}
+
+void IncrementalVoxelMap::incremental_set_search_offsets(int num_offsets) {
+  voxelmap_->set_search_offsets(num_offsets);
+}
+
+GaussianVoxelData IncrementalVoxelMap::incremental_get_voxel_data(int x, int y,
+                                                                  int z) const {
+  GaussianVoxelData result;
+  result.num_points = 0;
+  result.mean = {0.0, 0.0, 0.0};
+  result.covariance = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+  Eigen::Vector3i coords(x, y, z);
+  auto found = voxelmap_->voxels.find(coords);
+  if (found != voxelmap_->voxels.end()) {
+    const auto &voxel_data = voxelmap_->flat_voxels[found->second];
+    const auto &voxel = voxel_data->second;
+
+    result.num_points = voxel.num_points;
+    result.mean[0] = voxel.mean.x();
+    result.mean[1] = voxel.mean.y();
+    result.mean[2] = voxel.mean.z();
+
+    // Copy covariance matrix (3x3 from the upper-left of 4x4)
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        result.covariance[i * 3 + j] = voxel.cov(i, j);
+      }
+    }
+  }
+
+  return result;
+}
+
+rust::Vec<VoxelInfoData> IncrementalVoxelMap::incremental_find_voxels_in_radius(
+    double x, double y, double z, double radius) const {
+  rust::Vec<VoxelInfoData> result;
+
+  // Calculate the voxel range to search
+  const double voxel_size = 1.0 / voxelmap_->inv_leaf_size;
+  const int search_range = static_cast<int>(std::ceil(radius / voxel_size));
+
+  Eigen::Vector3d query_point(x, y, z);
+  const Eigen::Vector3i center_coord =
+      small_gicp::fast_floor(Eigen::Vector4d(query_point.x(), query_point.y(),
+                                             query_point.z(), 1.0) *
+                             voxelmap_->inv_leaf_size)
+          .template head<3>();
+
+  // Search in a cube around the query point
+  for (int dx = -search_range; dx <= search_range; ++dx) {
+    for (int dy = -search_range; dy <= search_range; ++dy) {
+      for (int dz = -search_range; dz <= search_range; ++dz) {
+        Eigen::Vector3i coord = center_coord + Eigen::Vector3i(dx, dy, dz);
+
+        auto found = voxelmap_->voxels.find(coord);
+        if (found != voxelmap_->voxels.end()) {
+          const auto &voxel_data = voxelmap_->flat_voxels[found->second];
+          const auto &voxel = voxel_data->second;
+
+          // Check if voxel center is within radius
+          double dist = (voxel.mean.head<3>() - query_point).norm();
+          if (dist <= radius) {
+            VoxelInfoData info;
+            info.index = found->second;
+            info.coordinates[0] = coord.x();
+            info.coordinates[1] = coord.y();
+            info.coordinates[2] = coord.z();
+            info.distance = dist;
+            result.push_back(info);
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+NearestNeighborResult
+IncrementalVoxelMap::incremental_nearest_neighbor_search(double x, double y,
+                                                         double z) const {
+  NearestNeighborResult result;
+  result.index = 0;
+  result.squared_distance = std::numeric_limits<double>::max();
+
+  // Query point as Eigen vector
+  Eigen::Vector4d query(x, y, z, 1.0);
+
+  // Use the voxelmap's nearest neighbor search
+  size_t index;
+  double sq_dist;
+  size_t num_found =
+      voxelmap_->nearest_neighbor_search(query, &index, &sq_dist);
+
+  if (num_found > 0) {
+    result.index = index;
+    result.squared_distance = sq_dist;
+  }
+
+  return result;
+}
+
+KnnSearchResult IncrementalVoxelMap::incremental_knn_search(double x, double y,
+                                                            double z,
+                                                            size_t k) const {
+  KnnSearchResult result;
+
+  // Query point as Eigen vector
+  Eigen::Vector4d query(x, y, z, 1.0);
+
+  // Allocate arrays for results
+  std::vector<size_t> indices(k);
+  std::vector<double> sq_distances(k);
+
+  // Use the voxelmap's knn search
+  size_t num_found =
+      voxelmap_->knn_search(query, k, indices.data(), sq_distances.data());
+
+  // Copy results
+  for (size_t i = 0; i < num_found; ++i) {
+    result.indices.push_back(indices[i]);
+    result.squared_distances.push_back(sq_distances[i]);
+  }
+
+  return result;
+}
+
+std::array<int32_t, 3>
+IncrementalVoxelMap::incremental_get_voxel_coords(double x, double y,
+                                                  double z) const {
+  // Calculate voxel coordinates using the same method as the voxelmap
+  Eigen::Vector4d point(x, y, z, 1.0);
+  Eigen::Vector3i coords =
+      small_gicp::fast_floor(point * voxelmap_->inv_leaf_size)
+          .template head<3>();
+
+  std::array<int32_t, 3> result;
+  result[0] = coords.x();
+  result[1] = coords.y();
+  result[2] = coords.z();
+
+  return result;
+}
+
+size_t IncrementalVoxelMap::incremental_get_voxel_index(int x, int y,
+                                                        int z) const {
+  Eigen::Vector3i coords(x, y, z);
+  auto found = voxelmap_->voxels.find(coords);
+  if (found != voxelmap_->voxels.end()) {
+    return found->second;
+  }
+  // Return max size_t to indicate not found
+  return std::numeric_limits<size_t>::max();
+}
+
+GaussianVoxelData IncrementalVoxelMap::incremental_get_gaussian_voxel_by_index(
+    size_t index) const {
+  GaussianVoxelData result;
+  result.num_points = 0;
+  result.mean = {0.0, 0.0, 0.0};
+  result.covariance = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+  if (index < voxelmap_->flat_voxels.size()) {
+    const auto &voxel_data = voxelmap_->flat_voxels[index];
+    const auto &voxel = voxel_data->second;
+
+    result.num_points = voxel.num_points;
+    result.mean[0] = voxel.mean.x();
+    result.mean[1] = voxel.mean.y();
+    result.mean[2] = voxel.mean.z();
+
+    // Copy covariance matrix (3x3 from the upper-left of 4x4)
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        result.covariance[i * 3 + j] = voxel.cov(i, j);
+      }
+    }
+  }
+
+  return result;
 }
 
 // Factory functions

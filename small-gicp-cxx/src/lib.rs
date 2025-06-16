@@ -86,4 +86,6 @@ pub use unsafe_kdtree::{UnsafeKdTree, UnsafeKdTreeBuilder};
 pub use voxel_map::{VoxelMap, VoxelMapBuilder};
 
 // Re-export FFI types that users need
-pub use ffi::{Point3d, RegistrationResult, RegistrationSettings, Transform};
+pub use ffi::ffi::{
+    GaussianVoxelData, Point3d, RegistrationResult, RegistrationSettings, Transform, VoxelInfoData,
+};
