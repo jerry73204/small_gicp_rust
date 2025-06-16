@@ -87,5 +87,6 @@ pub use voxel_map::{VoxelMap, VoxelMapBuilder};
 
 // Re-export FFI types that users need
 pub use ffi::ffi::{
-    GaussianVoxelData, Point3d, RegistrationResult, RegistrationSettings, Transform, VoxelInfoData,
+    GaussianVoxelData, KdTreeSettings, Point3d, RegistrationResult, RegistrationSettings,
+    Transform, VoxelInfoData,
 };

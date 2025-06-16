@@ -5,7 +5,7 @@ use crate::{
     error::{Result, SmallGicpError},
     kdtree::KdTree,
     point_cloud::PointCloud,
-    traits::PointCloudTrait,
+    traits::{PointCloudTrait, SpatialSearchTree},
 };
 use nalgebra::{Isometry3, Matrix4, Point3, UnitQuaternion, Vector3};
 use small_gicp_cxx::{
@@ -299,7 +299,7 @@ pub struct GaussianVoxelMap {
 
 impl GaussianVoxelMap {
     /// Create a new Gaussian voxel map from a point cloud and config.
-    pub fn new<T>(cloud: &PointCloud, _config: &T) -> Result<Self> {
+    pub fn new<T>(_cloud: &PointCloud, _config: &T) -> Result<Self> {
         // For simplicity, use default voxel size of 0.1
         // In a complete implementation, would parse config for voxel_size
         Ok(Self {
@@ -334,6 +334,19 @@ pub fn register(
 ) -> Result<RegistrationResult> {
     let target_tree = KdTree::new(target)?;
     register_with_kdtree(target, source, &target_tree, settings)
+}
+
+/// Perform point cloud registration with a generic spatial search tree.
+pub fn register_with_tree<T: SpatialSearchTree>(
+    target: &PointCloud,
+    source: &PointCloud,
+    target_tree: &T,
+    settings: &RegistrationSettings,
+) -> Result<RegistrationResult> {
+    // For generic tree types, we still need to build CXX structures for the C++ backend
+    // This is a limitation of the current FFI design
+    let kdtree = KdTree::new(target)?;
+    register_with_kdtree(target, source, &kdtree, settings)
 }
 
 /// Perform point cloud registration with a pre-built target KdTree.
@@ -441,6 +454,16 @@ pub fn register_advanced(
     })
 }
 
+/// Perform registration using preprocessed point clouds with a generic tree.
+pub fn register_preprocessed_with_tree<T: SpatialSearchTree>(
+    target: &PointCloud,
+    source: &PointCloud,
+    target_tree: &T,
+    settings: &RegistrationSettings,
+) -> Result<RegistrationResult> {
+    register_with_tree(target, source, target_tree, settings)
+}
+
 /// Perform registration using preprocessed point clouds.
 pub fn register_preprocessed(
     target: &PointCloud,
@@ -533,16 +556,16 @@ pub fn estimate_transformation(
     Ok(transform)
 }
 
-/// Compute registration error for a given transformation.
-pub fn compute_error(
+/// Compute registration error for a given transformation using a generic tree.
+pub fn compute_error_with_tree<T: SpatialSearchTree>(
     source: &PointCloud,
     target: &PointCloud,
+    target_tree: &T,
     transformation: &Matrix4<f64>,
     max_correspondence_distance: f64,
 ) -> Result<f64> {
-    let target_tree = KdTree::new(target)?;
     let correspondences =
-        find_correspondences(source, target, &target_tree, max_correspondence_distance)?;
+        find_correspondences_with_tree(source, target, target_tree, max_correspondence_distance)?;
 
     if correspondences.is_empty() {
         return Ok(f64::INFINITY);
@@ -581,18 +604,35 @@ pub fn compute_error(
     Ok(total_error / correspondences.len() as f64)
 }
 
-/// Find correspondences between two point clouds.
-pub fn find_correspondences(
+/// Compute registration error for a given transformation.
+pub fn compute_error(
     source: &PointCloud,
     target: &PointCloud,
-    target_tree: &KdTree,
+    transformation: &Matrix4<f64>,
+    max_correspondence_distance: f64,
+) -> Result<f64> {
+    let target_tree = KdTree::new(target)?;
+    compute_error_with_tree(
+        source,
+        target,
+        &target_tree,
+        transformation,
+        max_correspondence_distance,
+    )
+}
+
+/// Find correspondences between two point clouds using a generic spatial search tree.
+pub fn find_correspondences_with_tree<T: SpatialSearchTree>(
+    source: &PointCloud,
+    target: &PointCloud,
+    target_tree: &T,
     max_distance: f64,
 ) -> Result<Vec<(usize, usize, f64)>> {
     let mut correspondences = Vec::new();
 
     for i in 0..source.size() {
         let source_point_tuple = source.get_point(i)?;
-        let source_point = Point3::new(
+        let source_point = Vector3::new(
             source_point_tuple.0,
             source_point_tuple.1,
             source_point_tuple.2,
@@ -606,6 +646,16 @@ pub fn find_correspondences(
     }
 
     Ok(correspondences)
+}
+
+/// Find correspondences between two point clouds.
+pub fn find_correspondences(
+    source: &PointCloud,
+    target: &PointCloud,
+    target_tree: &KdTree,
+    max_distance: f64,
+) -> Result<Vec<(usize, usize, f64)>> {
+    find_correspondences_with_tree(source, target, target_tree, max_distance)
 }
 
 // Helper functions for type conversions

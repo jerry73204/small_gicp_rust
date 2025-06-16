@@ -9,11 +9,12 @@
 //! The trait hierarchy mirrors the C++ traits system:
 //! - `PointCloudTrait` - Read-only interface for any point cloud type
 //! - `MutablePointCloudTrait` - Extends with mutation capabilities
+//! - `SpatialSearchTree` - Generic interface for spatial search structures
 //!
 //! All traits use 4D vectors (x,y,z,1) for points and (nx,ny,nz,0) for normals
 //! to match the C++ SIMD optimization design.
 
-use nalgebra::{Matrix4, Vector4};
+use nalgebra::{Matrix4, Vector3, Vector4};
 use std::fmt::Debug;
 
 /// Type alias for 4D point vectors (x, y, z, 1.0).
@@ -214,6 +215,146 @@ pub trait MutablePointCloudTrait: PointCloudTrait {
     /// The caller must ensure that `index < self.size()` and `self.has_covariances()`.
     unsafe fn set_covariance_unchecked(&mut self, index: usize, covariance: Covariance4<f64>) {
         self.set_covariance(index, covariance);
+    }
+}
+
+/// Generic trait for spatial search trees.
+///
+/// This trait provides a unified interface for different spatial search data structures
+/// like KdTree, UnsafeKdTree, and BorrowedKdTree. It enables zero-copy operations and
+/// generic registration algorithms.
+///
+/// # Design Goals
+///
+/// - Zero-copy operations when possible
+/// - Unified interface for all tree types
+/// - Performance-oriented with distance-returning methods
+/// - Compatible with registration algorithms
+///
+/// # Examples
+///
+/// ```rust
+/// use nalgebra::Vector3;
+/// use small_gicp::traits::SpatialSearchTree;
+///
+/// fn find_closest_points<T: SpatialSearchTree>(
+///     tree: &T,
+///     queries: &[Vector3<f64>],
+/// ) -> Vec<Option<(usize, f64)>> {
+///     queries
+///         .iter()
+///         .map(|query| tree.nearest_neighbor(query))
+///         .collect()
+/// }
+/// ```
+pub trait SpatialSearchTree: Debug {
+    /// Returns the number of points in the tree.
+    fn size(&self) -> usize;
+
+    /// Returns true if the tree is empty.
+    fn empty(&self) -> bool {
+        self.size() == 0
+    }
+
+    /// Find the nearest neighbor to a query point.
+    ///
+    /// Returns the index of the nearest point and its squared distance,
+    /// or `None` if the tree is empty.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    ///
+    /// # Returns
+    ///
+    /// `Some((index, squared_distance))` if a neighbor is found, `None` otherwise.
+    fn nearest_neighbor(&self, query: &Vector3<f64>) -> Option<(usize, f64)>;
+
+    /// Find k nearest neighbors to a query point.
+    ///
+    /// Returns a vector of (index, squared_distance) pairs, sorted by distance.
+    /// The returned vector may contain fewer than k elements if the tree has
+    /// fewer than k points.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    /// * `k` - Maximum number of neighbors to find
+    ///
+    /// # Returns
+    ///
+    /// Vector of (index, squared_distance) pairs, sorted by distance.
+    fn knn_search(&self, query: &Vector3<f64>, k: usize) -> Vec<(usize, f64)>;
+
+    /// Find all neighbors within a radius of the query point.
+    ///
+    /// Returns a vector of (index, squared_distance) pairs for all points
+    /// within the specified radius, sorted by distance.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    /// * `radius` - Search radius
+    ///
+    /// # Returns
+    ///
+    /// Vector of (index, squared_distance) pairs within radius, sorted by distance.
+    fn radius_search(&self, query: &Vector3<f64>, radius: f64) -> Vec<(usize, f64)>;
+
+    /// Find the nearest neighbor and return only the index.
+    ///
+    /// This is a convenience method that discards the distance information.
+    /// Use `nearest_neighbor` if you need the distance.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    ///
+    /// # Returns
+    ///
+    /// `Some(index)` if a neighbor is found, `None` otherwise.
+    fn nearest_neighbor_index(&self, query: &Vector3<f64>) -> Option<usize> {
+        self.nearest_neighbor(query).map(|(index, _)| index)
+    }
+
+    /// Find k nearest neighbors and return only the indices.
+    ///
+    /// This is a convenience method that discards the distance information.
+    /// Use `knn_search` if you need the distances.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    /// * `k` - Maximum number of neighbors to find
+    ///
+    /// # Returns
+    ///
+    /// Vector of indices, sorted by distance.
+    fn knn_search_indices(&self, query: &Vector3<f64>, k: usize) -> Vec<usize> {
+        self.knn_search(query, k)
+            .into_iter()
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    /// Find all neighbors within a radius and return only the indices.
+    ///
+    /// This is a convenience method that discards the distance information.
+    /// Use `radius_search` if you need the distances.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The 3D query point
+    /// * `radius` - Search radius
+    ///
+    /// # Returns
+    ///
+    /// Vector of indices within radius, sorted by distance.
+    fn radius_search_indices(&self, query: &Vector3<f64>, radius: f64) -> Vec<usize> {
+        self.radius_search(query, radius)
+            .into_iter()
+            .map(|(index, _)| index)
+            .collect()
     }
 }
 

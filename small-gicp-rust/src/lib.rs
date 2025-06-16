@@ -52,7 +52,6 @@
 pub mod config;
 pub mod error;
 pub mod kdtree;
-pub(crate) mod kdtree_internal;
 pub mod point_cloud;
 pub mod preprocessing;
 pub mod registration;
@@ -70,15 +69,18 @@ pub use config::{
     RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
-pub use kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree};
+pub use kdtree::{BorrowedKdTree, KdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::Preprocessing;
 pub use registration::{
-    register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
-    ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
-    RegistrationType, RobustKernel,
+    compute_error_with_tree, find_correspondences_with_tree, register, register_advanced,
+    register_preprocessed, register_preprocessed_with_tree, register_vgicp, register_with_tree,
+    DofRestriction, ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult,
+    RegistrationSettings, RegistrationType, RobustKernel,
 };
-pub use traits::{Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait};
+pub use traits::{
+    Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
+};
 pub use voxelmap::{
     GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
 };
@@ -97,15 +99,19 @@ pub mod prelude {
             RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
-        kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree},
+        kdtree::{BorrowedKdTree, KdTree},
         point_cloud::PointCloud,
         preprocessing::Preprocessing,
         registration::{
-            register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
-            ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
-            RegistrationType, RobustKernel,
+            compute_error_with_tree, find_correspondences_with_tree, register, register_advanced,
+            register_preprocessed, register_preprocessed_with_tree, register_vgicp,
+            register_with_tree, DofRestriction, ExtendedRegistrationResult, GaussianVoxelMap,
+            RegistrationResult, RegistrationSettings, RegistrationType, RobustKernel,
         },
-        traits::{Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait},
+        traits::{
+            Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait,
+            SpatialSearchTree,
+        },
         voxelmap::{
             GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
         },
