@@ -72,27 +72,7 @@ pub use config::{
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree};
 pub use point_cloud::PointCloud;
-pub use preprocessing::{
-    estimate_covariances,
-    estimate_local_features_auto,
-    estimate_local_features_cloud,
-    estimate_local_features_single_point,
-    estimate_normals,
-    estimate_normals_and_covariances,
-    set_covariance_direct,
-    set_covariance_invalid,
-    set_normal_covariance_direct,
-    set_normal_covariance_invalid,
-    set_normal_direct,
-    set_normal_invalid,
-    // Unified generic preprocessing API
-    Downsampling,
-    DownsamplingMethod,
-    NormalEstimation,
-    PreprocessingResult,
-    PreprocessingStrategy,
-    PreprocessorConfig,
-};
+pub use preprocessing::Preprocessing;
 pub use registration::{
     register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
     ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,
@@ -119,10 +99,7 @@ pub mod prelude {
         error::{Result, SmallGicpError},
         kdtree::{KdTree, KdTreeStrategy, UnsafeKdTree},
         point_cloud::PointCloud,
-        preprocessing::{
-            Downsampling, DownsamplingMethod, NormalEstimation, PreprocessingStrategy,
-            PreprocessorConfig,
-        },
+        preprocessing::Preprocessing,
         registration::{
             register, register_advanced, register_preprocessed, register_vgicp, DofRestriction,
             ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult, RegistrationSettings,

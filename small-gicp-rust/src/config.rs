@@ -439,6 +439,9 @@ pub struct PreprocessingConfig {
     pub kdtree: KdTreeConfig,
 }
 
+/// Type alias for PreprocessingConfig (for compatibility).
+pub type PreprocessorConfig = PreprocessingConfig;
+
 impl Default for PreprocessingConfig {
     fn default() -> Self {
         Self {

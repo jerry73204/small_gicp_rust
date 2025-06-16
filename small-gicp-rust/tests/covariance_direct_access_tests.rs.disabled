@@ -1,14 +1,14 @@
 use approx::assert_relative_eq;
 use nalgebra::{Matrix4, Point3, Vector3};
 use small_gicp_rust::{
-    config::KdTreeConfig,
+    config::{
+        KdTreeConfig, CovarianceEstimationConfig, LocalFeatureEstimationConfig, 
+        LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend, 
+        NormalEstimationConfig,
+    },
     kdtree::KdTree,
     point_cloud::PointCloud,
-    preprocessing::{
-        estimate_covariances, estimate_local_features_auto, estimate_normals_and_covariances,
-        CovarianceEstimationConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
-        LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig,
-    },
+    preprocessing::{estimate_local_features_auto, Preprocessing},
 };
 
 #[test]

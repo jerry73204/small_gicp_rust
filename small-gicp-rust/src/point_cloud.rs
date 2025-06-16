@@ -827,6 +827,54 @@ impl PointCloud {
             .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
         Ok(())
     }
+
+    /// Downsample using voxel grid filtering.
+    pub fn voxelgrid_sampling(&self, config: &crate::config::VoxelGridConfig) -> Result<Self> {
+        use crate::preprocessing::Preprocessing;
+        Ok(Preprocessing::voxel_downsample(
+            self,
+            config.leaf_size,
+            config.num_threads,
+        ))
+    }
+
+    /// Downsample using random sampling.
+    pub fn random_sampling(&self, num_samples: usize) -> Result<Self> {
+        use crate::preprocessing::Preprocessing;
+        Ok(Preprocessing::random_downsample(self, num_samples))
+    }
+
+    /// Preprocess point cloud with the given configuration.
+    pub fn preprocess_points(&self, config: &crate::config::PreprocessorConfig) -> Result<Self> {
+        use crate::preprocessing::Preprocessing;
+
+        // Start with downsampling if configured
+        let mut processed = if let Some(downsample_config) = &config.downsampling {
+            self.voxelgrid_sampling(downsample_config)?
+        } else {
+            self.clone()
+        };
+
+        // Estimate normals if configured
+        if let Some(normal_config) = &config.normal_estimation {
+            Preprocessing::estimate_normals(
+                &mut processed,
+                normal_config.num_neighbors as usize,
+                normal_config.num_threads,
+            )?;
+        }
+
+        // Estimate covariances if configured
+        if let Some(cov_config) = &config.covariance_estimation {
+            Preprocessing::estimate_covariances(
+                &mut processed,
+                cov_config.num_neighbors as usize,
+                cov_config.num_threads,
+            )?;
+        }
+
+        Ok(processed)
+    }
 }
 
 impl std::fmt::Debug for PointCloud {
