@@ -1,6 +1,6 @@
-use small_gicp_rust::{prelude::*, registration::estimate_transformation};
+use small_gicp::{prelude::*, registration::estimate_transformation};
 
-fn main() -> small_gicp_rust::Result<()> {
+fn main() -> small_gicp::Result<()> {
     println!("Simple Registration Demo");
 
     // Create source point cloud with more points

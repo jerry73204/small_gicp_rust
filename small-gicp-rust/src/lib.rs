@@ -18,7 +18,7 @@
 //!
 //! ```rust,no_run
 //! use nalgebra::Point3;
-//! use small_gicp_rust::prelude::*;
+//! use small_gicp::prelude::*;
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! // TODO: This API is not yet implemented

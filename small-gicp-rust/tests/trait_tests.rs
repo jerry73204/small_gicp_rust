@@ -1,7 +1,7 @@
 //! Integration tests for the generic trait system.
 
 use nalgebra::{Matrix4, Point3, Vector3};
-use small_gicp_rust::{point_cloud::conversions, prelude::*, traits::helpers};
+use small_gicp::{point_cloud::conversions, prelude::*, traits::helpers};
 
 #[test]
 fn test_point_cloud_trait_implementation() {

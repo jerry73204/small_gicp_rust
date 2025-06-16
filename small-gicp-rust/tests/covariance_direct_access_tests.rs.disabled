@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
 use nalgebra::{Matrix4, Point3, Vector3};
-use small_gicp_rust::{
+use small_gicp::{
     config::{
         KdTreeConfig, CovarianceEstimationConfig, LocalFeatureEstimationConfig, 
         LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend, 

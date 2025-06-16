@@ -1,7 +1,7 @@
 //! Basic integration tests for the small-gicp-rust preprocessing functionality.
 
 use nalgebra::Point3;
-use small_gicp_rust::{config::VoxelGridConfig, prelude::*};
+use small_gicp::{config::VoxelGridConfig, prelude::*};
 
 /// Create a simple test point cloud.
 fn create_test_cloud() -> PointCloud {

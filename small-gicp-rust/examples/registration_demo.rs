@@ -1,7 +1,7 @@
 use nalgebra::Point3;
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 
-fn main() -> small_gicp_rust::Result<()> {
+fn main() -> small_gicp::Result<()> {
     println!("Registration Demo");
 
     // Create source point cloud

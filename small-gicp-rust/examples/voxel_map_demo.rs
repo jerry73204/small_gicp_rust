@@ -1,7 +1,7 @@
 //! Demonstrates the voxel map functionality
 
 use nalgebra::{Point3, Vector3};
-use small_gicp_rust::{
+use small_gicp::{
     error::Result,
     point_cloud::PointCloud,
     voxelmap::{IncrementalVoxelMap, SearchOffsetPattern},

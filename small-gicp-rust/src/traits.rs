@@ -47,7 +47,7 @@ pub type Covariance4<T> = Matrix4<T>;
 ///
 /// ```rust
 /// use nalgebra::Vector4;
-/// use small_gicp_rust::traits::PointCloudTrait;
+/// use small_gicp::traits::PointCloudTrait;
 ///
 /// fn count_points_with_normals<P: PointCloudTrait>(cloud: &P) -> usize {
 ///     if cloud.has_normals() {
@@ -141,7 +141,7 @@ pub trait PointCloudTrait: Debug + Send + Sync {
 ///
 /// ```rust
 /// use nalgebra::Vector4;
-/// use small_gicp_rust::traits::MutablePointCloudTrait;
+/// use small_gicp::traits::MutablePointCloudTrait;
 ///
 /// fn translate_points<P: MutablePointCloudTrait>(cloud: &mut P, offset: Vector4<f64>) {
 ///     for i in 0..cloud.size() {

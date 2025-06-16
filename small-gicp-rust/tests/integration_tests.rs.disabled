@@ -2,7 +2,7 @@
 
 use approx::assert_relative_eq;
 use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
-use small_gicp_rust::{prelude::*, config::PreprocessorConfig, preprocessing::estimate_local_features_auto};
+use small_gicp::{prelude::*, config::PreprocessorConfig, preprocessing::estimate_local_features_auto};
 
 /// Create a simple test point cloud (unit cube vertices).
 fn create_test_cube() -> PointCloud {
