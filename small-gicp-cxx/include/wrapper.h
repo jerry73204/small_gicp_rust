@@ -19,6 +19,7 @@ namespace small_gicp_cxx {
 // Forward declarations for shared structs - actual definitions come from cxx
 struct Point3d;
 struct Transform;
+struct KdTreeSettings;
 struct RegistrationResult;
 struct RegistrationSettings;
 struct NearestNeighborResult;
@@ -103,6 +104,10 @@ class UnsafeKdTree {
 public:
   explicit UnsafeKdTree(const PointCloud &cloud, int num_threads = 1);
 
+  // Zero-copy constructor from raw point data
+  UnsafeKdTree(const double *points_data, size_t num_points,
+               const KdTreeSettings &settings);
+
   // Nearest neighbor search
   size_t unsafe_nearest_neighbor(Point3d point) const;
   rust::Vec<size_t> unsafe_knn_search(Point3d point, size_t k) const;
@@ -116,6 +121,9 @@ public:
   KnnSearchResult unsafe_radius_search_with_distances(Point3d point,
                                                       double radius) const;
 
+  // Zero-copy validation
+  bool unsafe_validate_data_ptr(const double *expected_ptr) const;
+
   // Internal access for registration
   small_gicp::UnsafeKdTree<small_gicp::PointCloud> &get_internal() {
     return *tree_;
@@ -126,6 +134,7 @@ public:
 
 private:
   std::shared_ptr<small_gicp::UnsafeKdTree<small_gicp::PointCloud>> tree_;
+  const double *original_data_ptr_; // For zero-copy validation
 };
 
 // Wrapper class for GaussianVoxelMap
@@ -222,6 +231,10 @@ std::unique_ptr<PointCloud> create_point_cloud();
 std::unique_ptr<KdTree> create_kdtree(const PointCloud &cloud, int num_threads);
 std::unique_ptr<UnsafeKdTree> create_unsafe_kdtree(const PointCloud &cloud,
                                                    int num_threads);
+std::unique_ptr<UnsafeKdTree>
+create_unsafe_kdtree_from_points_ptr(const double *points_data,
+                                     size_t num_points,
+                                     const KdTreeSettings &settings);
 std::unique_ptr<GaussianVoxelMap> create_voxelmap(double voxel_size);
 std::unique_ptr<IncrementalVoxelMap>
 create_incremental_voxelmap(double voxel_size);

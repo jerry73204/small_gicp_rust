@@ -72,6 +72,15 @@ pub mod ffi {
         pub error: f64,
     }
 
+    /// Settings for KdTree construction
+    #[derive(Debug, Clone)]
+    pub struct KdTreeSettings {
+        /// Number of threads for parallel construction
+        pub num_threads: i32,
+        /// Maximum leaf size for tree nodes
+        pub max_leaf_size: i32,
+    }
+
     /// Settings for point cloud registration algorithms
     #[derive(Debug, Clone)]
     pub struct RegistrationSettings {
@@ -164,6 +173,9 @@ pub mod ffi {
             radius: f64,
         ) -> KnnSearchResult;
 
+        // Zero-copy construction methods
+        unsafe fn unsafe_validate_data_ptr(self: &UnsafeKdTree, expected_ptr: *const f64) -> bool;
+
         // GaussianVoxelMap type and methods
         type GaussianVoxelMap;
 
@@ -239,6 +251,11 @@ pub mod ffi {
         fn create_point_cloud() -> UniquePtr<PointCloud>;
         fn create_kdtree(cloud: &PointCloud, num_threads: i32) -> UniquePtr<KdTree>;
         fn create_unsafe_kdtree(cloud: &PointCloud, num_threads: i32) -> UniquePtr<UnsafeKdTree>;
+        unsafe fn create_unsafe_kdtree_from_points_ptr(
+            points_data: *const f64,
+            num_points: usize,
+            settings: &KdTreeSettings,
+        ) -> UniquePtr<UnsafeKdTree>;
         fn create_voxelmap(voxel_size: f64) -> UniquePtr<GaussianVoxelMap>;
         fn create_incremental_voxelmap(voxel_size: f64) -> UniquePtr<IncrementalVoxelMap>;
 
@@ -292,7 +309,7 @@ pub mod ffi {
 }
 
 // Re-export commonly used types
-pub use ffi::{Point3d, RegistrationResult, RegistrationSettings, Transform};
+pub use ffi::{KdTreeSettings, Point3d, RegistrationResult, RegistrationSettings, Transform};
 
 // Helper implementations
 impl Default for Transform {
@@ -304,6 +321,15 @@ impl Default for Transform {
         matrix[10] = 1.0;
         matrix[15] = 1.0;
         Transform { matrix }
+    }
+}
+
+impl Default for KdTreeSettings {
+    fn default() -> Self {
+        KdTreeSettings {
+            num_threads: 1,
+            max_leaf_size: 20,
+        }
     }
 }
 

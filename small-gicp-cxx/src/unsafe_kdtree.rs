@@ -1,8 +1,8 @@
 use crate::{
     ffi::{
         ffi::{
-            create_unsafe_kdtree, KnnSearchResult, NearestNeighborResult,
-            UnsafeKdTree as FfiUnsafeKdTree,
+            create_unsafe_kdtree, create_unsafe_kdtree_from_points_ptr, KdTreeSettings,
+            KnnSearchResult, NearestNeighborResult, UnsafeKdTree as FfiUnsafeKdTree,
         },
         Point3d,
     },
@@ -24,6 +24,35 @@ impl UnsafeKdTree {
         UnsafeKdTree {
             inner: create_unsafe_kdtree(cloud.as_ffi(), num_threads),
         }
+    }
+
+    /// Build an UnsafeKdTree from raw point data pointer (zero-copy)
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that:
+    /// - `points_data` points to valid f64 data with 4D homogeneous coordinates (x, y, z, w)
+    /// - The data contains exactly `num_points * 4` f64 values
+    /// - The memory remains valid for the lifetime of this UnsafeKdTree
+    /// - The data is not modified while the UnsafeKdTree exists
+    pub unsafe fn from_points_ptr(
+        points_data: *const f64,
+        num_points: usize,
+        settings: &KdTreeSettings,
+    ) -> Self {
+        UnsafeKdTree {
+            inner: unsafe {
+                create_unsafe_kdtree_from_points_ptr(points_data, num_points, settings)
+            },
+        }
+    }
+
+    /// Validate that the underlying data pointer hasn't changed
+    ///
+    /// This provides a runtime safety check to detect if the original data
+    /// has been moved or invalidated. Returns true if the data is still valid.
+    pub fn validate_data_ptr(&self, expected_ptr: *const f64) -> bool {
+        unsafe { self.inner.unsafe_validate_data_ptr(expected_ptr) }
     }
 
     /// Find the nearest neighbor to a query point

@@ -5,7 +5,7 @@ fn main() {
     build
         .include("include")
         .include("../small_gicp/include") // small_gicp headers
-        .file("include/wrapper_minimal.cpp") // Add the implementation file
+        .file("include/wrapper.cpp") // Add the implementation file
         .file("../small_gicp/src/small_gicp/registration/registration_helper.cpp") // Add registration helper
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-fopenmp")
