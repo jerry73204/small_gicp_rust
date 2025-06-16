@@ -284,17 +284,20 @@ impl IncrementalVoxelMap {
     }
 
     /// Access the underlying small-gicp-cxx IncrementalVoxelMap.
-    pub fn inner(&self) -> &small_gicp_cxx::IncrementalVoxelMap {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn inner(&self) -> &small_gicp_cxx::IncrementalVoxelMap {
         &self.inner
     }
 
     /// Convert from a small-gicp-cxx IncrementalVoxelMap.
-    pub fn from_cxx(inner: small_gicp_cxx::IncrementalVoxelMap) -> Self {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn from_cxx(inner: small_gicp_cxx::IncrementalVoxelMap) -> Self {
         Self { inner }
     }
 
     /// Convert to a small-gicp-cxx IncrementalVoxelMap.
-    pub fn into_cxx(self) -> small_gicp_cxx::IncrementalVoxelMap {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn into_cxx(self) -> small_gicp_cxx::IncrementalVoxelMap {
         self.inner
     }
 }

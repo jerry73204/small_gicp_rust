@@ -137,17 +137,20 @@ impl KdTree {
     }
 
     /// Access the underlying small-gicp-cxx KdTree.
-    pub fn inner(&self) -> &small_gicp_cxx::KdTree {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn inner(&self) -> &small_gicp_cxx::KdTree {
         &self.inner
     }
 
     /// Convert from a small-gicp-cxx KdTree.
-    pub fn from_cxx(inner: small_gicp_cxx::KdTree) -> Self {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn from_cxx(inner: small_gicp_cxx::KdTree) -> Self {
         Self { inner }
     }
 
     /// Convert to a small-gicp-cxx KdTree.
-    pub fn into_cxx(self) -> small_gicp_cxx::KdTree {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn into_cxx(self) -> small_gicp_cxx::KdTree {
         self.inner
     }
 
@@ -259,17 +262,20 @@ impl UnsafeKdTree {
     }
 
     /// Access the underlying small-gicp-cxx UnsafeKdTree.
-    pub fn inner(&self) -> &small_gicp_cxx::UnsafeKdTree {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn inner(&self) -> &small_gicp_cxx::UnsafeKdTree {
         &self.inner
     }
 
     /// Convert from a small-gicp-cxx UnsafeKdTree.
-    pub fn from_cxx(inner: small_gicp_cxx::UnsafeKdTree) -> Self {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn from_cxx(inner: small_gicp_cxx::UnsafeKdTree) -> Self {
         Self { inner }
     }
 
     /// Convert to a small-gicp-cxx UnsafeKdTree.
-    pub fn into_cxx(self) -> small_gicp_cxx::UnsafeKdTree {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn into_cxx(self) -> small_gicp_cxx::UnsafeKdTree {
         self.inner
     }
 }

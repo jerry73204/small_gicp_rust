@@ -611,34 +611,95 @@ impl PointCloud {
     }
 
     /// Access the underlying small-gicp-cxx PointCloud mutably.
-    pub fn inner_mut(&mut self) -> &mut small_gicp_cxx::PointCloud {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn inner_mut(&mut self) -> &mut small_gicp_cxx::PointCloud {
         &mut self.inner
     }
 
     /// Create a PointCloud from a small-gicp-cxx PointCloud.
-    pub fn from_cxx(inner: small_gicp_cxx::PointCloud) -> Self {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn from_cxx(inner: small_gicp_cxx::PointCloud) -> Self {
         Self { inner }
     }
 
     /// Convert to a small-gicp-cxx PointCloud.
-    pub fn into_cxx(self) -> small_gicp_cxx::PointCloud {
+    /// This is for internal use only and should not be exposed to users.
+    pub(crate) fn into_cxx(self) -> small_gicp_cxx::PointCloud {
         self.inner
     }
 
     /// Set points from raw f64 data (3 values per point: x, y, z).
-    pub fn set_points_bulk(&mut self, points: &[f64]) -> Result<()> {
-        self.inner.set_points_bulk(points);
+    pub fn set_points_bulk(&mut self, points_data: &[f64]) -> Result<()> {
+        if points_data.len() % 3 != 0 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Points data length {} is not a multiple of 3",
+                points_data.len()
+            )));
+        }
+
+        let num_points = points_data.len() / 3;
+        let mut points = Vec::with_capacity(num_points);
+
+        for i in 0..num_points {
+            let base = i * 3;
+            points.push(Point3::new(
+                points_data[base],
+                points_data[base + 1],
+                points_data[base + 2],
+            ));
+        }
+
+        self.resize(num_points)?;
+        self.set_points(&points)?;
         Ok(())
     }
 
     /// Set normals from raw f64 data (3 values per normal: x, y, z).
     pub fn set_normals_bulk(&mut self, normals: &[f64]) -> Result<()> {
-        self.inner.set_normals_bulk(normals);
+        if normals.len() % 3 != 0 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Normals data length {} is not a multiple of 3",
+                normals.len()
+            )));
+        }
+
+        // Convert 3-value normals to 4-value format expected by CXX (nx, ny, nz, 0.0)
+        let num_normals = normals.len() / 3;
+        let mut normals_4d = Vec::with_capacity(num_normals * 4);
+
+        for i in 0..num_normals {
+            let base = i * 3;
+            normals_4d.extend_from_slice(&[
+                normals[base],
+                normals[base + 1],
+                normals[base + 2],
+                0.0, // w component
+            ]);
+        }
+
+        self.inner.set_normals_bulk(&normals_4d);
         Ok(())
     }
 
     /// Set covariances from raw f64 data (16 values per covariance matrix).
     pub fn set_covariances_bulk(&mut self, covariances: &[f64]) -> Result<()> {
+        if covariances.len() % 16 != 0 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Covariances data length {} is not a multiple of 16",
+                covariances.len()
+            )));
+        }
+
+        let expected_len = self.len() * 16;
+        if covariances.len() != expected_len {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Covariances data length {} does not match expected length {} for {} points",
+                covariances.len(),
+                expected_len,
+                self.len()
+            )));
+        }
+
         self.inner.set_covariances_bulk(covariances);
         Ok(())
     }
