@@ -511,6 +511,14 @@ impl PointCloud {
 
     /// Set covariance matrices.
     pub fn set_covariances(&mut self, covariances: &[Matrix4<f64>]) -> Result<()> {
+        if covariances.len() != self.len() {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Number of covariances {} does not match number of points {}",
+                covariances.len(),
+                self.len()
+            )));
+        }
+
         // Convert Matrix4<f64> to raw f64 array (row-major 4x4 matrices)
         let mut raw_covariances = Vec::with_capacity(covariances.len() * 16);
         for covariance in covariances {
@@ -732,12 +740,29 @@ impl PointCloud {
 
     /// Set a covariance matrix at the given index.
     pub fn set_covariance(&mut self, index: usize, covariance: Matrix4<f64>) -> Result<()> {
-        // TODO: This would require modifying individual elements in the raw data
-        // For now, we'll return an error and suggest using bulk operations
-        Err(crate::error::SmallGicpError::NotImplemented(
-            "Individual covariance setting not supported. Use set_covariances for bulk operations."
-                .to_string(),
-        ))
+        if index >= self.len() {
+            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
+                index,
+                size: self.len(),
+            });
+        }
+
+        // Ensure the covariances array exists and is the right size
+        if !self.has_covariances() {
+            // Initialize with identity matrices
+            let identity_covs = vec![Matrix4::identity(); self.len()];
+            self.set_covariances(&identity_covs)?;
+        }
+
+        // Get current covariances, update the specific one, and set them back
+        let mut covs = self.to_covariances_vec();
+        if covs.len() != self.len() {
+            covs.resize(self.len(), Matrix4::identity());
+        }
+        covs[index] = covariance;
+        self.set_covariances(&covs)?;
+
+        Ok(())
     }
 
     /// Get a normal vector at the given index.
@@ -906,7 +931,7 @@ impl PointCloud {
     }
 
     /// Preprocess point cloud with the given configuration.
-    pub fn preprocess_points(&self, config: &crate::config::PreprocessorConfig) -> Result<Self> {
+    pub fn preprocess_points(&self, config: &crate::config::PreprocessingConfig) -> Result<Self> {
         use crate::preprocessing::Preprocessing;
 
         // Start with downsampling if configured
