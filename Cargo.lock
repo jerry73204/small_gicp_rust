@@ -854,15 +854,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "small-gicp-cxx"
-version = "0.1.0"
-dependencies = [
- "cxx",
- "cxx-build",
-]
-
-[[package]]
-name = "small-gicp-rust"
+name = "small-gicp"
 version = "0.1.0"
 dependencies = [
  "approx",
@@ -873,6 +865,14 @@ dependencies = [
  "small-gicp-cxx",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "small-gicp-cxx"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-build",
 ]
 
 [[package]]
