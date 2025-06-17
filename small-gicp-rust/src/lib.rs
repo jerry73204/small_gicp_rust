@@ -66,17 +66,17 @@ pub use config::{
     LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
     LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
     ParallelBackend, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
-    RegistrationConfig, RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
+    RegistrationConfig, RegistrationType, RobustKernelConfig, RobustKernelType, TerminationConfig,
+    VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{BorrowedKdTree, KdTree};
 pub use point_cloud::PointCloud;
 pub use preprocessing::Preprocessing;
+// Re-export registration functions and types
 pub use registration::{
-    compute_error_with_tree, find_correspondences_with_tree, register, register_advanced,
-    register_preprocessed, register_preprocessed_with_tree, register_vgicp, register_with_tree,
-    DofRestriction, ExtendedRegistrationResult, GaussianVoxelMap, RegistrationResult,
-    RegistrationSettings, RegistrationType, RobustKernel,
+    align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
+    RegistrationSetting, RegistrationType as SimpleRegistrationType,
 };
 pub use traits::{
     Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
@@ -96,17 +96,17 @@ pub mod prelude {
             LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend,
             NormalEstimationConfig, OptimizerConfig, ParallelBackend, PreprocessingConfig,
             ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
-            RobustKernelConfig, RobustKernelType, TerminationConfig, VoxelGridConfig,
+            RegistrationType, RobustKernelConfig, RobustKernelType, TerminationConfig,
+            VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
         kdtree::{BorrowedKdTree, KdTree},
         point_cloud::PointCloud,
         preprocessing::Preprocessing,
+        // Registration functions and types
         registration::{
-            compute_error_with_tree, find_correspondences_with_tree, register, register_advanced,
-            register_preprocessed, register_preprocessed_with_tree, register_vgicp,
-            register_with_tree, DofRestriction, ExtendedRegistrationResult, GaussianVoxelMap,
-            RegistrationResult, RegistrationSettings, RegistrationType, RobustKernel,
+            align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
+            RegistrationSetting, RegistrationType as SimpleRegistrationType,
         },
         traits::{
             Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait,

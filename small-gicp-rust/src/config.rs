@@ -845,7 +845,7 @@ impl Default for KnnSearchConfig {
 #[derive(Debug, Clone)]
 pub struct AdvancedRegistrationConfig {
     /// Registration algorithm type
-    pub registration_type: crate::registration::RegistrationType,
+    pub registration_type: RegistrationType,
     /// Voxel resolution for VGICP
     pub voxel_resolution: f64,
     /// Downsampling resolution for preprocessing
@@ -867,7 +867,7 @@ pub struct AdvancedRegistrationConfig {
 impl Default for AdvancedRegistrationConfig {
     fn default() -> Self {
         Self {
-            registration_type: crate::registration::RegistrationType::Gicp,
+            registration_type: RegistrationType::Gicp,
             voxel_resolution: 1.0,
             downsampling_resolution: 0.25,
             max_correspondence_distance: 1.0,
@@ -884,7 +884,7 @@ impl Default for AdvancedRegistrationConfig {
 #[derive(Debug, Clone)]
 pub struct RegistrationHelperConfig {
     /// Registration algorithm type
-    pub registration_type: crate::registration::RegistrationType,
+    pub registration_type: RegistrationType,
     /// Voxel resolution for VGICP
     pub voxel_resolution: f64,
     /// Downsampling resolution for preprocessing
@@ -906,7 +906,7 @@ pub struct RegistrationHelperConfig {
 impl Default for RegistrationHelperConfig {
     fn default() -> Self {
         Self {
-            registration_type: crate::registration::RegistrationType::Gicp,
+            registration_type: RegistrationType::Gicp,
             voxel_resolution: 1.0,
             downsampling_resolution: 0.25,
             max_correspondence_distance: 1.0,
@@ -1008,6 +1008,25 @@ impl From<ProjectionType> for u32 {
     }
 }
 
+/// Registration algorithm type for configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegistrationType {
+    /// Standard ICP (Iterative Closest Point)
+    Icp,
+    /// Point-to-plane ICP
+    PlaneIcp,
+    /// Generalized ICP
+    Gicp,
+    /// Voxelized GICP
+    Vgicp,
+}
+
+impl Default for RegistrationType {
+    fn default() -> Self {
+        Self::Gicp
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1086,7 +1105,7 @@ mod tests {
         let reg_config = AdvancedRegistrationConfig::default();
         assert_eq!(
             reg_config.registration_type,
-            crate::registration::RegistrationType::Gicp
+            crate::config::RegistrationType::Gicp
         );
         assert_eq!(reg_config.voxel_resolution, 1.0);
         assert_eq!(reg_config.downsampling_resolution, 0.25);

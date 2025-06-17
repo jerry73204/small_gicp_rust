@@ -51,8 +51,11 @@ impl UnsafeKdTree {
     ///
     /// This provides a runtime safety check to detect if the original data
     /// has been moved or invalidated. Returns true if the data is still valid.
-    pub fn validate_data_ptr(&self, expected_ptr: *const f64) -> bool {
-        unsafe { self.inner.unsafe_validate_data_ptr(expected_ptr) }
+    ///
+    /// # Safety
+    /// The caller must ensure that `expected_ptr` is a valid pointer.
+    pub unsafe fn validate_data_ptr(&self, expected_ptr: *const f64) -> bool {
+        self.inner.unsafe_validate_data_ptr(expected_ptr)
     }
 
     /// Find the nearest neighbor to a query point

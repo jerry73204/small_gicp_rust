@@ -280,6 +280,15 @@ KnnSearchResult KdTree::radius_search_with_distances(Point3d point,
   return result;
 }
 
+size_t KdTree::size() const {
+  // Return the number of points in the tree
+  // Access the points via the tree's points member
+  if (tree_ && tree_->points) {
+    return tree_->points->size();
+  }
+  return 0;
+}
+
 // GaussianVoxelMap implementation
 GaussianVoxelMap::GaussianVoxelMap(double voxel_size)
     : voxelmap_(std::make_shared<small_gicp::GaussianVoxelMap>(voxel_size)) {}
@@ -461,27 +470,54 @@ RegistrationResult align_points_icp(const PointCloud &source,
                                     const Transform &init_guess,
                                     const RegistrationSettings &settings) {
   // Convert transform
-  Eigen::Matrix4d init_T = Eigen::Matrix4d::Identity();
+  Eigen::Isometry3d init_T = Eigen::Isometry3d::Identity();
+  Eigen::Matrix4d init_matrix = Eigen::Matrix4d::Identity();
   for (int i = 0; i < 4; ++i) {
     for (int j = 0; j < 4; ++j) {
-      init_T(i, j) = init_guess.matrix[i * 4 + j];
+      init_matrix(i, j) = init_guess.matrix[i * 4 + j];
+    }
+  }
+  init_T.matrix() = init_matrix;
+
+  // Setup registration setting
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.num_threads = settings.num_threads;
+
+  // Perform registration
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T, reg_setting);
+
+  // Convert result
+  RegistrationResult reg_result;
+
+  // Extract transformation matrix
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 16; ++i) {
+    reg_result.transformation.matrix[i] = result_matrix.data()[i];
+  }
+
+  reg_result.converged = result.converged;
+  reg_result.iterations = static_cast<int32_t>(result.iterations);
+  reg_result.error = result.error;
+  reg_result.num_inliers = result.num_inliers;
+
+  // Extract information matrix (6x6 -> 36 elements in row-major order)
+  for (int i = 0; i < 6; ++i) {
+    for (int j = 0; j < 6; ++j) {
+      reg_result.information_matrix[i * 6 + j] = result.H(i, j);
     }
   }
 
-  // Simplified implementation - ICP
-  (void)source;
-  (void)target;
-  (void)target_tree;
-  (void)settings; // Suppress warnings
-
-  // Create dummy result for now - simplified
-  RegistrationResult reg_result;
-  for (int i = 0; i < 16; ++i) {
-    reg_result.transformation.matrix[i] = init_T.data()[i];
+  // Extract information vector (6 elements)
+  for (int i = 0; i < 6; ++i) {
+    reg_result.information_vector[i] = result.b(i);
   }
-  reg_result.converged = false;
-  reg_result.iterations = 0;
-  reg_result.error = 0.0;
 
   return reg_result;
 }

@@ -305,7 +305,6 @@ impl IncrementalVoxelMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Point3;
 
     #[test]
     fn test_voxel_container_type() {

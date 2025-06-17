@@ -70,6 +70,12 @@ pub mod ffi {
         pub iterations: i32,
         /// Final registration error
         pub error: f64,
+        /// Number of inlier correspondences
+        pub num_inliers: usize,
+        /// Information matrix (6x6 as 36-element array, row-major)
+        pub information_matrix: [f64; 36],
+        /// Information vector (6-element array)
+        pub information_vector: [f64; 6],
     }
 
     /// Settings for KdTree construction
@@ -79,6 +85,20 @@ pub mod ffi {
         pub num_threads: i32,
         /// Maximum leaf size for tree nodes
         pub max_leaf_size: i32,
+    }
+
+    /// Registration algorithm type
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[repr(i32)]
+    pub enum RegistrationType {
+        /// Point-to-point ICP
+        ICP = 0,
+        /// Point-to-plane ICP
+        PointToPlaneICP = 1,
+        /// Generalized ICP (distribution-to-distribution)
+        GICP = 2,
+        /// Voxelized GICP
+        VGICP = 3,
     }
 
     /// Settings for point cloud registration algorithms
@@ -149,6 +169,9 @@ pub mod ffi {
             point: Point3d,
             radius: f64,
         ) -> KnnSearchResult;
+
+        // Tree information
+        fn size(self: &KdTree) -> usize;
 
         // UnsafeKdTree type and methods (high-performance variant)
         type UnsafeKdTree;
@@ -305,6 +328,7 @@ pub mod ffi {
             init_guess: &Transform,
             settings: &RegistrationSettings,
         ) -> RegistrationResult;
+
     }
 }
 

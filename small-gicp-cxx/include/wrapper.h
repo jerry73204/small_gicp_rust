@@ -26,6 +26,7 @@ struct NearestNeighborResult;
 struct KnnSearchResult;
 struct GaussianVoxelData;
 struct VoxelInfoData;
+struct CorrespondencePair;
 
 // Wrapper class for PointCloud
 class PointCloud {
@@ -88,6 +89,9 @@ public:
   KnnSearchResult knn_search_with_distances(Point3d point, size_t k) const;
   KnnSearchResult radius_search_with_distances(Point3d point,
                                                double radius) const;
+
+  // Tree information
+  size_t size() const;
 
   // Internal access for registration
   small_gicp::KdTree<small_gicp::PointCloud> &get_internal() { return *tree_; }
@@ -225,6 +229,7 @@ RegistrationResult align_points_vgicp(const PointCloud &source,
                                       const GaussianVoxelMap &target_voxelmap,
                                       const Transform &init_guess,
                                       const RegistrationSettings &settings);
+
 
 // Utility functions
 std::unique_ptr<PointCloud> create_point_cloud();

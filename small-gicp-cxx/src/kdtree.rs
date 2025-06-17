@@ -12,6 +12,11 @@ pub struct KdTree {
     inner: UniquePtr<FfiKdTree>,
 }
 
+// SAFETY: The underlying C++ KdTree is designed to be thread-safe for read operations.
+// Multiple threads can safely perform searches simultaneously.
+unsafe impl Send for KdTree {}
+unsafe impl Sync for KdTree {}
+
 impl KdTree {
     /// Build a K-d tree from a point cloud
     pub fn build(cloud: &PointCloud, num_threads: i32) -> Self {
@@ -54,6 +59,11 @@ impl KdTree {
     /// Find all neighbors within a radius with distances
     pub fn radius_search_with_distances(&self, point: Point3d, radius: f64) -> KnnSearchResult {
         self.inner.radius_search_with_distances(point, radius)
+    }
+
+    /// Get the number of points in the tree
+    pub fn size(&self) -> usize {
+        self.inner.size()
     }
 
     /// Get internal FFI handle

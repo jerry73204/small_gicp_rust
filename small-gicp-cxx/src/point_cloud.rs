@@ -10,6 +10,11 @@ pub struct PointCloud {
     inner: UniquePtr<FfiPointCloud>,
 }
 
+// SAFETY: The underlying C++ PointCloud is designed to be thread-safe.
+// The implementation uses appropriate synchronization for concurrent access.
+unsafe impl Send for PointCloud {}
+unsafe impl Sync for PointCloud {}
+
 impl PointCloud {
     /// Create a new empty point cloud
     pub fn new() -> Self {
