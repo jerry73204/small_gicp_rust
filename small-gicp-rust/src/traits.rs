@@ -249,11 +249,11 @@ pub trait MutablePointCloudTrait: PointCloudTrait {
 /// ```
 pub trait SpatialSearchTree: Debug {
     /// Returns the number of points in the tree.
-    fn size(&self) -> usize;
+    fn len(&self) -> usize;
 
     /// Returns true if the tree is empty.
     fn empty(&self) -> bool {
-        self.size() == 0
+        self.len() == 0
     }
 
     /// Find the nearest neighbor to a query point.

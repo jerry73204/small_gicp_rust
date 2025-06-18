@@ -418,7 +418,7 @@ impl PointCloud {
     }
 
     /// Get a point at the given index.
-    pub fn get_point(&self, index: usize) -> Result<(f64, f64, f64)> {
+    pub fn point_at(&self, index: usize) -> Result<(f64, f64, f64)> {
         self.inner
             .get_point(index)
             .ok_or_else(|| crate::error::SmallGicpError::IndexOutOfBounds {
@@ -713,7 +713,7 @@ impl PointCloud {
     }
 
     /// Get a covariance matrix at the given index.
-    pub fn get_covariance(&self, index: usize) -> Result<Matrix4<f64>> {
+    pub fn covariance_at(&self, index: usize) -> Result<Matrix4<f64>> {
         if index >= self.len() {
             return Err(crate::error::SmallGicpError::IndexOutOfBounds {
                 index,
@@ -766,7 +766,7 @@ impl PointCloud {
     }
 
     /// Get a normal vector at the given index.
-    pub fn get_normal(&self, index: usize) -> Result<Vector3<f64>> {
+    pub fn normal_at(&self, index: usize) -> Result<Vector3<f64>> {
         if index >= self.len() {
             return Err(crate::error::SmallGicpError::IndexOutOfBounds {
                 index,
@@ -1021,18 +1021,18 @@ impl PointCloudTrait for PointCloud {
     }
 
     fn point(&self, i: usize) -> Point4<f64> {
-        let (x, y, z) = self.get_point(i).unwrap_or((0.0, 0.0, 0.0));
+        let (x, y, z) = self.point_at(i).unwrap_or((0.0, 0.0, 0.0));
         Vector4::new(x, y, z, 1.0)
     }
 
     fn normal(&self, i: usize) -> Option<Normal4<f64>> {
-        self.get_normal(i)
+        self.normal_at(i)
             .ok()
             .map(|n| Vector4::new(n.x, n.y, n.z, 0.0))
     }
 
     fn covariance(&self, i: usize) -> Option<Covariance4<f64>> {
-        self.get_covariance(i).ok()
+        self.covariance_at(i).ok()
     }
 
     fn has_points(&self) -> bool {

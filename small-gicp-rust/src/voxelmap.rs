@@ -229,12 +229,12 @@ impl IncrementalVoxelMap {
     }
 
     /// Get voxel coordinates for a point.
-    pub fn get_voxel_coords(&self, point: &Point3<f64>) -> Result<[i32; 3]> {
+    pub fn voxel_coords(&self, point: &Point3<f64>) -> Result<[i32; 3]> {
         Ok(self.inner.get_voxel_coords(point.x, point.y, point.z))
     }
 
     /// Get voxel by index.
-    pub fn get_voxel_index(&self, coords: [i32; 3]) -> Result<usize> {
+    pub fn voxel_index(&self, coords: [i32; 3]) -> Result<usize> {
         match self.inner.get_voxel_index(coords[0], coords[1], coords[2]) {
             Some(index) => Ok(index),
             None => Err(crate::error::SmallGicpError::InvalidArgument(
@@ -244,7 +244,7 @@ impl IncrementalVoxelMap {
     }
 
     /// Get Gaussian voxel by index.
-    pub fn get_gaussian_voxel(&self, index: usize) -> Result<GaussianVoxel> {
+    pub fn gaussian_voxel(&self, index: usize) -> Result<GaussianVoxel> {
         let voxel_data = self.inner.get_gaussian_voxel_by_index(index);
 
         Ok(GaussianVoxel {
@@ -271,7 +271,7 @@ impl IncrementalVoxelMap {
     }
 
     /// Get voxel information at specific coordinates.
-    pub fn get_voxel(&self, coordinates: &[i32; 3]) -> Option<GaussianVoxel> {
+    pub fn voxel(&self, coordinates: &[i32; 3]) -> Option<GaussianVoxel> {
         let voxel_data =
             self.inner
                 .get_voxel_data(coordinates[0], coordinates[1], coordinates[2])?;

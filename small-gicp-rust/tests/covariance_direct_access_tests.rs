@@ -33,7 +33,7 @@ fn test_covariance_matrix_operations() {
     assert!(cloud.has_covariances());
 
     // Get and verify
-    let retrieved = cloud.get_covariance(0).unwrap();
+    let retrieved = cloud.covariance_at(0).unwrap();
     for i in 0..4 {
         for j in 0..4 {
             assert_relative_eq!(test_cov[(i, j)], retrieved[(i, j)], epsilon = 1e-10);
@@ -58,7 +58,7 @@ fn test_covariance_matrix_operations() {
     assert!((cov0[(0, 0)] - cov1[(0, 0)]).abs() > 1e-10);
 
     // Test error cases
-    assert!(cloud.get_covariance(100).is_err());
+    assert!(cloud.covariance_at(100).is_err());
     assert!(cloud.set_covariance(100, test_cov).is_err());
 
     // Wrong number of covariances
@@ -95,15 +95,15 @@ fn test_covariance_bulk_data_operations() {
     assert!(cloud.has_covariances());
 
     // Verify by retrieving individual covariances
-    let cov0 = cloud.get_covariance(0).unwrap();
+    let cov0 = cloud.covariance_at(0).unwrap();
     assert_relative_eq!(cov0[(0, 0)], 1.0, epsilon = 1e-10);
     assert_relative_eq!(cov0[(1, 1)], 1.0, epsilon = 1e-10);
 
-    let cov1 = cloud.get_covariance(1).unwrap();
+    let cov1 = cloud.covariance_at(1).unwrap();
     assert_relative_eq!(cov1[(0, 0)], 2.0, epsilon = 1e-10);
     assert_relative_eq!(cov1[(1, 1)], 2.0, epsilon = 1e-10);
 
-    let cov2 = cloud.get_covariance(2).unwrap();
+    let cov2 = cloud.covariance_at(2).unwrap();
     assert_relative_eq!(cov2[(0, 0)], 3.0, epsilon = 1e-10);
     assert_relative_eq!(cov2[(0, 1)], 0.5, epsilon = 1e-10);
     assert_relative_eq!(cov2[(1, 0)], 0.5, epsilon = 1e-10);
@@ -351,7 +351,7 @@ fn test_covariance_estimation_integration() {
     assert!(cloud.has_covariances());
 
     // Check that covariances are reasonable
-    let cov = cloud.get_covariance(12).unwrap(); // Center point
+    let cov = cloud.covariance_at(12).unwrap(); // Center point
 
     // For a planar structure, Z variance should be smaller
     assert!(cov[(0, 0)] > 0.0); // X variance
@@ -379,7 +379,7 @@ fn test_covariance_estimation_integration() {
     assert!(cloud2.has_covariances());
 
     // For a planar structure, normals should point mostly in Z direction
-    let normal = cloud2.get_normal(12).unwrap();
+    let normal = cloud2.normal_at(12).unwrap();
     assert!(normal.z.abs() > 0.9); // Should be close to (0, 0, 1)
 }
 
@@ -441,13 +441,13 @@ fn test_data_persistence_after_operations() {
     assert!(cloud.has_covariances());
 
     // Verify data integrity
-    let point0 = cloud.get_point(0).unwrap();
+    let point0 = cloud.point_at(0).unwrap();
     assert_relative_eq!(point0.0, 1.0, epsilon = 1e-10);
 
-    let normal0 = cloud.get_normal(0).unwrap();
+    let normal0 = cloud.normal_at(0).unwrap();
     assert_relative_eq!(normal0.z, 1.0, epsilon = 1e-10);
 
-    let cov0 = cloud.get_covariance(0).unwrap();
+    let cov0 = cloud.covariance_at(0).unwrap();
     assert_relative_eq!(cov0[(0, 0)], 1.0, epsilon = 1e-10);
 
     // Test that direct access still works

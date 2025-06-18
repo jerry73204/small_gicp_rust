@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         * Isometry3::rotation(nalgebra::Vector3::z() * 0.1);
 
     for i in 0..target.size() {
-        let (x, y, z) = target.get_point(i)?;
+        let (x, y, z) = target.point_at(i)?;
         let pt = Point3::new(x, y, z);
         let transformed = true_transform * pt;
         source.add_point(transformed.x, transformed.y, transformed.z);

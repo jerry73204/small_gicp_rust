@@ -208,7 +208,7 @@ impl std::fmt::Debug for KdTree {
 }
 
 impl SpatialSearchTree for KdTree {
-    fn size(&self) -> usize {
+    fn len(&self) -> usize {
         // Get size from the underlying C++ KdTree
         // For now, we can't easily get this information, so we return 0
         // TODO: Add size() method to the C++ KdTree wrapper
@@ -345,7 +345,7 @@ impl<'a> std::fmt::Debug for BorrowedKdTree<'a> {
 }
 
 impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
-    fn size(&self) -> usize {
+    fn len(&self) -> usize {
         self.size()
     }
 
@@ -490,7 +490,7 @@ pub mod algorithms {
         let max_dist_sq = max_distance * max_distance;
 
         for i in 0..source.size() {
-            let source_point = source.get_point(i).unwrap();
+            let source_point = source.point_at(i).unwrap();
             let source_pt = Point3::new(source_point.0, source_point.1, source_point.2);
             if let Some((target_idx, sq_dist)) = target_kdtree.nearest_neighbor(&source_pt) {
                 if sq_dist <= max_dist_sq {
@@ -510,7 +510,7 @@ pub mod algorithms {
     ) -> Result<(usize, Point3<f64>, f64)> {
         debug!("Finding closest point");
         if let Some((index, sq_dist)) = kdtree.nearest_neighbor(query_point) {
-            let point = cloud.get_point(index)?;
+            let point = cloud.point_at(index)?;
             let pt = Point3::new(point.0, point.1, point.2);
             Ok((index, pt, sq_dist.sqrt()))
         } else {
@@ -533,7 +533,7 @@ pub mod algorithms {
         let mut results = Vec::with_capacity(knn_results.len());
 
         for (index, sq_dist) in knn_results {
-            let point = cloud.get_point(index)?;
+            let point = cloud.point_at(index)?;
             let pt = Point3::new(point.0, point.1, point.2);
             results.push((index, pt, sq_dist.sqrt()));
         }
