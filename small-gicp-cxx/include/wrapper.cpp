@@ -2,6 +2,7 @@
 #include "small-gicp-cxx/src/ffi.rs.h"
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
+#include <small_gicp/util/downsampling.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
 #include <small_gicp/util/normal_estimation_omp.hpp>
 
@@ -317,7 +318,8 @@ bool GaussianVoxelMap::has_voxel_at_coords(int x, int y, int z) const {
 IncrementalVoxelMap::IncrementalVoxelMap(double voxel_size)
     : voxelmap_(std::make_shared<
                 small_gicp::IncrementalVoxelMap<small_gicp::GaussianVoxel>>(
-          voxel_size)) {}
+          voxel_size)),
+      voxel_size_(voxel_size) {}
 
 void IncrementalVoxelMap::incremental_insert(const PointCloud &cloud) {
   voxelmap_->insert(cloud.get_internal());
@@ -338,8 +340,7 @@ void IncrementalVoxelMap::incremental_finalize() {
 }
 
 double IncrementalVoxelMap::incremental_get_voxel_size() const {
-  // Placeholder - API may need adjustment
-  return 1.0;
+  return voxel_size_;
 }
 
 size_t IncrementalVoxelMap::incremental_get_num_voxels() const {
@@ -365,11 +366,9 @@ void IncrementalVoxelMap::incremental_insert_with_transform(
 
 bool IncrementalVoxelMap::incremental_has_voxel_at_coords(int x, int y,
                                                           int z) const {
-  // Simplified implementation
-  (void)x;
-  (void)y;
-  (void)z;      // Suppress warnings
-  return false; // Placeholder
+  // Check if voxel exists at the given coordinates
+  Eigen::Vector3i coord(x, y, z);
+  return voxelmap_->voxels.find(coord) != voxelmap_->voxels.end();
 }
 
 void IncrementalVoxelMap::incremental_set_search_offsets(int num_offsets) {
@@ -768,19 +767,107 @@ std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud &cloud,
                                                  double voxel_size,
                                                  int num_threads) {
   auto result = std::make_unique<PointCloud>();
-  (void)cloud;
-  (void)voxel_size;
-  (void)num_threads; // Suppress warnings
-  // Voxel grid downsampling implementation simplified
+
+  // Use small_gicp's voxel grid downsampling
+  std::shared_ptr<small_gicp::PointCloud> downsampled;
+  if (num_threads <= 1) {
+    downsampled =
+        small_gicp::voxelgrid_sampling(cloud.get_internal(), voxel_size);
+  } else {
+    downsampled = small_gicp::voxelgrid_sampling_omp(cloud.get_internal(),
+                                                     voxel_size, num_threads);
+  }
+
+  // Copy points from the downsampled cloud
+  result->resize(downsampled->size());
+  for (size_t i = 0; i < downsampled->size(); ++i) {
+    const auto &pt = downsampled->point(i);
+    result->set_point(i, Point3d{pt.x(), pt.y(), pt.z()});
+  }
+
+  // Copy normals if they exist
+  if (!downsampled->normals.empty()) {
+    std::vector<double> normals_data;
+    normals_data.reserve(downsampled->size() * 4);
+    for (size_t i = 0; i < downsampled->size(); ++i) {
+      const auto &n = downsampled->normal(i);
+      normals_data.push_back(n.x());
+      normals_data.push_back(n.y());
+      normals_data.push_back(n.z());
+      normals_data.push_back(n.w());
+    }
+    result->set_normals_bulk(
+        rust::Slice<const double>(normals_data.data(), normals_data.size()));
+  }
+
+  // Copy covariances if they exist
+  if (!downsampled->covs.empty()) {
+    std::vector<double> cov_data;
+    cov_data.reserve(downsampled->size() * 16);
+    for (size_t i = 0; i < downsampled->size(); ++i) {
+      const auto &cov = downsampled->cov(i);
+      for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+          cov_data.push_back(cov(r, c));
+        }
+      }
+    }
+    result->set_covariances_bulk(
+        rust::Slice<const double>(cov_data.data(), cov_data.size()));
+  }
+
   return result;
 }
 
 std::unique_ptr<PointCloud> downsample_random(const PointCloud &cloud,
                                               size_t num_samples) {
   auto result = std::make_unique<PointCloud>();
-  (void)cloud;
-  (void)num_samples; // Suppress warnings
-  // Random sampling implementation simplified
+
+  // Create a random number generator
+  std::mt19937 rng(42); // Fixed seed for reproducibility
+
+  // Use small_gicp's random downsampling
+  auto downsampled =
+      small_gicp::random_sampling(cloud.get_internal(), num_samples, rng);
+
+  // Copy points from the downsampled cloud
+  result->resize(downsampled->size());
+  for (size_t i = 0; i < downsampled->size(); ++i) {
+    const auto &pt = downsampled->point(i);
+    result->set_point(i, Point3d{pt.x(), pt.y(), pt.z()});
+  }
+
+  // Copy normals if they exist
+  if (!downsampled->normals.empty()) {
+    std::vector<double> normals_data;
+    normals_data.reserve(downsampled->size() * 4);
+    for (size_t i = 0; i < downsampled->size(); ++i) {
+      const auto &n = downsampled->normal(i);
+      normals_data.push_back(n.x());
+      normals_data.push_back(n.y());
+      normals_data.push_back(n.z());
+      normals_data.push_back(n.w());
+    }
+    result->set_normals_bulk(
+        rust::Slice<const double>(normals_data.data(), normals_data.size()));
+  }
+
+  // Copy covariances if they exist
+  if (!downsampled->covs.empty()) {
+    std::vector<double> cov_data;
+    cov_data.reserve(downsampled->size() * 16);
+    for (size_t i = 0; i < downsampled->size(); ++i) {
+      const auto &cov = downsampled->cov(i);
+      for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+          cov_data.push_back(cov(r, c));
+        }
+      }
+    }
+    result->set_covariances_bulk(
+        rust::Slice<const double>(cov_data.data(), cov_data.size()));
+  }
+
   return result;
 }
 

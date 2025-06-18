@@ -1244,12 +1244,12 @@ pub mod conversions {
 
         // Copy normals if available
         if input.has_normals() {
-            let mut normals_data = Vec::with_capacity(input.size() * 4);
+            let mut normals_data = Vec::with_capacity(input.size() * 3);
             for i in 0..input.size() {
                 if let Some(normal) = input.normal(i) {
-                    normals_data.extend_from_slice(&[normal.x, normal.y, normal.z, normal.w]);
+                    normals_data.extend_from_slice(&[normal.x, normal.y, normal.z]);
                 } else {
-                    normals_data.extend_from_slice(&[0.0, 0.0, 0.0, 0.0]);
+                    normals_data.extend_from_slice(&[0.0, 0.0, 0.0]);
                 }
             }
             output.set_normals_bulk(&normals_data)?;

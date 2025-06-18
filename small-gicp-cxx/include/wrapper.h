@@ -204,6 +204,7 @@ public:
 private:
   std::shared_ptr<small_gicp::IncrementalVoxelMap<small_gicp::GaussianVoxel>>
       voxelmap_;
+  double voxel_size_;
 };
 
 // Registration functions
@@ -229,7 +230,6 @@ RegistrationResult align_points_vgicp(const PointCloud &source,
                                       const GaussianVoxelMap &target_voxelmap,
                                       const Transform &init_guess,
                                       const RegistrationSettings &settings);
-
 
 // Utility functions
 std::unique_ptr<PointCloud> create_point_cloud();
