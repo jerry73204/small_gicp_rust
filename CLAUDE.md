@@ -10,7 +10,11 @@ small_gicp is a header-only C++ library for efficient and parallelized point clo
 
 ## Backward Compatibility
 
-- There is no need to maintain backward compatibility. The project was not published yet.
+- There is no need to maintain backward compatibility.
+
+## Rust API Constraints
+
+- The Rust API must respect the upstream C++ public API. It only provides features that C++ already has.
 
 ## Build Commands
 
@@ -55,8 +59,7 @@ pytest src/test/python_test.py
 
 ### C++ Code
 ```bash
-# No specific linting setup found - follow general C++ best practices
-# Code uses C++17 standard
+# Use clang-format to format C/C++ code. Use "// clang-format off ... // clang-format on" to protect lines that could be broken by clang-format.
 ```
 
 ### Python Code
@@ -132,7 +135,7 @@ The Python bindings (`src/python/`) expose core functionality:
 
 ## Development Approach
 
-- The Rust library can leave todo!() and comments if the required FFI item is not implemented yet.
+- The Rust library can leave todo!() and comments if the related FFI item is not implemented yet. Don't simply return dummy value. It would cause silent error.
 
 ## Logging
 
@@ -141,3 +144,8 @@ The Python bindings (`src/python/`) expose core functionality:
 ## Development Best Practices
 
 - Always run `cargo build --all-targets ...` after working on Rust code to verify if it compiles.
+- Always format code after you make changes to source files. Use `cargo +nightly fmt` on Rust. Use clang-format on C/C++.
+
+## Naming Conventions
+
+- Follow Rust naming conventions. For example, voxel_index() is preferred over get_voxel_index(). You can see the guidelines here https://rust-lang.github.io/api-guidelines/naming.html.
