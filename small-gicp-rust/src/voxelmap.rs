@@ -355,7 +355,10 @@ mod tests {
         assert_eq!(voxel_size, 0.1);
 
         // Test has_voxel_at_coords
+        // Since we added points at (0.0, 0.0, 0.0), (0.05, 0.05, 0.05), and (0.2, 0.2, 0.2)
+        // with voxel size 0.1, we should have voxels at (0, 0, 0) and (2, 2, 2)
         assert!(voxelmap.has_voxel_at_coords(0, 0, 0));
+        assert!(voxelmap.has_voxel_at_coords(2, 2, 2));
 
         // Test clear (which is a no-op for IncrementalVoxelMap)
         voxelmap.clear();

@@ -2,7 +2,10 @@
 
 use nalgebra::{Isometry3, Point3};
 use small_gicp::{
-    align, create_gaussian_voxelmap, kdtree::KdTree, point_cloud::PointCloud, preprocess_points,
+    align, create_gaussian_voxelmap,
+    kdtree::KdTree,
+    point_cloud::PointCloud,
+    preprocess_points,
     registration::{RegistrationSetting, RegistrationType},
     traits::{MutablePointCloudTrait, PointCloudTrait},
     Result,
@@ -28,8 +31,8 @@ fn main() -> Result<()> {
     }
 
     // Apply a known transformation to create source cloud
-    let true_transform = Isometry3::translation(0.5, 0.3, 0.1)
-        * Isometry3::rotation(nalgebra::Vector3::z() * 0.1);
+    let true_transform =
+        Isometry3::translation(0.5, 0.3, 0.1) * Isometry3::rotation(nalgebra::Vector3::z() * 0.1);
 
     for i in 0..target.size() {
         let (x, y, z) = target.point_at(i)?;
@@ -61,11 +64,13 @@ fn main() -> Result<()> {
         println!("  Converged: {}", result.converged);
         println!("  Iterations: {}", result.iterations);
         println!("  Final error: {:.6}", result.error);
-        
+
         // Extract translation from result
         let translation = result.t_target_source.translation.vector;
-        println!("  Estimated translation: [{:.3}, {:.3}, {:.3}]", 
-                 translation.x, translation.y, translation.z);
+        println!(
+            "  Estimated translation: [{:.3}, {:.3}, {:.3}]",
+            translation.x, translation.y, translation.z
+        );
     }
 
     // Example 2: Preprocessing pipeline
@@ -79,12 +84,15 @@ fn main() -> Result<()> {
         println!("  Downsampled target: {} points", processed_target.size());
         println!("  Downsampled source: {} points", processed_source.size());
         println!("  Normals computed: {}", processed_target.has_normals());
-        println!("  Covariances computed: {}", processed_target.has_covariances());
+        println!(
+            "  Covariances computed: {}",
+            processed_target.has_covariances()
+        );
 
         // Run GICP (requires covariances)
         let mut settings = RegistrationSetting::default();
         settings.reg_type = RegistrationType::GICP;
-        
+
         let result = align(
             &processed_target,
             &processed_source,
@@ -105,10 +113,10 @@ fn main() -> Result<()> {
     {
         let voxel_resolution = 0.5;
         let voxelmap = create_gaussian_voxelmap(&target, voxel_resolution)?;
-        
+
         println!("  Voxel resolution: {}", voxel_resolution);
         println!("  Number of voxels: {}", voxelmap.size());
-        
+
         // Note: VGICP alignment is not yet fully implemented
         println!("  (VGICP alignment will be available in future release)");
     }
@@ -120,11 +128,11 @@ fn main() -> Result<()> {
         // Stage 1: Coarse alignment with downsampled clouds
         let (coarse_target, coarse_tree) = preprocess_points(&target, 0.5, 10, 4)?;
         let (coarse_source, _) = preprocess_points(&source, 0.5, 10, 4)?;
-        
+
         let mut coarse_settings = RegistrationSetting::default();
         coarse_settings.reg_type = RegistrationType::ICP;
         coarse_settings.max_correspondence_distance = 2.0;
-        
+
         let coarse_result = align(
             &coarse_target,
             &coarse_source,
@@ -132,15 +140,15 @@ fn main() -> Result<()> {
             None,
             Some(coarse_settings),
         )?;
-        
+
         println!("  Stage 1 (coarse): error = {:.6}", coarse_result.error);
-        
+
         // Stage 2: Fine alignment with full resolution
         let target_tree = KdTree::new(&target)?;
         let mut fine_settings = RegistrationSetting::default();
         fine_settings.reg_type = RegistrationType::ICP;
         fine_settings.max_correspondence_distance = 0.5;
-        
+
         let fine_result = align(
             &target,
             &source,
@@ -148,12 +156,14 @@ fn main() -> Result<()> {
             Some(coarse_result.t_target_source),
             Some(fine_settings),
         )?;
-        
+
         println!("  Stage 2 (fine): error = {:.6}", fine_result.error);
-        
+
         let translation = fine_result.t_target_source.translation.vector;
-        println!("  Final translation: [{:.3}, {:.3}, {:.3}]", 
-                 translation.x, translation.y, translation.z);
+        println!(
+            "  Final translation: [{:.3}, {:.3}, {:.3}]",
+            translation.x, translation.y, translation.z
+        );
     }
 
     println!("\nRegistration examples completed successfully!");
