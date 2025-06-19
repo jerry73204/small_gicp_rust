@@ -31,7 +31,7 @@ nalgebra = "0.32"
 ## Quick Start
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 use nalgebra::Point3;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Basic Registration
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 use nalgebra::Point3;
 
 // Create point clouds from vectors of points
@@ -100,7 +100,7 @@ let rotation = result.rotation();
 ### Point Cloud Preprocessing
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 
 // Load point cloud from file
 let cloud = PointCloud::from_ply("input.ply")?;
@@ -127,7 +127,7 @@ preprocessed_cloud.save_ply("output.ply")?;
 ### Manual Preprocessing Steps
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 
 let cloud = PointCloud::from_ply("input.ply")?;
 
@@ -146,7 +146,7 @@ estimate_normals_and_covariances(&mut processed, &kdtree, 20, 4)?;
 ### Different Registration Algorithms
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 
 let algorithms = [
     RegistrationType::Icp,        // Point-to-point ICP
@@ -170,7 +170,7 @@ for algorithm in algorithms {
 ### VGICP Registration
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 
 // Create Gaussian voxel map for target
 let target_voxelmap = GaussianVoxelMap::new(&target, 0.1, 4)?;
@@ -188,7 +188,7 @@ let result = register_vgicp(&target_voxelmap, &source, &settings)?;
 ### KdTree Operations
 
 ```rust
-use small_gicp_rust::prelude::*;
+use small_gicp::prelude::*;
 use nalgebra::Point3;
 
 let kdtree = KdTree::new(&cloud, 4)?;
