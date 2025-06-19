@@ -14,7 +14,7 @@
 
 #include "rust/cxx.h"
 
-namespace small_gicp_cxx {
+namespace small_gicp_sys {
 
 // Forward declarations for shared structs - actual definitions come from cxx
 struct Point3d;
@@ -257,4 +257,4 @@ void compute_covariances(PointCloud &cloud, int num_neighbors, int num_threads);
 std::unique_ptr<PointCloud> load_ply(rust::Str filename);
 void save_ply(rust::Str filename, const PointCloud &cloud);
 
-} // namespace small_gicp_cxx
+} // namespace small_gicp_sys

@@ -16,7 +16,7 @@ impl Io {
     ///
     /// # Example
     /// ```no_run
-    /// use small_gicp_cxx::Io;
+    /// use small_gicp_sys::Io;
     ///
     /// let cloud = Io::load_ply("data/bunny.ply").expect("Failed to load PLY");
     /// println!("Loaded {} points", cloud.len());
@@ -52,7 +52,7 @@ impl Io {
     ///
     /// # Example
     /// ```no_run
-    /// use small_gicp_cxx::{Io, PointCloud};
+    /// use small_gicp_sys::{Io, PointCloud};
     ///
     /// let mut cloud = PointCloud::new();
     /// cloud.add_point(0.0, 0.0, 0.0);

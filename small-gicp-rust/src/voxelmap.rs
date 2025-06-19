@@ -63,7 +63,7 @@ pub enum SearchOffsetPattern {
 
 /// An incremental voxel map for efficient scan-to-model registration.
 pub struct IncrementalVoxelMap {
-    inner: small_gicp_cxx::IncrementalVoxelMap,
+    inner: small_gicp_sys::IncrementalVoxelMap,
 }
 
 /// A Gaussian voxel map (alias for IncrementalVoxelMap with GaussianVoxel).
@@ -74,7 +74,7 @@ pub type GaussianVoxelMap = IncrementalVoxelMap;
 impl IncrementalVoxelMap {
     /// Create a new incremental voxel map.
     pub fn new(voxel_size: f64) -> Self {
-        let inner = small_gicp_cxx::IncrementalVoxelMap::new(voxel_size);
+        let inner = small_gicp_sys::IncrementalVoxelMap::new(voxel_size);
         Self { inner }
     }
 
@@ -83,13 +83,13 @@ impl IncrementalVoxelMap {
         // NOTE: The upstream C++ library only supports GaussianVoxel container type
         // for IncrementalVoxelMap. The container_type parameter is kept for API compatibility
         // but currently has no effect.
-        let inner = small_gicp_cxx::IncrementalVoxelMap::new(voxel_size);
+        let inner = small_gicp_sys::IncrementalVoxelMap::new(voxel_size);
         Ok(Self { inner })
     }
 
     /// Insert a point cloud into the voxel map.
     pub fn insert(&mut self, cloud: &PointCloud) -> Result<()> {
-        // Convert to small-gicp-cxx PointCloud
+        // Convert to small-gicp-sys PointCloud
         let cxx_cloud = cloud.clone().into_cxx();
         self.inner.insert(&cxx_cloud);
         Ok(())
@@ -143,7 +143,7 @@ impl IncrementalVoxelMap {
         transform: &Matrix4<f64>,
     ) -> Result<()> {
         // Convert nalgebra matrix to FFI transform
-        let mut ffi_transform = small_gicp_cxx::Transform::default();
+        let mut ffi_transform = small_gicp_sys::Transform::default();
         for i in 0..4 {
             for j in 0..4 {
                 ffi_transform.matrix[i * 4 + j] = transform[(i, j)];
@@ -151,7 +151,7 @@ impl IncrementalVoxelMap {
         }
 
         // Convert nalgebra matrix to FFI transform
-        let mut ffi_transform = small_gicp_cxx::Transform::default();
+        let mut ffi_transform = small_gicp_sys::Transform::default();
         for i in 0..4 {
             for j in 0..4 {
                 ffi_transform.matrix[i * 4 + j] = transform[(i, j)];
@@ -283,21 +283,21 @@ impl IncrementalVoxelMap {
         })
     }
 
-    /// Access the underlying small-gicp-cxx IncrementalVoxelMap.
+    /// Access the underlying small-gicp-sys IncrementalVoxelMap.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn inner(&self) -> &small_gicp_cxx::IncrementalVoxelMap {
+    pub(crate) fn inner(&self) -> &small_gicp_sys::IncrementalVoxelMap {
         &self.inner
     }
 
-    /// Convert from a small-gicp-cxx IncrementalVoxelMap.
+    /// Convert from a small-gicp-sys IncrementalVoxelMap.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn from_cxx(inner: small_gicp_cxx::IncrementalVoxelMap) -> Self {
+    pub(crate) fn from_cxx(inner: small_gicp_sys::IncrementalVoxelMap) -> Self {
         Self { inner }
     }
 
-    /// Convert to a small-gicp-cxx IncrementalVoxelMap.
+    /// Convert to a small-gicp-sys IncrementalVoxelMap.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn into_cxx(self) -> small_gicp_cxx::IncrementalVoxelMap {
+    pub(crate) fn into_cxx(self) -> small_gicp_sys::IncrementalVoxelMap {
         self.inner
     }
 }

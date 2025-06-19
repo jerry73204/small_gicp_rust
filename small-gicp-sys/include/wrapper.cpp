@@ -1,12 +1,12 @@
 #include "wrapper.h"
-#include "small-gicp-cxx/src/ffi.rs.h"
+#include "small-gicp-sys/src/ffi.rs.h"
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
 #include <small_gicp/util/normal_estimation_omp.hpp>
 
-namespace small_gicp_cxx {
+namespace small_gicp_sys {
 
 // PointCloud implementation
 PointCloud::PointCloud() : cloud_(std::make_shared<small_gicp::PointCloud>()) {}
@@ -927,4 +927,4 @@ RegistrationResult align_points_point_to_plane_icp(
   return reg_result;
 }
 
-} // namespace small_gicp_cxx
+} // namespace small_gicp_sys

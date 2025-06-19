@@ -62,21 +62,21 @@ use tracing::{debug, trace};
 /// # }
 /// ```
 pub struct KdTree {
-    inner: small_gicp_cxx::KdTree,
+    inner: small_gicp_sys::KdTree,
 }
 
 impl KdTree {
     /// Build a KdTree from a point cloud.
     pub fn new(cloud: &PointCloud) -> Result<Self> {
         debug!("Building KdTree with 1 thread");
-        let cxx_kdtree = small_gicp_cxx::KdTree::build(cloud.inner(), 1);
+        let cxx_kdtree = small_gicp_sys::KdTree::build(cloud.inner(), 1);
         Ok(Self { inner: cxx_kdtree })
     }
 
     /// Build a KdTree from a point cloud with specified number of threads.
     pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
         debug!("Building KdTree with {} threads", num_threads);
-        let cxx_kdtree = small_gicp_cxx::KdTree::build(cloud.inner(), num_threads as i32);
+        let cxx_kdtree = small_gicp_sys::KdTree::build(cloud.inner(), num_threads as i32);
         Ok(Self { inner: cxx_kdtree })
     }
 
@@ -88,7 +88,7 @@ impl KdTree {
             point.y,
             point.z
         );
-        let query = small_gicp_cxx::Point3d {
+        let query = small_gicp_sys::Point3d {
             x: point.x,
             y: point.y,
             z: point.z,
@@ -110,7 +110,7 @@ impl KdTree {
             point.z,
             k
         );
-        let query = small_gicp_cxx::Point3d {
+        let query = small_gicp_sys::Point3d {
             x: point.x,
             y: point.y,
             z: point.z,
@@ -132,7 +132,7 @@ impl KdTree {
             point.z,
             radius
         );
-        let query = small_gicp_cxx::Point3d {
+        let query = small_gicp_sys::Point3d {
             x: point.x,
             y: point.y,
             z: point.z,
@@ -175,27 +175,27 @@ impl KdTree {
         }
     }
 
-    /// Access the underlying small-gicp-cxx KdTree.
+    /// Access the underlying small-gicp-sys KdTree.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn inner(&self) -> &small_gicp_cxx::KdTree {
+    pub(crate) fn inner(&self) -> &small_gicp_sys::KdTree {
         &self.inner
     }
 
-    /// Convert from a small-gicp-cxx KdTree.
+    /// Convert from a small-gicp-sys KdTree.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn from_cxx(inner: small_gicp_cxx::KdTree) -> Self {
+    pub(crate) fn from_cxx(inner: small_gicp_sys::KdTree) -> Self {
         Self { inner }
     }
 
-    /// Convert to a small-gicp-cxx KdTree.
+    /// Convert to a small-gicp-sys KdTree.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn into_cxx(self) -> small_gicp_cxx::KdTree {
+    pub(crate) fn into_cxx(self) -> small_gicp_sys::KdTree {
         self.inner
     }
 
     /// Get backend information string.
     pub fn backend_info(&self) -> &'static str {
-        "small-gicp-cxx KdTree"
+        "small-gicp-sys KdTree"
     }
 }
 
@@ -268,7 +268,7 @@ impl SpatialSearchTree for KdTree {
 /// # }
 /// ```
 pub struct BorrowedKdTree<'a> {
-    inner: small_gicp_cxx::UnsafeKdTree,
+    inner: small_gicp_sys::UnsafeKdTree,
     _phantom: PhantomData<&'a PointCloud>,
 }
 
@@ -310,7 +310,7 @@ impl<'a> BorrowedKdTree<'a> {
         }
 
         // Build the UnsafeKdTree using the C++ PointCloud reference
-        let inner = small_gicp_cxx::UnsafeKdTree::build(cloud.inner(), num_threads as i32);
+        let inner = small_gicp_sys::UnsafeKdTree::build(cloud.inner(), num_threads as i32);
 
         Ok(Self {
             inner,
@@ -331,7 +331,7 @@ impl<'a> BorrowedKdTree<'a> {
     }
 
     /// Access the underlying UnsafeKdTree for internal use.
-    pub(crate) fn inner(&self) -> &small_gicp_cxx::UnsafeKdTree {
+    pub(crate) fn inner(&self) -> &small_gicp_sys::UnsafeKdTree {
         &self.inner
     }
 }
@@ -357,7 +357,7 @@ impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
             query.z
         );
 
-        let query_point = small_gicp_cxx::Point3d {
+        let query_point = small_gicp_sys::Point3d {
             x: query.x,
             y: query.y,
             z: query.z,
@@ -380,7 +380,7 @@ impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
             k
         );
 
-        let query_point = small_gicp_cxx::Point3d {
+        let query_point = small_gicp_sys::Point3d {
             x: query.x,
             y: query.y,
             z: query.z,
@@ -403,7 +403,7 @@ impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
             radius
         );
 
-        let query_point = small_gicp_cxx::Point3d {
+        let query_point = small_gicp_sys::Point3d {
             x: query.x,
             y: query.y,
             z: query.z,

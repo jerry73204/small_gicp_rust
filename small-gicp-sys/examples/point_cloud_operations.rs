@@ -1,4 +1,4 @@
-use small_gicp_cxx::{PointCloud, Preprocessing, Transform};
+use small_gicp_sys::{PointCloud, Preprocessing, Transform};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Point Cloud Operations Example ===");

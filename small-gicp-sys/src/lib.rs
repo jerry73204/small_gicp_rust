@@ -1,4 +1,4 @@
-//! # small-gicp-cxx
+//! # small-gicp-sys
 //!
 //! Direct C++ bindings for the small_gicp library using cxx.
 //!
@@ -18,7 +18,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use small_gicp_cxx::{
+//! use small_gicp_sys::{
 //!     KdTree, PointCloud, Preprocessing, Registration, RegistrationSettingsBuilder, Transform,
 //! };
 //!

@@ -336,18 +336,18 @@ impl<'a> DoubleEndedIterator for CovariancesView<'a> {
 
 /// A 3D point cloud with optional normal vectors and covariances.
 ///
-/// This is a high-level Rust wrapper around the small-gicp-cxx PointCloud.
+/// This is a high-level Rust wrapper around the small-gicp-sys PointCloud.
 /// It provides a trait-based interface for working with point clouds in a
 /// type-safe and ergonomic way.
 pub struct PointCloud {
-    inner: small_gicp_cxx::PointCloud,
+    inner: small_gicp_sys::PointCloud,
 }
 
 impl PointCloud {
     /// Create a new empty point cloud.
     pub fn new() -> Result<Self> {
         trace!("Creating new empty PointCloud");
-        let inner = small_gicp_cxx::PointCloud::new();
+        let inner = small_gicp_sys::PointCloud::new();
         debug!("Created PointCloud with {} points", inner.len());
         Ok(Self { inner })
     }
@@ -385,8 +385,8 @@ impl PointCloud {
         self.len() == 0
     }
 
-    /// Access the underlying small-gicp-cxx PointCloud.
-    pub(crate) fn inner(&self) -> &small_gicp_cxx::PointCloud {
+    /// Access the underlying small-gicp-sys PointCloud.
+    pub(crate) fn inner(&self) -> &small_gicp_sys::PointCloud {
         &self.inner
     }
 
@@ -598,7 +598,7 @@ impl PointCloud {
                 matrix[row * 4 + col] = transform[(row, col)];
             }
         }
-        let transform_struct = small_gicp_cxx::Transform { matrix };
+        let transform_struct = small_gicp_sys::Transform { matrix };
         self.inner.transform(&transform_struct);
         Ok(())
     }
@@ -612,27 +612,27 @@ impl PointCloud {
                 matrix[row * 4 + col] = transform[(row, col)];
             }
         }
-        let transform_struct = small_gicp_cxx::Transform { matrix };
+        let transform_struct = small_gicp_sys::Transform { matrix };
         Ok(Self {
             inner: self.inner.transformed(&transform_struct),
         })
     }
 
-    /// Access the underlying small-gicp-cxx PointCloud mutably.
+    /// Access the underlying small-gicp-sys PointCloud mutably.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn inner_mut(&mut self) -> &mut small_gicp_cxx::PointCloud {
+    pub(crate) fn inner_mut(&mut self) -> &mut small_gicp_sys::PointCloud {
         &mut self.inner
     }
 
-    /// Create a PointCloud from a small-gicp-cxx PointCloud.
+    /// Create a PointCloud from a small-gicp-sys PointCloud.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn from_cxx(inner: small_gicp_cxx::PointCloud) -> Self {
+    pub(crate) fn from_cxx(inner: small_gicp_sys::PointCloud) -> Self {
         Self { inner }
     }
 
-    /// Convert to a small-gicp-cxx PointCloud.
+    /// Convert to a small-gicp-sys PointCloud.
     /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn into_cxx(self) -> small_gicp_cxx::PointCloud {
+    pub(crate) fn into_cxx(self) -> small_gicp_sys::PointCloud {
         self.inner
     }
 
@@ -896,7 +896,7 @@ impl PointCloud {
     pub fn load_ply<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path_display = path.as_ref().display().to_string();
         info!("Loading PointCloud from PLY file: {}", path_display);
-        let inner = small_gicp_cxx::Io::load_ply(path)
+        let inner = small_gicp_sys::Io::load_ply(path)
             .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
         let cloud = Self { inner };
         info!(
@@ -909,7 +909,7 @@ impl PointCloud {
 
     /// Save the point cloud to a PLY file.
     pub fn save_ply<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
-        small_gicp_cxx::Io::save_ply(path, &self.inner)
+        small_gicp_sys::Io::save_ply(path, &self.inner)
             .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
         Ok(())
     }
@@ -1007,7 +1007,7 @@ impl Clone for PointCloud {
 }
 
 // Manual implementation of Send and Sync
-// This is safe because small_gicp_cxx::PointCloud manages its own memory safety
+// This is safe because small_gicp_sys::PointCloud manages its own memory safety
 // and the underlying C++ implementation is thread-safe for read operations
 unsafe impl Send for PointCloud {}
 unsafe impl Sync for PointCloud {}

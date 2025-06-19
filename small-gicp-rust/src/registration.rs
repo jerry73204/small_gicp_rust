@@ -97,7 +97,7 @@ pub fn align(
     let target_tree_cxx = target_tree.inner();
 
     // Convert settings to FFI
-    let ffi_settings = small_gicp_cxx::RegistrationSettings {
+    let ffi_settings = small_gicp_sys::RegistrationSettings {
         max_iterations: setting.max_iterations,
         rotation_epsilon: setting.rotation_eps,
         transformation_epsilon: setting.translation_eps,
@@ -114,14 +114,14 @@ pub fn align(
                 transform_array[i * 4 + j] = matrix[(i, j)];
             }
         }
-        small_gicp_cxx::Transform {
+        small_gicp_sys::Transform {
             matrix: transform_array,
         }
     };
 
     // Call appropriate registration function based on type
     let ffi_result = match setting.reg_type {
-        RegistrationType::ICP => small_gicp_cxx::Registration::icp(
+        RegistrationType::ICP => small_gicp_sys::Registration::icp(
             source_cxx,
             target_cxx,
             target_tree_cxx,
@@ -136,7 +136,7 @@ pub fn align(
                 ));
             }
 
-            small_gicp_cxx::Registration::point_to_plane_icp(
+            small_gicp_sys::Registration::point_to_plane_icp(
                 source_cxx,
                 target_cxx,
                 target_tree_cxx,
@@ -158,9 +158,9 @@ pub fn align(
             }
 
             // Need to build source tree for GICP
-            let source_tree = small_gicp_cxx::KdTree::build(source_cxx, setting.num_threads);
+            let source_tree = small_gicp_sys::KdTree::build(source_cxx, setting.num_threads);
 
-            small_gicp_cxx::Registration::gicp(
+            small_gicp_sys::Registration::gicp(
                 source_cxx,
                 target_cxx,
                 &source_tree,
@@ -199,13 +199,13 @@ pub fn align_voxelmap(
     let setting = setting.unwrap_or_default();
     let init_t = init_t.unwrap_or_else(Isometry3::identity);
 
-    // For VGICP, we need to create a voxel map from small-gicp-cxx
-    // Since IncrementalVoxelMap uses small-gicp-cxx internally, we need to
+    // For VGICP, we need to create a voxel map from small-gicp-sys
+    // Since IncrementalVoxelMap uses small-gicp-sys internally, we need to
     // work through the CXX interface
     let _source_cxx = source.inner();
 
     // Convert settings to FFI
-    let _ffi_settings = small_gicp_cxx::RegistrationSettings {
+    let _ffi_settings = small_gicp_sys::RegistrationSettings {
         max_iterations: setting.max_iterations,
         rotation_epsilon: setting.rotation_eps,
         transformation_epsilon: setting.translation_eps,
@@ -222,13 +222,13 @@ pub fn align_voxelmap(
                 transform_array[i * 4 + j] = matrix[(i, j)];
             }
         }
-        small_gicp_cxx::Transform {
+        small_gicp_sys::Transform {
             matrix: transform_array,
         }
     };
 
     // Create a CXX voxel map and insert the target data
-    let _target_voxelmap = small_gicp_cxx::VoxelMap::new(setting.voxel_resolution);
+    let _target_voxelmap = small_gicp_sys::VoxelMap::new(setting.voxel_resolution);
     // We need to convert IncrementalVoxelMap to a point cloud first
     // For now, return an error as we need to implement this conversion
     return Err(crate::error::SmallGicpError::NotImplemented(
@@ -236,7 +236,7 @@ pub fn align_voxelmap(
     ));
 
     // Once implemented:
-    // let ffi_result = small_gicp_cxx::Registration::vgicp(
+    // let ffi_result = small_gicp_sys::Registration::vgicp(
     //     source_cxx,
     //     &target_voxelmap,
     //     Some(init_transform),
@@ -296,7 +296,7 @@ pub fn create_gaussian_voxelmap(
 }
 
 // Helper function to convert FFI result to Rust result
-fn convert_registration_result(ffi: small_gicp_cxx::RegistrationResult) -> RegistrationResult {
+fn convert_registration_result(ffi: small_gicp_sys::RegistrationResult) -> RegistrationResult {
     // Convert transformation matrix
     let mut matrix = nalgebra::Matrix4::zeros();
     for i in 0..4 {

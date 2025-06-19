@@ -36,7 +36,7 @@ fn main() {
     }
 
     // Compile the bridge
-    build.compile("small_gicp_cxx");
+    build.compile("small_gicp_sys");
 
     // Link OpenMP
     if cfg!(target_os = "linux") {

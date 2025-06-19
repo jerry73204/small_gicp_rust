@@ -1,4 +1,4 @@
-#[cxx::bridge(namespace = "small_gicp_cxx")]
+#[cxx::bridge(namespace = "small_gicp_sys")]
 pub mod ffi {
     // Shared structs between Rust and C++
     /// A 3D point with x, y, z coordinates
@@ -118,7 +118,7 @@ pub mod ffi {
 
     // Opaque C++ types
     unsafe extern "C++" {
-        include!("small-gicp-cxx/include/wrapper.h");
+        include!("small-gicp-sys/include/wrapper.h");
 
         // PointCloud type and methods
         type PointCloud;

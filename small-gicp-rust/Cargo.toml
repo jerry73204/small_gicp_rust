@@ -11,7 +11,7 @@ categories = ["science", "algorithms", "mathematics"]
 readme = "README.md"
 
 [dependencies]
-small-gicp-cxx = { path = "../small-gicp-cxx", version = "0.1" }
+small-gicp-sys = { path = "../small-gicp-sys", version = "0.1" }
 cxx = "1.0"
 thiserror = "1.0"
 nalgebra = "0.32"
@@ -22,6 +22,7 @@ rayon = "1.7"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 approx = "0.5"
+rand = "0.8"  # For synthetic data generation in tests
 
 [features]
 default = []

@@ -1,7 +1,7 @@
 //! Pure Rust API for the small_gicp point cloud registration library.
 //!
 //! This crate provides a high-level, idiomatic Rust interface for point cloud
-//! registration algorithms including ICP, GICP, and VGICP. It uses the small-gicp-cxx
+//! registration algorithms including ICP, GICP, and VGICP. It uses the small-gicp-sys
 //! crate internally for the actual C++ implementation.
 //!
 //! # Features

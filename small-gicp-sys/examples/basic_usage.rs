@@ -1,9 +1,9 @@
-use small_gicp_cxx::{
+use small_gicp_sys::{
     KdTree, PointCloud, Registration, RegistrationSettingsBuilder, Transform, TransformExt,
 };
 
 fn main() {
-    println!("Testing small-gicp-cxx basic functionality...");
+    println!("Testing small-gicp-sys basic functionality...");
 
     // Create a simple point cloud
     let mut cloud = PointCloud::new();

@@ -50,8 +50,8 @@ pub enum SmallGicpError {
     CxxError(String),
 }
 
-// TODO: Implement conversion from small-gicp-cxx error types
-// The small-gicp-cxx crate uses String errors, so we need to convert them
+// TODO: Implement conversion from small-gicp-sys error types
+// The small-gicp-sys crate uses String errors, so we need to convert them
 // impl From<String> for SmallGicpError {
 //     fn from(error: String) -> Self {
 //         Self::CxxError(error)

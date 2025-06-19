@@ -23,7 +23,7 @@ impl Preprocessing {
     /// A new downsampled point cloud
     pub fn voxel_downsample(cloud: &PointCloud, voxel_size: f64, num_threads: usize) -> PointCloud {
         let cxx_cloud = cloud.clone().into_cxx();
-        let downsampled = small_gicp_cxx::Preprocessing::voxel_downsample(
+        let downsampled = small_gicp_sys::Preprocessing::voxel_downsample(
             &cxx_cloud,
             voxel_size,
             num_threads as i32,
@@ -43,7 +43,7 @@ impl Preprocessing {
     /// A new randomly sampled point cloud
     pub fn random_downsample(cloud: &PointCloud, num_samples: usize) -> PointCloud {
         let cxx_cloud = cloud.clone().into_cxx();
-        let downsampled = small_gicp_cxx::Preprocessing::random_downsample(&cxx_cloud, num_samples);
+        let downsampled = small_gicp_sys::Preprocessing::random_downsample(&cxx_cloud, num_samples);
         PointCloud::from_cxx(downsampled)
     }
 
@@ -62,7 +62,7 @@ impl Preprocessing {
         num_threads: usize,
     ) -> Result<()> {
         let mut cxx_cloud = cloud.clone().into_cxx();
-        small_gicp_cxx::Preprocessing::estimate_normals(
+        small_gicp_sys::Preprocessing::estimate_normals(
             &mut cxx_cloud,
             num_neighbors as i32,
             num_threads as i32,
@@ -89,7 +89,7 @@ impl Preprocessing {
         num_threads: usize,
     ) -> Result<()> {
         let mut cxx_cloud = cloud.clone().into_cxx();
-        small_gicp_cxx::Preprocessing::estimate_covariances(
+        small_gicp_sys::Preprocessing::estimate_covariances(
             &mut cxx_cloud,
             num_neighbors as i32,
             num_threads as i32,
@@ -120,7 +120,7 @@ impl Preprocessing {
         num_threads: usize,
     ) -> PointCloud {
         let cxx_cloud = cloud.clone().into_cxx();
-        let processed = small_gicp_cxx::Preprocessing::preprocess_for_registration(
+        let processed = small_gicp_sys::Preprocessing::preprocess_for_registration(
             &cxx_cloud,
             voxel_size,
             num_neighbors as i32,

@@ -1,4 +1,4 @@
-use small_gicp_cxx::{Io, PointCloud, PointCloudIoExt, Preprocessing, Transform};
+use small_gicp_sys::{Io, PointCloud, PointCloudIoExt, Preprocessing, Transform};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
