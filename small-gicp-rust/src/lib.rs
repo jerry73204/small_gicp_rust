@@ -58,6 +58,9 @@ pub mod registration;
 pub mod traits;
 pub mod voxelmap;
 
+#[cfg(test)]
+mod tests;
+
 // Re-export the most commonly used types
 pub use config::{
     CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,

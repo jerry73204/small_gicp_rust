@@ -339,4 +339,32 @@ mod tests {
         assert_eq!(RegistrationType::ICP, RegistrationType::ICP);
         assert_ne!(RegistrationType::ICP, RegistrationType::GICP);
     }
+
+    #[test]
+    fn test_align_voxelmap_not_implemented() {
+        // TODO: Implement align_voxelmap when IncrementalVoxelMap to VoxelMap conversion is ready
+        let voxelmap = crate::voxelmap::IncrementalVoxelMap::new(0.1);
+        let mut source = crate::point_cloud::PointCloud::new().unwrap();
+        source.add_point(0.0, 0.0, 0.0);
+
+        // This should return NotImplemented error
+        let result = align_voxelmap(&voxelmap, &source, None, None);
+        assert!(result.is_err());
+        match result {
+            Err(crate::error::SmallGicpError::NotImplemented(msg)) => {
+                assert!(msg.contains("Direct voxelmap alignment not yet implemented"));
+            }
+            _ => panic!("Expected NotImplemented error, got: {:?}", result),
+        }
+    }
+
+    #[test]
+    #[ignore = "VGICP registration not yet fully implemented"]
+    fn test_vgicp_registration() {
+        // TODO: Complete VGICP registration test when align_voxelmap is implemented
+        // This test requires:
+        // 1. IncrementalVoxelMap to VoxelMap conversion
+        // 2. Full VGICP implementation in align_voxelmap
+        todo!("VGICP registration test - waiting for align_voxelmap implementation");
+    }
 }
