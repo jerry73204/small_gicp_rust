@@ -34,15 +34,15 @@ fn main() -> Result<()> {
     let true_transform =
         Isometry3::translation(0.5, 0.3, 0.1) * Isometry3::rotation(nalgebra::Vector3::z() * 0.1);
 
-    for i in 0..target.size() {
+    for i in 0..target.len() {
         let (x, y, z) = target.point_at(i)?;
         let pt = Point3::new(x, y, z);
         let transformed = true_transform * pt;
         source.add_point(transformed.x, transformed.y, transformed.z);
     }
 
-    println!("  Target points: {}", target.size());
-    println!("  Source points: {}", source.size());
+    println!("  Target points: {}", target.len());
+    println!("  Source points: {}", source.len());
     println!("  True transform: rotation=0.1 rad, translation=[0.5, 0.3, 0.1]");
 
     // Example 1: Basic ICP registration
@@ -81,8 +81,8 @@ fn main() -> Result<()> {
         let (processed_target, target_tree) = preprocess_points(&target, 0.2, 20, 4)?;
         let (processed_source, _) = preprocess_points(&source, 0.2, 20, 4)?;
 
-        println!("  Downsampled target: {} points", processed_target.size());
-        println!("  Downsampled source: {} points", processed_source.size());
+        println!("  Downsampled target: {} points", processed_target.len());
+        println!("  Downsampled source: {} points", processed_source.len());
         println!("  Normals computed: {}", processed_target.has_normals());
         println!(
             "  Covariances computed: {}",
@@ -115,7 +115,7 @@ fn main() -> Result<()> {
         let voxelmap = create_gaussian_voxelmap(&target, voxel_resolution)?;
 
         println!("  Voxel resolution: {}", voxel_resolution);
-        println!("  Number of voxels: {}", voxelmap.size());
+        println!("  Number of voxels: {}", voxelmap.len());
 
         // Note: VGICP alignment is not yet fully implemented
         println!("  (VGICP alignment will be available in future release)");

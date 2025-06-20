@@ -60,11 +60,11 @@ pub type Covariance4<T> = Matrix4<T>;
 /// ```
 pub trait PointCloudTrait: Debug + Send + Sync {
     /// Returns the number of points in the cloud.
-    fn size(&self) -> usize;
+    fn len(&self) -> usize;
 
     /// Returns true if the cloud is empty.
     fn empty(&self) -> bool {
-        self.size() == 0
+        self.len() == 0
     }
 
     /// Returns true if the cloud has point data.
@@ -522,7 +522,7 @@ mod tests {
     }
 
     impl PointCloudTrait for MockPointCloud {
-        fn size(&self) -> usize {
+        fn len(&self) -> usize {
             self.points.len()
         }
 
@@ -539,13 +539,13 @@ mod tests {
         }
 
         fn point(&self, index: usize) -> Point4<f64> {
-            bounds::check_bounds(index, self.size(), "point access");
+            bounds::check_bounds(index, self.len(), "point access");
             self.points[index]
         }
 
         fn normal(&self, index: usize) -> Option<Normal4<f64>> {
             if self.has_normals() {
-                bounds::check_bounds(index, self.size(), "normal access");
+                bounds::check_bounds(index, self.len(), "normal access");
                 Some(self.normals.as_ref().unwrap()[index])
             } else {
                 None
@@ -554,7 +554,7 @@ mod tests {
 
         fn covariance(&self, index: usize) -> Option<Covariance4<f64>> {
             if self.has_covariances() {
-                bounds::check_bounds(index, self.size(), "covariance access");
+                bounds::check_bounds(index, self.len(), "covariance access");
                 Some(self.covariances.as_ref().unwrap()[index])
             } else {
                 None
@@ -574,12 +574,12 @@ mod tests {
         }
 
         fn set_point(&mut self, index: usize, point: Point4<f64>) {
-            bounds::check_bounds(index, self.size(), "set point");
+            bounds::check_bounds(index, self.len(), "set point");
             self.points[index] = point;
         }
 
         fn set_normal(&mut self, index: usize, normal: Normal4<f64>) {
-            let size = self.size();
+            let size = self.len();
             if let Some(ref mut normals) = self.normals {
                 bounds::check_bounds(index, size, "set normal");
                 normals[index] = normal;
@@ -587,7 +587,7 @@ mod tests {
         }
 
         fn set_covariance(&mut self, index: usize, covariance: Covariance4<f64>) {
-            let size = self.size();
+            let size = self.len();
             if let Some(ref mut covariances) = self.covariances {
                 bounds::check_bounds(index, size, "set covariance");
                 covariances[index] = covariance;
@@ -599,7 +599,7 @@ mod tests {
     fn test_trait_basic_functionality() {
         let mut cloud = MockPointCloud::new(3).with_normals().with_covariances();
 
-        assert_eq!(cloud.size(), 3);
+        assert_eq!(cloud.len(), 3);
         assert!(!cloud.empty());
         assert!(cloud.has_points());
         assert!(cloud.has_normals());
@@ -622,7 +622,7 @@ mod tests {
 
         // Test resize
         cloud.resize(5);
-        assert_eq!(cloud.size(), 5);
+        assert_eq!(cloud.len(), 5);
         assert_eq!(cloud.point(0), point); // Original data preserved
     }
 
@@ -640,7 +640,7 @@ mod tests {
     fn test_empty_cloud() {
         let cloud = MockPointCloud::new(0);
         assert!(cloud.empty());
-        assert_eq!(cloud.size(), 0);
+        assert_eq!(cloud.len(), 0);
     }
 
     #[test]

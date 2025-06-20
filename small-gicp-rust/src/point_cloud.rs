@@ -1016,7 +1016,7 @@ unsafe impl Sync for PointCloud {}
 // These will provide the generic interface for the point cloud.
 
 impl PointCloudTrait for PointCloud {
-    fn size(&self) -> usize {
+    fn len(&self) -> usize {
         self.len()
     }
 
@@ -1128,7 +1128,7 @@ pub mod tests {
         let cloud = PointCloud::from_points(&points).unwrap();
 
         // Test PointCloudTrait implementation
-        assert_eq!(cloud.size(), 3);
+        assert_eq!(cloud.len(), 3);
         assert!(!cloud.is_empty());
 
         // Test point access returns correct values
@@ -1159,7 +1159,7 @@ pub mod tests {
         let cloud = PointCloud::from_points(&test_points).unwrap();
 
         // Test individual point access
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             let (x, y, z) = cloud.point_at(i).unwrap();
             assert_eq!(x, test_points[i].x);
             assert_eq!(y, test_points[i].y);
@@ -1167,7 +1167,7 @@ pub mod tests {
         }
 
         // Test bounds checking
-        assert!(cloud.point_at(cloud.size()).is_err());
+        assert!(cloud.point_at(cloud.len()).is_err());
 
         // Test points view iterator
         let view = cloud.points();
@@ -1199,7 +1199,7 @@ pub mod tests {
 
         // Test that we can access normals
         // Note: Default normals in C++ may contain uninitialized data
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             let _ = cloud.normal_at(i).unwrap();
         }
 
@@ -1217,7 +1217,7 @@ pub mod tests {
         }
 
         // Test bounds checking
-        assert!(cloud.normal_at(cloud.size()).is_err());
+        assert!(cloud.normal_at(cloud.len()).is_err());
     }
 
     /// Test covariance access and modification
@@ -1230,7 +1230,7 @@ pub mod tests {
         // Test default covariances
         // Note: Default covariances in C++ may contain uninitialized data
         // We just verify that we can access them without panicking
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             let _ = cloud.covariance_at(i).unwrap();
         }
 
@@ -1255,7 +1255,7 @@ pub mod tests {
         }
 
         // Test bounds checking
-        assert!(cloud.covariance_at(cloud.size()).is_err());
+        assert!(cloud.covariance_at(cloud.len()).is_err());
     }
 
     /// Test resize operations
@@ -1271,12 +1271,12 @@ pub mod tests {
         let mut cloud = PointCloud::from_points(&initial_points).unwrap();
 
         // Set some custom normals and covariances
-        let normals: Vec<Vector3<f64>> = (0..cloud.size())
+        let normals: Vec<Vector3<f64>> = (0..cloud.len())
             .map(|i| Vector3::new(i as f64, (i + 1) as f64, (i + 2) as f64))
             .collect();
         cloud.set_normals(&normals).unwrap();
 
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             let mut cov = Matrix4::zeros();
             cov[(0, 0)] = (i + 1) as f64;
             cov[(1, 1)] = (i + 2) as f64;
@@ -1288,7 +1288,7 @@ pub mod tests {
         // Test resize to smaller size
         let new_size = 2;
         cloud.resize(new_size).unwrap();
-        assert_eq!(cloud.size(), new_size);
+        assert_eq!(cloud.len(), new_size);
 
         // Verify that first 2 points are preserved
         for i in 0..new_size {
@@ -1312,7 +1312,7 @@ pub mod tests {
 
         // Test resize to larger size
         cloud.resize(5).unwrap();
-        assert_eq!(cloud.size(), 5);
+        assert_eq!(cloud.len(), 5);
 
         // Original points should still be preserved
         for i in 0..new_size {
@@ -1341,7 +1341,7 @@ pub mod tests {
         if std::path::Path::new(test_file).exists() {
             match PointCloud::load_ply(test_file) {
                 Ok(cloud) => {
-                    assert!(cloud.size() > 0);
+                    assert!(cloud.len() > 0);
                     // Verify we can access points
                     let _ = cloud.point_at(0).unwrap();
                 }
@@ -1367,8 +1367,8 @@ pub mod tests {
                 // Try to load it back
                 match PointCloud::load_ply(temp_file) {
                     Ok(loaded) => {
-                        assert_eq!(loaded.size(), cloud.size());
-                        for i in 0..cloud.size() {
+                        assert_eq!(loaded.len(), cloud.len());
+                        for i in 0..cloud.len() {
                             let (x1, y1, z1) = cloud.point_at(i).unwrap();
                             let (x2, y2, z2) = loaded.point_at(i).unwrap();
                             assert!((x1 - x2).abs() < 1e-6);
@@ -1406,7 +1406,7 @@ pub mod tests {
             .collect();
 
         let mut cloud = PointCloud::from_points(&src_points).unwrap();
-        assert_eq!(cloud.size(), src_points.len());
+        assert_eq!(cloud.len(), src_points.len());
 
         // Test setting random normals and covariances
         let normals: Vec<Vector3<f64>> = (0..num_points)
@@ -1428,12 +1428,12 @@ pub mod tests {
             .collect();
 
         // Set covariances
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             cloud.set_covariance(i, covs[i].clone()).unwrap();
         }
 
         // Verify all data
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             // Check points
             let (x, y, z) = cloud.point_at(i).unwrap();
             assert!((x - src_points[i].x).abs() < 1e-3);
@@ -1458,10 +1458,10 @@ pub mod tests {
         // Test resize to half size
         let half_size = src_points.len() / 2;
         cloud.resize(half_size).unwrap();
-        assert_eq!(cloud.size(), half_size);
+        assert_eq!(cloud.len(), half_size);
 
         // Verify data is preserved after resize
-        for i in 0..cloud.size() {
+        for i in 0..cloud.len() {
             let (x, y, z) = cloud.point_at(i).unwrap();
             assert!((x - src_points[i].x).abs() < 1e-3);
             assert!((y - src_points[i].y).abs() < 1e-3);
@@ -1483,18 +1483,18 @@ pub mod conversions {
     /// Convert from any PointCloudTrait to a PointCloud.
     pub fn from_trait<P: PointCloudTrait>(input: &P) -> Result<PointCloud> {
         let mut output = PointCloud::new()?;
-        output.resize(input.size())?;
+        output.resize(input.len())?;
 
         // Copy points
-        for i in 0..input.size() {
+        for i in 0..input.len() {
             let point = input.point(i);
             output.set_point(i, point.x, point.y, point.z)?;
         }
 
         // Copy normals if available
         if input.has_normals() {
-            let mut normals_data = Vec::with_capacity(input.size() * 3);
-            for i in 0..input.size() {
+            let mut normals_data = Vec::with_capacity(input.len() * 3);
+            for i in 0..input.len() {
                 if let Some(normal) = input.normal(i) {
                     normals_data.extend_from_slice(&[normal.x, normal.y, normal.z]);
                 } else {
@@ -1506,8 +1506,8 @@ pub mod conversions {
 
         // Copy covariances if available
         if input.has_covariances() {
-            let mut covs_data = Vec::with_capacity(input.size() * 16);
-            for i in 0..input.size() {
+            let mut covs_data = Vec::with_capacity(input.len() * 16);
+            for i in 0..input.len() {
                 if let Some(cov) = input.covariance(i) {
                     for row in 0..4 {
                         for col in 0..4 {
@@ -1564,16 +1564,16 @@ pub mod conversions {
         target: &mut T,
     ) -> Result<()> {
         // Resize target to match source
-        target.resize(source.size());
+        target.resize(source.len());
 
         // Copy points
-        for i in 0..source.size() {
+        for i in 0..source.len() {
             target.set_point(i, source.point(i));
         }
 
         // Copy normals if available
         if source.has_normals() {
-            for i in 0..source.size() {
+            for i in 0..source.len() {
                 if let Some(normal) = source.normal(i) {
                     target.set_normal(i, normal);
                 }
@@ -1582,7 +1582,7 @@ pub mod conversions {
 
         // Copy covariances if available
         if source.has_covariances() {
-            for i in 0..source.size() {
+            for i in 0..source.len() {
                 if let Some(cov) = source.covariance(i) {
                     target.set_covariance(i, cov);
                 }

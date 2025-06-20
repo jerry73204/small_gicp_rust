@@ -96,7 +96,7 @@ impl IncrementalVoxelMap {
     }
 
     /// Get the number of voxels in the map.
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.inner.size()
     }
 
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_incremental_voxel_map() {
         let mut voxelmap = IncrementalVoxelMap::new(0.1);
-        assert_eq!(voxelmap.size(), 0);
+        assert_eq!(voxelmap.len(), 0);
 
         // Create a point cloud and add some points
         let mut cloud = crate::point_cloud::PointCloud::new().unwrap();
@@ -342,7 +342,7 @@ mod tests {
 
         voxelmap.insert(&cloud).unwrap();
 
-        assert!(voxelmap.size() > 0);
+        assert!(voxelmap.len() > 0);
 
         // Test other methods that are implemented
         voxelmap.finalize();
@@ -364,6 +364,6 @@ mod tests {
         voxelmap.clear();
 
         // Size should remain the same since clear is a no-op
-        assert!(voxelmap.size() > 0);
+        assert!(voxelmap.len() > 0);
     }
 }
