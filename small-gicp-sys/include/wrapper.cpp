@@ -731,6 +731,10 @@ bool UnsafeKdTree::unsafe_validate_data_ptr(const double *expected_ptr) const {
   return original_data_ptr_ == expected_ptr;
 }
 
+size_t UnsafeKdTree::unsafe_size() const {
+  return tree_->points.size();
+}
+
 // Factory functions
 std::unique_ptr<PointCloud> create_point_cloud() {
   return std::make_unique<PointCloud>();

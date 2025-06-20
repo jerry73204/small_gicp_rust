@@ -23,6 +23,8 @@ rayon = "1.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 approx = "0.5"
 rand = "0.8"  # For synthetic data generation in tests
+rand_chacha = "0.3"  # For deterministic random number generation
+rand_distr = "0.4"  # For various distributions in tests
 
 [features]
 default = []

@@ -95,6 +95,11 @@ impl UnsafeKdTree {
             .unsafe_radius_search_with_distances(point, radius)
     }
 
+    /// Get the number of points in the tree
+    pub fn size(&self) -> usize {
+        self.inner.unsafe_size()
+    }
+
     /// Get internal FFI handle (for registration algorithms)
     pub(crate) fn as_ffi(&self) -> &FfiUnsafeKdTree {
         &self.inner

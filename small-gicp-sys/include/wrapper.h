@@ -128,6 +128,9 @@ public:
   // Zero-copy validation
   bool unsafe_validate_data_ptr(const double *expected_ptr) const;
 
+  // Tree information
+  size_t unsafe_size() const;
+
   // Internal access for registration
   small_gicp::UnsafeKdTree<small_gicp::PointCloud> &get_internal() {
     return *tree_;

@@ -199,6 +199,9 @@ pub mod ffi {
         // Zero-copy construction methods
         unsafe fn unsafe_validate_data_ptr(self: &UnsafeKdTree, expected_ptr: *const f64) -> bool;
 
+        // Tree information
+        fn unsafe_size(self: &UnsafeKdTree) -> usize;
+
         // GaussianVoxelMap type and methods
         type GaussianVoxelMap;
 
