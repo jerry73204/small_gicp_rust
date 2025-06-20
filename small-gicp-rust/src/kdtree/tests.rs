@@ -2,10 +2,7 @@
 //! Reference: small_gicp/src/test/kdtree_test.cpp
 
 use super::*;
-use crate::{
-    point_cloud::PointCloud,
-    traits::{PointCloudTrait, SpatialSearchTree},
-};
+use crate::{point_cloud::PointCloud, traits::SpatialSearchTree};
 use nalgebra::{Point3, Vector3};
 use rand::{distributions::Uniform, thread_rng, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -41,7 +38,7 @@ fn create_test_fixture() -> Result<TestFixture> {
 
     // Queries from actual points
     for _ in 0..50 {
-        let idx = rng.gen_range(0..points.size());
+        let idx = rng.gen_range(0..points.len());
         let (x, y, z) = points.point_at(idx)?;
         queries.push(Point3::new(x, y, z));
     }
@@ -49,7 +46,7 @@ fn create_test_fixture() -> Result<TestFixture> {
     // Queries near points
     let offset_dist = Uniform::new(0.0, 1.0);
     for _ in 0..50 {
-        let idx = rng.gen_range(0..points.size());
+        let idx = rng.gen_range(0..points.len());
         let (x, y, z) = points.point_at(idx)?;
         queries.push(Point3::new(
             x + rng.sample(&offset_dist),
@@ -106,7 +103,7 @@ fn brute_force_knn(
         let mut neighbors: Vec<(usize, f64)> = Vec::new();
 
         // Compute distances to all points
-        for i in 0..points.size() {
+        for i in 0..points.len() {
             let (px, py, pz) = points.point_at(i)?;
             let point = Point3::new(px, py, pz);
             let sq_dist = (point - query).norm_squared();
@@ -147,7 +144,7 @@ fn test_load_check() {
         }
     };
 
-    assert!(fixture.points.size() > 0, "Points should not be empty");
+    assert!(fixture.points.len() > 0, "Points should not be empty");
     assert_eq!(fixture.queries.len(), 150, "Should have 150 queries");
     assert_eq!(fixture.k_indices.len(), fixture.queries.len());
     assert_eq!(fixture.k_sq_dists.len(), fixture.queries.len());
@@ -156,7 +153,7 @@ fn test_load_check() {
     let kdtree = KdTree::new(&fixture.points).unwrap();
     assert_eq!(
         kdtree.len(),
-        fixture.points.size(),
+        fixture.points.len(),
         "KdTree size should match point cloud size"
     );
 
@@ -178,14 +175,35 @@ fn test_load_check() {
 /// Test empty KdTree construction
 /// Reference: kdtree_test.cpp:EmptyTest
 #[test]
-#[ignore = "KdTree construction from empty cloud causes segfault - see PROGRESS.md"]
 fn test_empty_kdtree() {
-    // TODO: Fix segfault when constructing KdTree from empty cloud
-    // let empty_cloud = PointCloud::new().unwrap();
-    // let kdtree = KdTree::new(&empty_cloud).unwrap();
-    // let query = Point3::new(0.0, 0.0, 0.0);
-    // assert_eq!(kdtree.nearest_neighbor(&query), None);
-    // assert_eq!(kdtree.knn_search(&query, 5).len(), 0);
+    let empty_cloud = PointCloud::new().unwrap();
+
+    // Test that KdTree construction from empty cloud returns an error
+    match KdTree::new(&empty_cloud) {
+        Err(crate::error::SmallGicpError::EmptyPointCloud) => {
+            // Expected error
+        }
+        Ok(_) => panic!("Expected EmptyPointCloud error"),
+        Err(e) => panic!("Unexpected error: {}", e),
+    }
+
+    // Test parallel construction too
+    match KdTree::new_parallel(&empty_cloud, 4) {
+        Err(crate::error::SmallGicpError::EmptyPointCloud) => {
+            // Expected error
+        }
+        Ok(_) => panic!("Expected EmptyPointCloud error"),
+        Err(e) => panic!("Unexpected error: {}", e),
+    }
+
+    // Test BorrowedKdTree with empty cloud
+    match BorrowedKdTree::new(&empty_cloud) {
+        Err(crate::error::SmallGicpError::EmptyPointCloud) => {
+            // Expected error
+        }
+        Ok(_) => panic!("Expected EmptyPointCloud error"),
+        Err(e) => panic!("Unexpected error: {}", e),
+    }
 }
 
 /// Test k-NN search accuracy
@@ -328,22 +346,21 @@ fn test_borrowed_kdtree() {
     // Test size() method
     assert_eq!(
         borrowed_tree.size(),
-        points.size(),
+        points.len(),
         "BorrowedKdTree size should match point cloud size"
     );
     assert_eq!(
         borrowed_tree.len(),
-        points.size(),
+        points.len(),
         "len() should return same as size()"
     );
 
     // Test search functionality
-    let query = Point3::new(0.0, 0.0, 0.0);
     let query_vec = Vector3::new(0.0, 0.0, 0.0);
 
     // Test through direct methods
     if let Some((idx, dist)) = borrowed_tree.nearest_neighbor(&query_vec) {
-        assert!(idx < points.size());
+        assert!(idx < points.len());
         assert!(dist >= 0.0);
     }
 
