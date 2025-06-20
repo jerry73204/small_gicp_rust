@@ -7,7 +7,6 @@ use small_gicp::{
     point_cloud::PointCloud,
     preprocess_points,
     registration::{RegistrationSetting, RegistrationType},
-    traits::{MutablePointCloudTrait, PointCloudTrait},
     Result,
 };
 

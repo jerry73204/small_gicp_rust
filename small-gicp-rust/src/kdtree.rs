@@ -25,7 +25,7 @@
 use crate::{
     error::{Result, SmallGicpError},
     point_cloud::PointCloud,
-    traits::{PointCloudTrait, SpatialSearchTree},
+    traits::SpatialSearchTree,
 };
 use nalgebra::{Point3, Vector3};
 use std::marker::PhantomData;
@@ -119,7 +119,7 @@ impl KdTree {
         result
             .indices
             .into_iter()
-            .zip(result.squared_distances.into_iter())
+            .zip(result.squared_distances)
             .collect()
     }
 
@@ -141,7 +141,7 @@ impl KdTree {
         result
             .indices
             .into_iter()
-            .zip(result.squared_distances.into_iter())
+            .zip(result.squared_distances)
             .collect()
     }
 
@@ -305,7 +305,7 @@ impl<'a> BorrowedKdTree<'a> {
     pub fn new_parallel(cloud: &'a PointCloud, num_threads: usize) -> Result<Self> {
         debug!("Building BorrowedKdTree with {} threads", num_threads);
 
-        if cloud.len() == 0 {
+        if cloud.is_empty() {
             return Err(SmallGicpError::EmptyPointCloud);
         }
 
@@ -336,7 +336,7 @@ impl<'a> BorrowedKdTree<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BorrowedKdTree<'a> {
+impl std::fmt::Debug for BorrowedKdTree<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BorrowedKdTree")
             .field("size", &self.size())
@@ -344,7 +344,7 @@ impl<'a> std::fmt::Debug for BorrowedKdTree<'a> {
     }
 }
 
-impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
+impl SpatialSearchTree for BorrowedKdTree<'_> {
     fn len(&self) -> usize {
         self.size()
     }
@@ -390,7 +390,7 @@ impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
         result
             .indices
             .into_iter()
-            .zip(result.squared_distances.into_iter())
+            .zip(result.squared_distances)
             .collect()
     }
 
@@ -413,7 +413,7 @@ impl<'a> SpatialSearchTree for BorrowedKdTree<'a> {
         result
             .indices
             .into_iter()
-            .zip(result.squared_distances.into_iter())
+            .zip(result.squared_distances)
             .collect()
     }
 }

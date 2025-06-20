@@ -14,14 +14,14 @@ fn main() {
 
     // Add Eigen include path
     if let Ok(output) = std::process::Command::new("pkg-config")
-        .args(&["--cflags", "eigen3"])
+        .args(["--cflags", "eigen3"])
         .output()
     {
         if output.status.success() {
             let flags = String::from_utf8_lossy(&output.stdout);
             for flag in flags.split_whitespace() {
-                if flag.starts_with("-I") {
-                    build.include(&flag[2..]);
+                if let Some(include_path) = flag.strip_prefix("-I") {
+                    build.include(include_path);
                 }
             }
         }

@@ -131,10 +131,10 @@ mod tests {
 
         // For now, just verify we loaded something
         // The small_gicp PLY reader has bugs that make exact round-trip difficult
-        assert!(loaded.len() > 0, "No points loaded");
+        assert!(!loaded.is_empty(), "No points loaded");
 
         // Check first point at least
-        if original.len() > 0 && loaded.len() > 0 {
+        if !original.is_empty() && !loaded.is_empty() {
             let orig_pt = original.get_point(0).expect("Failed to get original point");
             let load_pt = loaded.get_point(0).expect("Failed to get loaded point");
 

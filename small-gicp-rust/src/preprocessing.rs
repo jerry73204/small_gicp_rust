@@ -181,7 +181,7 @@ mod tests {
 
         // Downsampled cloud should have fewer points
         assert!(downsampled.len() < cloud.len());
-        assert!(downsampled.len() > 0);
+        assert!(!downsampled.is_empty());
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
 
         // Should have fewer points due to downsampling
         assert!(processed.len() < cloud.len());
-        assert!(processed.len() > 0);
+        assert!(!processed.is_empty());
         // Should have normals and covariances
         assert!(processed.has_normals());
         assert!(processed.has_covariances());

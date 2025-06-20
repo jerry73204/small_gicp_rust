@@ -100,6 +100,11 @@ impl IncrementalVoxelMap {
         self.inner.size()
     }
 
+    /// Check if the voxel map is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Get the number of voxels in the map.
     pub fn num_voxels(&self) -> Result<usize> {
         Ok(self.inner.num_voxels())

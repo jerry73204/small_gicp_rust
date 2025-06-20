@@ -67,6 +67,13 @@ pub trait PointCloudTrait: Debug + Send + Sync {
         self.len() == 0
     }
 
+    /// Returns true if the cloud is empty.
+    ///
+    /// This is an alias for `empty()` to follow Rust naming conventions.
+    fn is_empty(&self) -> bool {
+        self.empty()
+    }
+
     /// Returns true if the cloud has point data.
     ///
     /// This should always return true for valid point clouds.
@@ -120,7 +127,7 @@ pub trait PointCloudTrait: Debug + Send + Sync {
     ///
     /// The caller must ensure that `index < self.size()` and `self.has_normals()`.
     unsafe fn normal_unchecked(&self, index: usize) -> Normal4<f64> {
-        self.normal(index).unwrap_or_else(|| Vector4::zeros())
+        self.normal(index).unwrap_or_else(Vector4::zeros)
     }
 
     /// Returns the covariance at the given index without bounds checking.
@@ -254,6 +261,13 @@ pub trait SpatialSearchTree: Debug {
     /// Returns true if the tree is empty.
     fn empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Returns true if the tree is empty.
+    ///
+    /// This is an alias for `empty()` to follow Rust naming conventions.
+    fn is_empty(&self) -> bool {
+        self.empty()
     }
 
     /// Find the nearest neighbor to a query point.

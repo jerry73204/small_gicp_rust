@@ -178,9 +178,9 @@ impl TransformExt for Transform {
 
     fn to_matrix(&self) -> [[f64; 4]; 4] {
         let mut matrix = [[0.0; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                matrix[i][j] = self.matrix[i * 4 + j];
+        for (i, row) in matrix.iter_mut().enumerate() {
+            for (j, elem) in row.iter_mut().enumerate() {
+                *elem = self.matrix[i * 4 + j];
             }
         }
         matrix

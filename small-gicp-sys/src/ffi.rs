@@ -1,4 +1,5 @@
 #[cxx::bridge(namespace = "small_gicp_sys")]
+#[allow(clippy::module_inception)]
 pub mod ffi {
     // Shared structs between Rust and C++
     /// A 3D point with x, y, z coordinates

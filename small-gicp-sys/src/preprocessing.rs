@@ -211,7 +211,7 @@ mod tests {
 
         // Downsampled cloud should have fewer points
         assert!(downsampled.len() < cloud.len());
-        assert!(downsampled.len() > 0);
+        assert!(!downsampled.is_empty());
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
 
         // The normal estimation might not always succeed, so we'll just check it doesn't crash
         // This is more of a smoke test than a rigorous functionality test
-        assert!(cloud.len() > 0);
+        assert!(!cloud.is_empty());
     }
 
     #[test]
@@ -278,6 +278,6 @@ mod tests {
 
         // Should have fewer points due to downsampling
         assert!(processed.len() < cloud.len());
-        assert!(processed.len() > 0);
+        assert!(!processed.is_empty());
     }
 }

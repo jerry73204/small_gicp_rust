@@ -76,7 +76,7 @@ impl<'a> PointsView<'a> {
 // that we construct on the fly. Users should use get() method for bounds-checked access
 // or iterate through the view.
 
-impl<'a> Iterator for PointsView<'a> {
+impl Iterator for PointsView<'_> {
     type Item = Point3<f64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -95,9 +95,9 @@ impl<'a> Iterator for PointsView<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for PointsView<'a> {}
+impl ExactSizeIterator for PointsView<'_> {}
 
-impl<'a> DoubleEndedIterator for PointsView<'a> {
+impl DoubleEndedIterator for PointsView<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.len > 0 {
             self.len -= 1;
@@ -179,7 +179,7 @@ impl<'a> NormalsView<'a> {
     }
 }
 
-impl<'a> Iterator for NormalsView<'a> {
+impl Iterator for NormalsView<'_> {
     type Item = Vector3<f64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -198,9 +198,9 @@ impl<'a> Iterator for NormalsView<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for NormalsView<'a> {}
+impl ExactSizeIterator for NormalsView<'_> {}
 
-impl<'a> DoubleEndedIterator for NormalsView<'a> {
+impl DoubleEndedIterator for NormalsView<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.len > 0 {
             self.len -= 1;
@@ -288,7 +288,7 @@ impl<'a> CovariancesView<'a> {
     }
 }
 
-impl<'a> Iterator for CovariancesView<'a> {
+impl Iterator for CovariancesView<'_> {
     type Item = Matrix4<f64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -312,9 +312,9 @@ impl<'a> Iterator for CovariancesView<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for CovariancesView<'a> {}
+impl ExactSizeIterator for CovariancesView<'_> {}
 
-impl<'a> DoubleEndedIterator for CovariancesView<'a> {
+impl DoubleEndedIterator for CovariancesView<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.len > 0 {
             self.len -= 1;
@@ -896,8 +896,8 @@ impl PointCloud {
     pub fn load_ply<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path_display = path.as_ref().display().to_string();
         info!("Loading PointCloud from PLY file: {}", path_display);
-        let inner = small_gicp_sys::Io::load_ply(path)
-            .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
+        let inner =
+            small_gicp_sys::Io::load_ply(path).map_err(crate::error::SmallGicpError::IoError)?;
         let cloud = Self { inner };
         info!(
             "Successfully loaded {} points from {}",
@@ -910,7 +910,7 @@ impl PointCloud {
     /// Save the point cloud to a PLY file.
     pub fn save_ply<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         small_gicp_sys::Io::save_ply(path, &self.inner)
-            .map_err(|e| crate::error::SmallGicpError::IoError(e))?;
+            .map_err(crate::error::SmallGicpError::IoError)?;
         Ok(())
     }
 
@@ -1341,7 +1341,7 @@ pub mod tests {
         if std::path::Path::new(test_file).exists() {
             match PointCloud::load_ply(test_file) {
                 Ok(cloud) => {
-                    assert!(cloud.len() > 0);
+                    assert!(!cloud.is_empty());
                     // Verify we can access points
                     let _ = cloud.point_at(0).unwrap();
                 }
