@@ -222,7 +222,7 @@ impl IncrementalVoxelMap {
         // for inserting points with normals. Create a temporary point cloud with normal.
         let mut cloud = PointCloud::new()?;
         cloud.add_point(point.x, point.y, point.z);
-        cloud.set_normal(0, nalgebra::Vector4::new(normal.x, normal.y, normal.z, 0.0));
+        cloud.set_normal(0, *normal)?;
         self.insert(&cloud)
     }
 

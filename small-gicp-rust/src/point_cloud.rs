@@ -411,24 +411,52 @@ impl PointCloud {
         self.inner.add_point(x, y, z);
     }
 
-    /// Set a point at the given index.
+    /// Set a point at the given index with bounds checking.
     pub fn set_point(&mut self, index: usize, x: f64, y: f64, z: f64) -> Result<()> {
+        crate::error::validate_index_bounds(index, self.len())?;
         self.inner.set_point(index, x, y, z);
         Ok(())
     }
 
-    /// Get a point at the given index.
-    pub fn point_at(&self, index: usize) -> Result<(f64, f64, f64)> {
-        self.inner
-            .get_point(index)
-            .ok_or_else(|| crate::error::SmallGicpError::IndexOutOfBounds {
-                index,
-                size: self.len(),
-            })
+    /// Set a point at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()`.
+    pub fn set_point_unchecked(&mut self, index: usize, x: f64, y: f64, z: f64) {
+        self.inner.set_point(index, x, y, z);
     }
 
-    /// Set multiple points efficiently.
+    /// Get a point at the given index with bounds checking.
+    pub fn point_at(&self, index: usize) -> Result<Point3<f64>> {
+        crate::error::validate_index_bounds(index, self.len())?;
+        let (x, y, z) = self
+            .inner
+            .get_point(index)
+            .ok_or_else(|| crate::error::SmallGicpError::IndexOutOfBounds(index, self.len()))?;
+        Ok(Point3::new(x, y, z))
+    }
+
+    /// Get a point at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()`.
+    pub fn point_at_unchecked(&self, index: usize) -> Option<Point3<f64>> {
+        self.inner
+            .get_point(index)
+            .map(|(x, y, z)| Point3::new(x, y, z))
+    }
+
+    /// Set multiple points efficiently with size validation.
     pub fn set_points(&mut self, points: &[Point3<f64>]) -> Result<()> {
+        if points.len() != self.len() {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Number of points {} does not match point cloud size {}",
+                points.len(),
+                self.len()
+            )));
+        }
         // Convert Point3<f64> to raw f64 array in (x, y, z, 1.0) format
         let mut raw_points = Vec::with_capacity(points.len() * 4);
         for point in points {
@@ -436,6 +464,17 @@ impl PointCloud {
         }
         self.inner.set_points_bulk(&raw_points);
         Ok(())
+    }
+
+    /// Set multiple points efficiently without size validation.
+    /// This will resize the point cloud to match the input size.
+    pub fn set_points_unchecked(&mut self, points: &[Point3<f64>]) {
+        self.resize(points.len()).unwrap_or(());
+        let mut raw_points = Vec::with_capacity(points.len() * 4);
+        for point in points {
+            raw_points.extend_from_slice(&[point.x, point.y, point.z, 1.0]);
+        }
+        self.inner.set_points_bulk(&raw_points);
     }
 
     /// Get all points as an efficient view that supports both iteration and random access.
@@ -461,8 +500,15 @@ impl PointCloud {
         self.points().collect()
     }
 
-    /// Set normal vectors.
+    /// Set normal vectors with size validation.
     pub fn set_normals(&mut self, normals: &[Vector3<f64>]) -> Result<()> {
+        if normals.len() != self.len() {
+            return Err(crate::error::SmallGicpError::InvalidArgument(format!(
+                "Number of normals {} does not match number of points {}",
+                normals.len(),
+                self.len()
+            )));
+        }
         // Convert Vector3<f64> to raw f64 array in (nx, ny, nz, 0.0) format
         let mut raw_normals = Vec::with_capacity(normals.len() * 4);
         for normal in normals {
@@ -470,6 +516,15 @@ impl PointCloud {
         }
         self.inner.set_normals_bulk(&raw_normals);
         Ok(())
+    }
+
+    /// Set normal vectors without size validation.
+    pub fn set_normals_unchecked(&mut self, normals: &[Vector3<f64>]) {
+        let mut raw_normals = Vec::with_capacity(normals.len() * 4);
+        for normal in normals {
+            raw_normals.extend_from_slice(&[normal.x, normal.y, normal.z, 0.0]);
+        }
+        self.inner.set_normals_bulk(&raw_normals);
     }
 
     /// Get normal vectors as an efficient view that supports both iteration and random access.
@@ -560,6 +615,8 @@ impl PointCloud {
 
     /// Estimate normal vectors using k nearest neighbors.
     pub fn estimate_normals(&mut self, k: usize) -> Result<()> {
+        crate::error::validate_point_cloud_not_empty(self)?;
+        crate::error::validate_neighbor_count(k as i32)?;
         info!(
             "Estimating normals for {} points using k={} neighbors",
             self.len(),
@@ -572,18 +629,34 @@ impl PointCloud {
 
     /// Estimate normal vectors using k nearest neighbors with multiple threads.
     pub fn estimate_normals_parallel(&mut self, k: usize, num_threads: usize) -> Result<()> {
+        crate::error::validate_point_cloud_not_empty(self)?;
+        crate::error::validate_neighbor_count(k as i32)?;
+        if num_threads == 0 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(
+                "Number of threads must be greater than 0".to_string(),
+            ));
+        }
         self.inner.estimate_normals(k as i32, num_threads as i32);
         Ok(())
     }
 
     /// Estimate covariance matrices using k nearest neighbors.
     pub fn estimate_covariances(&mut self, k: usize) -> Result<()> {
+        crate::error::validate_point_cloud_not_empty(self)?;
+        crate::error::validate_neighbor_count(k as i32)?;
         self.inner.estimate_covariances(k as i32, 1);
         Ok(())
     }
 
     /// Estimate covariance matrices using k nearest neighbors with multiple threads.
     pub fn estimate_covariances_parallel(&mut self, k: usize, num_threads: usize) -> Result<()> {
+        crate::error::validate_point_cloud_not_empty(self)?;
+        crate::error::validate_neighbor_count(k as i32)?;
+        if num_threads == 0 {
+            return Err(crate::error::SmallGicpError::InvalidArgument(
+                "Number of threads must be greater than 0".to_string(),
+            ));
+        }
         self.inner
             .estimate_covariances(k as i32, num_threads as i32);
         Ok(())
@@ -712,14 +785,9 @@ impl PointCloud {
         Ok(())
     }
 
-    /// Get a covariance matrix at the given index.
+    /// Get a covariance matrix at the given index with bounds checking.
     pub fn covariance_at(&self, index: usize) -> Result<Matrix4<f64>> {
-        if index >= self.len() {
-            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
-                index,
-                size: self.len(),
-            });
-        }
+        crate::error::validate_index_bounds(index, self.len())?;
 
         let raw_data = self.inner.covs_data();
         if raw_data.is_empty() {
@@ -738,14 +806,29 @@ impl PointCloud {
         Ok(matrix)
     }
 
-    /// Set a covariance matrix at the given index.
-    pub fn set_covariance(&mut self, index: usize, covariance: Matrix4<f64>) -> Result<()> {
-        if index >= self.len() {
-            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
-                index,
-                size: self.len(),
-            });
+    /// Get a covariance matrix at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()` and that covariance data exists.
+    pub fn covariance_at_unchecked(&self, index: usize) -> Option<Matrix4<f64>> {
+        let raw_data = self.inner.covs_data();
+        if raw_data.is_empty() {
+            return None;
         }
+        let start_idx = index * 16;
+        let mut matrix = Matrix4::zeros();
+        for row in 0..4 {
+            for col in 0..4 {
+                matrix[(row, col)] = raw_data[start_idx + row * 4 + col];
+            }
+        }
+        Some(matrix)
+    }
+
+    /// Set a covariance matrix at the given index with bounds checking.
+    pub fn set_covariance(&mut self, index: usize, covariance: Matrix4<f64>) -> Result<()> {
+        crate::error::validate_index_bounds(index, self.len())?;
 
         // Ensure the covariances array exists and is the right size
         if !self.has_covariances() {
@@ -765,14 +848,34 @@ impl PointCloud {
         Ok(())
     }
 
-    /// Get a normal vector at the given index.
-    pub fn normal_at(&self, index: usize) -> Result<Vector3<f64>> {
-        if index >= self.len() {
-            return Err(crate::error::SmallGicpError::IndexOutOfBounds {
-                index,
-                size: self.len(),
-            });
+    /// Set a covariance matrix at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()`.
+    pub fn set_covariance_unchecked(
+        &mut self,
+        index: usize,
+        covariance: Matrix4<f64>,
+    ) -> Result<()> {
+        // Ensure the covariances array exists and is the right size
+        if !self.has_covariances() {
+            let identity_covs = vec![Matrix4::identity(); self.len()];
+            self.set_covariances(&identity_covs)?;
         }
+
+        let mut covs = self.to_covariances_vec();
+        if covs.len() != self.len() {
+            covs.resize(self.len(), Matrix4::identity());
+        }
+        covs[index] = covariance;
+        self.set_covariances(&covs)?;
+        Ok(())
+    }
+
+    /// Get a normal vector at the given index with bounds checking.
+    pub fn normal_at(&self, index: usize) -> Result<Vector3<f64>> {
+        crate::error::validate_index_bounds(index, self.len())?;
 
         let raw_data = self.inner.normals_data();
         if raw_data.is_empty() {
@@ -787,6 +890,67 @@ impl PointCloud {
             raw_data[start_idx + 1],
             raw_data[start_idx + 2],
         ))
+    }
+
+    /// Get a normal vector at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()` and that normals data exists.
+    pub fn normal_at_unchecked(&self, index: usize) -> Option<Vector3<f64>> {
+        let raw_data = self.inner.normals_data();
+        if raw_data.is_empty() {
+            return None;
+        }
+        let start_idx = index * 4;
+        Some(Vector3::new(
+            raw_data[start_idx],
+            raw_data[start_idx + 1],
+            raw_data[start_idx + 2],
+        ))
+    }
+
+    /// Set a normal vector at the given index with bounds checking.
+    pub fn set_normal(&mut self, index: usize, normal: Vector3<f64>) -> Result<()> {
+        crate::error::validate_index_bounds(index, self.len())?;
+
+        // Ensure the normals array exists and is the right size
+        if !self.has_normals() {
+            // Initialize with zero normals
+            let zero_normals = vec![Vector3::zeros(); self.len()];
+            self.set_normals(&zero_normals)?;
+        }
+
+        // Get current normals, update the specific one, and set them back
+        let mut normals = self.to_normals_vec();
+        if normals.len() != self.len() {
+            normals.resize(self.len(), Vector3::zeros());
+        }
+        normals[index] = normal;
+        self.set_normals(&normals)?;
+
+        Ok(())
+    }
+
+    /// Set a normal vector at the given index without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `index < self.len()`.
+    pub fn set_normal_unchecked(&mut self, index: usize, normal: Vector3<f64>) -> Result<()> {
+        // Ensure the normals array exists and is the right size
+        if !self.has_normals() {
+            let zero_normals = vec![Vector3::zeros(); self.len()];
+            self.set_normals(&zero_normals)?;
+        }
+
+        let mut normals = self.to_normals_vec();
+        if normals.len() != self.len() {
+            normals.resize(self.len(), Vector3::zeros());
+        }
+        normals[index] = normal;
+        self.set_normals(&normals)?;
+        Ok(())
     }
 
     /// Copy points to an output array (3 values per point: x, y, z).
@@ -896,8 +1060,8 @@ impl PointCloud {
     pub fn load_ply<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path_display = path.as_ref().display().to_string();
         info!("Loading PointCloud from PLY file: {}", path_display);
-        let inner =
-            small_gicp_sys::Io::load_ply(path).map_err(crate::error::SmallGicpError::IoError)?;
+        let inner = small_gicp_sys::Io::load_ply(path)
+            .map_err(|e| crate::error::SmallGicpError::CxxError(e))?;
         let cloud = Self { inner };
         info!(
             "Successfully loaded {} points from {}",
@@ -910,7 +1074,7 @@ impl PointCloud {
     /// Save the point cloud to a PLY file.
     pub fn save_ply<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         small_gicp_sys::Io::save_ply(path, &self.inner)
-            .map_err(crate::error::SmallGicpError::IoError)?;
+            .map_err(|e| crate::error::SmallGicpError::CxxError(e))?;
         Ok(())
     }
 
@@ -1021,8 +1185,8 @@ impl PointCloudTrait for PointCloud {
     }
 
     fn point(&self, i: usize) -> Point4<f64> {
-        let (x, y, z) = self.point_at(i).unwrap_or((0.0, 0.0, 0.0));
-        Vector4::new(x, y, z, 1.0)
+        let point = self.point_at(i).unwrap_or(Point3::new(0.0, 0.0, 0.0));
+        Vector4::new(point.x, point.y, point.z, 1.0)
     }
 
     fn normal(&self, i: usize) -> Option<Normal4<f64>> {
@@ -1132,8 +1296,8 @@ pub mod tests {
         assert!(!cloud.is_empty());
 
         // Test point access returns correct values
-        let (x, y, z) = cloud.point_at(0).unwrap();
-        assert_eq!((x, y, z), (1.0, 2.0, 3.0));
+        let point = cloud.point_at(0).unwrap();
+        assert_eq!((point.x, point.y, point.z), (1.0, 2.0, 3.0));
 
         // Test normal access
         // Note: Default normals in C++ may contain uninitialized data
@@ -1160,10 +1324,10 @@ pub mod tests {
 
         // Test individual point access
         for i in 0..cloud.len() {
-            let (x, y, z) = cloud.point_at(i).unwrap();
-            assert_eq!(x, test_points[i].x);
-            assert_eq!(y, test_points[i].y);
-            assert_eq!(z, test_points[i].z);
+            let point = cloud.point_at(i).unwrap();
+            assert_eq!(point.x, test_points[i].x);
+            assert_eq!(point.y, test_points[i].y);
+            assert_eq!(point.z, test_points[i].z);
         }
 
         // Test bounds checking
@@ -1292,10 +1456,10 @@ pub mod tests {
 
         // Verify that first 2 points are preserved
         for i in 0..new_size {
-            let (x, y, z) = cloud.point_at(i).unwrap();
-            assert_eq!(x, initial_points[i].x);
-            assert_eq!(y, initial_points[i].y);
-            assert_eq!(z, initial_points[i].z);
+            let point = cloud.point_at(i).unwrap();
+            assert_eq!(point.x, initial_points[i].x);
+            assert_eq!(point.y, initial_points[i].y);
+            assert_eq!(point.z, initial_points[i].z);
 
             // Check normals are preserved
             let normal = cloud.normal_at(i).unwrap();
@@ -1316,10 +1480,10 @@ pub mod tests {
 
         // Original points should still be preserved
         for i in 0..new_size {
-            let (x, y, z) = cloud.point_at(i).unwrap();
-            assert_eq!(x, initial_points[i].x);
-            assert_eq!(y, initial_points[i].y);
-            assert_eq!(z, initial_points[i].z);
+            let point = cloud.point_at(i).unwrap();
+            assert_eq!(point.x, initial_points[i].x);
+            assert_eq!(point.y, initial_points[i].y);
+            assert_eq!(point.z, initial_points[i].z);
         }
 
         // Note: In the C++ implementation, resizing to a larger size
@@ -1369,11 +1533,11 @@ pub mod tests {
                     Ok(loaded) => {
                         assert_eq!(loaded.len(), cloud.len());
                         for i in 0..cloud.len() {
-                            let (x1, y1, z1) = cloud.point_at(i).unwrap();
-                            let (x2, y2, z2) = loaded.point_at(i).unwrap();
-                            assert!((x1 - x2).abs() < 1e-6);
-                            assert!((y1 - y2).abs() < 1e-6);
-                            assert!((z1 - z2).abs() < 1e-6);
+                            let p1 = cloud.point_at(i).unwrap();
+                            let p2 = loaded.point_at(i).unwrap();
+                            assert!((p1.x - p2.x).abs() < 1e-6);
+                            assert!((p1.y - p2.y).abs() < 1e-6);
+                            assert!((p1.z - p2.z).abs() < 1e-6);
                         }
                     }
                     Err(e) => eprintln!("Failed to load saved PLY: {}", e),
@@ -1435,10 +1599,10 @@ pub mod tests {
         // Verify all data
         for i in 0..cloud.len() {
             // Check points
-            let (x, y, z) = cloud.point_at(i).unwrap();
-            assert!((x - src_points[i].x).abs() < 1e-3);
-            assert!((y - src_points[i].y).abs() < 1e-3);
-            assert!((z - src_points[i].z).abs() < 1e-3);
+            let point = cloud.point_at(i).unwrap();
+            assert!((point.x - src_points[i].x).abs() < 1e-3);
+            assert!((point.y - src_points[i].y).abs() < 1e-3);
+            assert!((point.z - src_points[i].z).abs() < 1e-3);
 
             // Check normals
             let normal = cloud.normal_at(i).unwrap();
@@ -1462,10 +1626,10 @@ pub mod tests {
 
         // Verify data is preserved after resize
         for i in 0..cloud.len() {
-            let (x, y, z) = cloud.point_at(i).unwrap();
-            assert!((x - src_points[i].x).abs() < 1e-3);
-            assert!((y - src_points[i].y).abs() < 1e-3);
-            assert!((z - src_points[i].z).abs() < 1e-3);
+            let point = cloud.point_at(i).unwrap();
+            assert!((point.x - src_points[i].x).abs() < 1e-3);
+            assert!((point.y - src_points[i].y).abs() < 1e-3);
+            assert!((point.z - src_points[i].z).abs() < 1e-3);
 
             let normal = cloud.normal_at(i).unwrap();
             assert!((normal.x - normals[i].x).abs() < 1e-3);

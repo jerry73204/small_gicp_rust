@@ -39,19 +39,19 @@ fn create_test_fixture() -> Result<TestFixture> {
     // Queries from actual points
     for _ in 0..50 {
         let idx = rng.gen_range(0..points.len());
-        let (x, y, z) = points.point_at(idx)?;
-        queries.push(Point3::new(x, y, z));
+        let point = points.point_at(idx)?;
+        queries.push(point);
     }
 
     // Queries near points
     let offset_dist = Uniform::new(0.0, 1.0);
     for _ in 0..50 {
         let idx = rng.gen_range(0..points.len());
-        let (x, y, z) = points.point_at(idx)?;
+        let point = points.point_at(idx)?;
         queries.push(Point3::new(
-            x + rng.sample(&offset_dist),
-            y + rng.sample(&offset_dist),
-            z + rng.sample(&offset_dist),
+            point.x + rng.sample(&offset_dist),
+            point.y + rng.sample(&offset_dist),
+            point.z + rng.sample(&offset_dist),
         ));
     }
 
@@ -104,8 +104,7 @@ fn brute_force_knn(
 
         // Compute distances to all points
         for i in 0..points.len() {
-            let (px, py, pz) = points.point_at(i)?;
-            let point = Point3::new(px, py, pz);
+            let point = points.point_at(i)?;
             let sq_dist = (point - query).norm_squared();
             neighbors.push((i, sq_dist));
         }

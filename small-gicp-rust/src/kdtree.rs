@@ -445,8 +445,7 @@ pub mod algorithms {
 
         for i in 0..source.len() {
             let source_point = source.point_at(i).unwrap();
-            let source_pt = Point3::new(source_point.0, source_point.1, source_point.2);
-            if let Some((target_idx, sq_dist)) = target_kdtree.nearest_neighbor(&source_pt) {
+            if let Some((target_idx, sq_dist)) = target_kdtree.nearest_neighbor(&source_point) {
                 if sq_dist <= max_dist_sq {
                     correspondences.push((i, target_idx, sq_dist.sqrt()));
                 }
@@ -465,13 +464,9 @@ pub mod algorithms {
         debug!("Finding closest point");
         if let Some((index, sq_dist)) = kdtree.nearest_neighbor(query_point) {
             let point = cloud.point_at(index)?;
-            let pt = Point3::new(point.0, point.1, point.2);
-            Ok((index, pt, sq_dist.sqrt()))
+            Ok((index, point, sq_dist.sqrt()))
         } else {
-            Err(SmallGicpError::IndexOutOfBounds {
-                index: 0,
-                size: cloud.len(),
-            })
+            Err(SmallGicpError::IndexOutOfBounds(0, cloud.len()))
         }
     }
 
@@ -488,8 +483,7 @@ pub mod algorithms {
 
         for (index, sq_dist) in knn_results {
             let point = cloud.point_at(index)?;
-            let pt = Point3::new(point.0, point.1, point.2);
-            results.push((index, pt, sq_dist.sqrt()));
+            results.push((index, point, sq_dist.sqrt()));
         }
 
         Ok(results)
