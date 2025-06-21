@@ -296,28 +296,11 @@ impl Default for OptimizerConfig {
     }
 }
 
-/// Robust kernel types for outlier rejection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RobustKernelType {
-    /// No robust kernel (standard least squares).
-    None,
-    /// Huber robust kernel - good balance between robustness and efficiency.
-    Huber,
-    /// Cauchy robust kernel - more aggressive outlier rejection.
-    Cauchy,
-}
-
-impl Default for RobustKernelType {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Configuration for robust kernel outlier rejection.
 #[derive(Debug, Clone)]
 pub struct RobustKernelConfig {
     /// Type of robust kernel to use.
-    pub kernel_type: RobustKernelType,
+    pub kernel_type: crate::registration::RobustKernelType,
     /// Scaling parameter for the robust kernel.
     /// For Huber: threshold for switching between quadratic and linear regions.
     /// For Cauchy: scale parameter controlling influence of outliers.
@@ -327,7 +310,7 @@ pub struct RobustKernelConfig {
 impl Default for RobustKernelConfig {
     fn default() -> Self {
         Self {
-            kernel_type: RobustKernelType::default(),
+            kernel_type: crate::registration::RobustKernelType::None,
             scale_parameter: 1.0, // Typical default scale from C wrapper examples
         }
     }
@@ -845,7 +828,7 @@ impl Default for KnnSearchConfig {
 #[derive(Debug, Clone)]
 pub struct AdvancedRegistrationConfig {
     /// Registration algorithm type
-    pub registration_type: RegistrationType,
+    pub registration_type: crate::registration::RegistrationType,
     /// Voxel resolution for VGICP
     pub voxel_resolution: f64,
     /// Downsampling resolution for preprocessing
@@ -867,7 +850,7 @@ pub struct AdvancedRegistrationConfig {
 impl Default for AdvancedRegistrationConfig {
     fn default() -> Self {
         Self {
-            registration_type: RegistrationType::Gicp,
+            registration_type: crate::registration::RegistrationType::GICP,
             voxel_resolution: 1.0,
             downsampling_resolution: 0.25,
             max_correspondence_distance: 1.0,
@@ -884,7 +867,7 @@ impl Default for AdvancedRegistrationConfig {
 #[derive(Debug, Clone)]
 pub struct RegistrationHelperConfig {
     /// Registration algorithm type
-    pub registration_type: RegistrationType,
+    pub registration_type: crate::registration::RegistrationType,
     /// Voxel resolution for VGICP
     pub voxel_resolution: f64,
     /// Downsampling resolution for preprocessing
@@ -906,7 +889,7 @@ pub struct RegistrationHelperConfig {
 impl Default for RegistrationHelperConfig {
     fn default() -> Self {
         Self {
-            registration_type: RegistrationType::Gicp,
+            registration_type: crate::registration::RegistrationType::GICP,
             voxel_resolution: 1.0,
             downsampling_resolution: 0.25,
             max_correspondence_distance: 1.0,
@@ -1008,25 +991,6 @@ impl From<ProjectionType> for u32 {
     }
 }
 
-/// Registration algorithm type for configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegistrationType {
-    /// Standard ICP (Iterative Closest Point)
-    Icp,
-    /// Point-to-plane ICP
-    PlaneIcp,
-    /// Generalized ICP
-    Gicp,
-    /// Voxelized GICP
-    Vgicp,
-}
-
-impl Default for RegistrationType {
-    fn default() -> Self {
-        Self::Gicp
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1105,7 +1069,7 @@ mod tests {
         let reg_config = AdvancedRegistrationConfig::default();
         assert_eq!(
             reg_config.registration_type,
-            crate::config::RegistrationType::Gicp
+            crate::registration::RegistrationType::GICP
         );
         assert_eq!(reg_config.voxel_resolution, 1.0);
         assert_eq!(reg_config.downsampling_resolution, 0.25);

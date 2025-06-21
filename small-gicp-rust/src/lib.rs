@@ -69,8 +69,7 @@ pub use config::{
     LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
     LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
     ParallelBackend, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
-    RegistrationConfig, RegistrationType, RobustKernelConfig, RobustKernelType, TerminationConfig,
-    VoxelGridConfig,
+    RegistrationConfig, RobustKernelConfig, TerminationConfig, VoxelGridConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{BorrowedKdTree, KdTree};
@@ -79,7 +78,7 @@ pub use preprocessing::Preprocessing;
 // Re-export registration functions and types
 pub use registration::{
     align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
-    RegistrationSetting, RegistrationType as SimpleRegistrationType,
+    RegistrationSetting, RegistrationType, RobustKernel, RobustKernelType,
 };
 pub use traits::{
     Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
@@ -99,8 +98,7 @@ pub mod prelude {
             LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend,
             NormalEstimationConfig, OptimizerConfig, ParallelBackend, PreprocessingConfig,
             ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
-            RegistrationType, RobustKernelConfig, RobustKernelType, TerminationConfig,
-            VoxelGridConfig,
+            RobustKernelConfig, TerminationConfig, VoxelGridConfig,
         },
         error::{Result, SmallGicpError},
         kdtree::{BorrowedKdTree, KdTree},
@@ -109,7 +107,7 @@ pub mod prelude {
         // Registration functions and types
         registration::{
             align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
-            RegistrationSetting, RegistrationType as SimpleRegistrationType,
+            RegistrationSetting, RegistrationType, RobustKernel, RobustKernelType,
         },
         traits::{
             Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait,
