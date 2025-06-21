@@ -84,7 +84,8 @@ pub use traits::{
     Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
 };
 pub use voxelmap::{
-    GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
+    GaussianVoxel, GaussianVoxelMap, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType,
+    VoxelInfo, VoxelMapStatistics,
 };
 
 /// Convenience module for glob imports.
@@ -114,7 +115,8 @@ pub mod prelude {
             SpatialSearchTree,
         },
         voxelmap::{
-            GaussianVoxel, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
+            GaussianVoxel, GaussianVoxelMap, IncrementalVoxelMap, SearchOffsetPattern,
+            VoxelContainerType, VoxelInfo, VoxelMapStatistics,
         },
     };
 }
