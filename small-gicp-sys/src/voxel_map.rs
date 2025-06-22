@@ -9,7 +9,7 @@ use cxx::UniquePtr;
 // TODO: Re-add `use std::pin::Pin;` if mutable FFI handle access is implemented
 
 /// Gaussian voxel map for efficient VGICP registration.
-/// This is the unified interface that provides all IncrementalVoxelMap<GaussianVoxel> functionality.
+/// This is the unified interface that provides all `IncrementalVoxelMap<GaussianVoxel>` functionality.
 pub struct GaussianVoxelMap {
     inner: UniquePtr<FfiGaussianVoxelMap>,
 }

@@ -37,6 +37,18 @@ use tracing::{debug, trace};
 /// owns a copy of the data internally. For custom point cloud types or
 /// zero-copy operations, use `BorrowedKdTree` instead.
 ///
+/// # Performance
+///
+/// - Construction: O(n log n) where n is the number of points
+/// - Nearest neighbor search: O(log n) average case
+/// - K-NN search: O(k log n) where k is the number of neighbors
+/// - Radius search: O(log n + m) where m is the number of points in the radius
+///
+/// # Thread Safety
+///
+/// The KdTree is thread-safe for read operations. Multiple threads can
+/// perform searches simultaneously without synchronization.
+///
 /// # Examples
 ///
 /// ```rust,no_run
@@ -67,6 +79,32 @@ pub struct KdTree {
 
 impl KdTree {
     /// Build a KdTree from a point cloud.
+    ///
+    /// Creates a new KdTree using single-threaded construction. The tree
+    /// structure is optimized for balanced search performance.
+    ///
+    /// # Arguments
+    ///
+    /// * `cloud` - The point cloud to build the tree from
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(KdTree)` - A new KdTree instance
+    /// * `Err(SmallGicpError::EmptyPointCloud)` - If the point cloud is empty
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::{KdTree, PointCloud};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut cloud = PointCloud::new()?;
+    /// cloud.add_point(0.0, 0.0, 0.0);
+    ///
+    /// let kdtree = KdTree::new(&cloud)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(cloud: &PointCloud) -> Result<Self> {
         if cloud.is_empty() {
             return Err(SmallGicpError::EmptyPointCloud);
@@ -77,6 +115,38 @@ impl KdTree {
     }
 
     /// Build a KdTree from a point cloud with specified number of threads.
+    ///
+    /// Creates a new KdTree using parallel construction for improved performance
+    /// on large point clouds. The tree is built using multiple threads to
+    /// accelerate the construction process.
+    ///
+    /// # Arguments
+    ///
+    /// * `cloud` - The point cloud to build the tree from
+    /// * `num_threads` - Number of threads to use for construction
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(KdTree)` - A new KdTree instance
+    /// * `Err(SmallGicpError::EmptyPointCloud)` - If the point cloud is empty
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::{KdTree, PointCloud};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut cloud = PointCloud::new()?;
+    /// // Add many points...
+    /// for i in 0..10000 {
+    ///     cloud.add_point(i as f64, 0.0, 0.0);
+    /// }
+    ///
+    /// // Build with 4 threads for faster construction
+    /// let kdtree = KdTree::new_parallel(&cloud, 4)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new_parallel(cloud: &PointCloud, num_threads: usize) -> Result<Self> {
         if cloud.is_empty() {
             return Err(SmallGicpError::EmptyPointCloud);

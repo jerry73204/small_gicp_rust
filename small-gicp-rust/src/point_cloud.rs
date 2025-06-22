@@ -9,6 +9,31 @@ use std::ops::Range;
 use tracing::{debug, info, trace, warn};
 
 /// A view over point data that supports both iteration and random access.
+///
+/// This struct provides zero-copy access to point data stored in the underlying
+/// PointCloud. It implements Iterator for convenient traversal while also
+/// supporting direct indexing.
+///
+/// # Example
+///
+/// ```rust
+/// use small_gicp::PointCloud;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// cloud.add_point(1.0, 2.0, 3.0);
+/// cloud.add_point(4.0, 5.0, 6.0);
+///
+/// let view = cloud.points();
+/// assert_eq!(view.len(), 2);
+///
+/// // Iterate over points
+/// for point in view {
+///     println!("Point: ({}, {}, {})", point.x, point.y, point.z);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct PointsView<'a> {
     data: &'a [f64],
@@ -116,6 +141,30 @@ impl DoubleEndedIterator for PointsView<'_> {
 // IntoIterator is automatically implemented for Iterator types
 
 /// A view over normal data that supports both iteration and random access.
+///
+/// This struct provides zero-copy access to normal vector data stored in the
+/// underlying PointCloud. It implements Iterator for convenient traversal
+/// while also supporting direct indexing.
+///
+/// # Example
+///
+/// ```rust
+/// use nalgebra::Vector3;
+/// use small_gicp::PointCloud;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// cloud.add_point(0.0, 0.0, 0.0);
+/// cloud.set_normals(&[Vector3::new(0.0, 0.0, 1.0)])?;
+///
+/// if let Some(normals) = cloud.normals() {
+///     for normal in normals {
+///         println!("Normal: ({}, {}, {})", normal.x, normal.y, normal.z);
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct NormalsView<'a> {
     data: &'a [f64],
@@ -219,6 +268,30 @@ impl DoubleEndedIterator for NormalsView<'_> {
 // IntoIterator is automatically implemented for Iterator types
 
 /// A view over covariance data that supports both iteration and random access.
+///
+/// This struct provides zero-copy access to covariance matrix data stored in the
+/// underlying PointCloud. It implements Iterator for convenient traversal
+/// while also supporting direct indexing. Each covariance is a 4x4 matrix.
+///
+/// # Example
+///
+/// ```rust
+/// use nalgebra::Matrix4;
+/// use small_gicp::PointCloud;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// cloud.add_point(0.0, 0.0, 0.0);
+/// cloud.set_covariances(&[Matrix4::identity()])?;
+///
+/// if let Some(covariances) = cloud.covariances() {
+///     for cov in covariances {
+///         println!("Covariance trace: {}", cov.trace());
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct CovariancesView<'a> {
     data: &'a [f64],
@@ -1564,11 +1637,57 @@ pub mod tests {
 }
 
 /// Conversion utilities for point clouds.
+///
+/// This module provides functions for converting between different point cloud
+/// representations and coordinate systems, including:
+///
+/// - Converting between 3D and 4D homogeneous coordinates
+/// - Converting between trait-based and concrete point cloud types
+/// - Copying data between different point cloud implementations
+///
+/// # Example
+///
+/// ```rust
+/// use nalgebra::{Point3, Vector4};
+/// use small_gicp::point_cloud::conversions;
+///
+/// let points_3d = vec![Point3::new(1.0, 2.0, 3.0), Point3::new(4.0, 5.0, 6.0)];
+///
+/// let points_4d = conversions::points3_to_points4(&points_3d);
+/// assert_eq!(points_4d[0], Vector4::new(1.0, 2.0, 3.0, 1.0));
+/// ```
 pub mod conversions {
     use super::*;
     use crate::traits::PointCloudTrait;
 
     /// Convert from any PointCloudTrait to a PointCloud.
+    ///
+    /// This function creates a new PointCloud by copying data from any type
+    /// that implements the PointCloudTrait. This is useful for converting
+    /// custom point cloud types to the standard PointCloud type.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - Any type implementing PointCloudTrait
+    ///
+    /// # Returns
+    ///
+    /// A new PointCloud containing copies of all points, normals, and covariances
+    /// from the input.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::{point_cloud::conversions, traits::PointCloudTrait};
+    /// # use small_gicp::PointCloud;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let custom_cloud = PointCloud::new()?;
+    /// // Assuming custom_cloud implements PointCloudTrait
+    /// let standard_cloud = conversions::from_trait(&custom_cloud)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_trait<P: PointCloudTrait>(input: &P) -> Result<PointCloud> {
         let mut output = PointCloud::new()?;
         output.resize(input.len())?;
@@ -1647,6 +1766,37 @@ pub mod conversions {
     }
 
     /// Copy data from one point cloud to another.
+    ///
+    /// This function copies all data (points, normals, and covariances) from
+    /// a source point cloud to a target point cloud. The target is resized
+    /// to match the source.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The point cloud to copy from
+    /// * `target` - The point cloud to copy to (will be resized)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` on successful copy
+    /// * `Err` if any operation fails
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::{point_cloud::conversions, PointCloud};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut source = PointCloud::new()?;
+    /// source.add_point(1.0, 2.0, 3.0);
+    ///
+    /// let mut target = PointCloud::new()?;
+    /// conversions::copy_data(&source, &mut target)?;
+    ///
+    /// assert_eq!(target.len(), source.len());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn copy_data<S: PointCloudTrait, T: crate::traits::MutablePointCloudTrait>(
         source: &S,
         target: &mut T,

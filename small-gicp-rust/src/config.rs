@@ -344,6 +344,20 @@ impl Default for DofRestrictionConfig {
 
 impl DofRestrictionConfig {
     /// Create a configuration that constrains to 2D registration (no rotation around Z-axis).
+    ///
+    /// This configuration allows all translations but restricts rotation to only
+    /// the X and Y axes, effectively constraining the registration to 2D motion
+    /// in 3D space.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::config::DofRestrictionConfig;
+    ///
+    /// let config = DofRestrictionConfig::planar_2d();
+    /// assert_eq!(config.rotation_mask, [1.0, 1.0, 0.0]);
+    /// assert_eq!(config.translation_mask, [1.0, 1.0, 1.0]);
+    /// ```
     pub fn planar_2d() -> Self {
         Self {
             restriction_factor: 1e-3,
@@ -353,6 +367,20 @@ impl DofRestrictionConfig {
     }
 
     /// Create a configuration that only allows Z-axis rotation (yaw).
+    ///
+    /// This configuration allows all translations but restricts rotation to only
+    /// the Z axis (yaw), which is useful for ground vehicles or robots that
+    /// can only rotate around their vertical axis.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::config::DofRestrictionConfig;
+    ///
+    /// let config = DofRestrictionConfig::yaw_only();
+    /// assert_eq!(config.rotation_mask, [0.0, 0.0, 1.0]);
+    /// assert_eq!(config.translation_mask, [1.0, 1.0, 1.0]);
+    /// ```
     pub fn yaw_only() -> Self {
         Self {
             restriction_factor: 1e-3,
@@ -362,6 +390,20 @@ impl DofRestrictionConfig {
     }
 
     /// Create a configuration that constrains to only XY translation.
+    ///
+    /// This configuration restricts all rotations and only allows translation
+    /// in the X and Y axes, preventing vertical (Z-axis) movement. This is
+    /// useful for planar robots or when registering data on a known plane.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::config::DofRestrictionConfig;
+    ///
+    /// let config = DofRestrictionConfig::xy_translation_only();
+    /// assert_eq!(config.rotation_mask, [0.0, 0.0, 0.0]);
+    /// assert_eq!(config.translation_mask, [1.0, 1.0, 0.0]);
+    /// ```
     pub fn xy_translation_only() -> Self {
         Self {
             restriction_factor: 1e-3,

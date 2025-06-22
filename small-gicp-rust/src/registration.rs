@@ -8,7 +8,7 @@ use nalgebra::Isometry3;
 pub struct IcpSettings {
     /// Maximum correspondence distance between points
     pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence check [rad]
+    /// Rotation tolerance for convergence check (in radians)
     pub rotation_eps: f64,
     /// Translation tolerance for convergence check
     pub translation_eps: f64,
@@ -35,7 +35,7 @@ impl Default for IcpSettings {
 pub struct PlaneIcpSettings {
     /// Maximum correspondence distance between points
     pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence check [rad]
+    /// Rotation tolerance for convergence check (in radians)
     pub rotation_eps: f64,
     /// Translation tolerance for convergence check
     pub translation_eps: f64,
@@ -62,7 +62,7 @@ impl Default for PlaneIcpSettings {
 pub struct GicpSettings {
     /// Maximum correspondence distance between points
     pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence check [rad]
+    /// Rotation tolerance for convergence check (in radians)
     pub rotation_eps: f64,
     /// Translation tolerance for convergence check
     pub translation_eps: f64,
@@ -89,7 +89,7 @@ impl Default for GicpSettings {
 pub struct VgicpSettings {
     /// Maximum correspondence distance between points
     pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence check [rad]
+    /// Rotation tolerance for convergence check (in radians)
     pub rotation_eps: f64,
     /// Translation tolerance for convergence check
     pub translation_eps: f64,
@@ -179,7 +179,7 @@ impl Default for VgicpSettings {
 //     pub downsampling_resolution: f64,
 //     /// Maximum correspondence distance
 //     pub max_correspondence_distance: f64,
-//     /// Rotation tolerance for convergence check [rad]
+//     /// Rotation tolerance for convergence check (in radians)
 //     pub rotation_eps: f64,
 //     /// Translation tolerance for convergence check
 //     pub translation_eps: f64,

@@ -373,6 +373,30 @@ pub trait SpatialSearchTree: Debug {
 }
 
 /// Helper functions for creating 4D vectors with correct homogeneous coordinates.
+///
+/// This module provides convenience functions for converting between 3D and 4D
+/// representations while maintaining the correct homogeneous coordinate values
+/// (w=1 for points, w=0 for normals/directions).
+///
+/// # Example
+///
+/// ```rust
+/// use nalgebra::Vector3;
+/// use small_gicp::traits::helpers;
+///
+/// // Create a 4D point from coordinates
+/// let point = helpers::point_from_xyz(1.0, 2.0, 3.0);
+/// assert_eq!(point.w, 1.0);
+///
+/// // Create a 4D normal from a 3D vector
+/// let normal_3d = Vector3::new(0.0, 0.0, 1.0);
+/// let normal = helpers::normal_from_vector3(normal_3d);
+/// assert_eq!(normal.w, 0.0);
+///
+/// // Validate homogeneous coordinates
+/// assert!(helpers::is_valid_point(point));
+/// assert!(helpers::is_valid_normal(normal));
+/// ```
 pub mod helpers {
     use super::{Normal4, Point4};
     use nalgebra::Vector3;
@@ -427,6 +451,28 @@ pub mod helpers {
 }
 
 /// Bounds checking helpers for safe trait implementations.
+///
+/// This module provides utility functions for performing bounds checks
+/// with descriptive error messages. These are used internally by trait
+/// implementations to ensure safe access to point cloud data.
+///
+/// # Example
+///
+/// ```rust
+/// use small_gicp::traits::bounds;
+///
+/// // Check bounds and panic with descriptive message
+/// let size = 10;
+/// let index = 5;
+/// bounds::check_bounds(index, size, "point access"); // OK
+///
+/// // Check bounds and return Result
+/// let result = bounds::check_bounds_result(index, size, "point access");
+/// assert!(result.is_ok());
+///
+/// let result = bounds::check_bounds_result(10, size, "point access");
+/// assert!(result.is_err());
+/// ```
 pub mod bounds {
     /// Checks if an index is within bounds and panics with a descriptive message if not.
     pub fn check_bounds(index: usize, size: usize, operation: &str) {

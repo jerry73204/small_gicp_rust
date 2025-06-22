@@ -5,7 +5,39 @@
 
 use crate::{error::Result, point_cloud::PointCloud};
 
-/// Preprocessing functions for point clouds
+/// Preprocessing functions for point clouds.
+///
+/// This struct provides a collection of static methods for preprocessing
+/// point cloud data before registration. All methods are thin wrappers
+/// around the C++ preprocessing functions.
+///
+/// # Available Operations
+///
+/// - **Downsampling**: Reduce point cloud density for faster processing
+/// - **Normal Estimation**: Compute surface normals from local neighborhoods
+/// - **Covariance Estimation**: Compute local covariance matrices for GICP
+///
+/// # Example
+///
+/// ```rust
+/// use small_gicp::{preprocessing::Preprocessing, PointCloud};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// // Add points...
+/// # for i in 0..100 {
+/// #     cloud.add_point(i as f64 * 0.01, 0.0, 0.0);
+/// # }
+///
+/// // Downsample with 0.1m voxel size
+/// let downsampled = Preprocessing::voxel_downsample(&cloud, 0.1, 4);
+///
+/// // Estimate normals using 20 neighbors
+/// let mut processed = downsampled;
+/// Preprocessing::estimate_normals(&mut processed, 20, 4)?;
+/// # Ok(())
+/// # }
+/// ```
 pub struct Preprocessing;
 
 impl Preprocessing {
@@ -131,6 +163,50 @@ impl Preprocessing {
 }
 
 /// Estimate local features automatically using the given configuration.
+///
+/// This function automatically estimates the appropriate local features
+/// (normals, covariances, or both) based on the configuration settings.
+/// It provides a unified interface for feature estimation that adapts
+/// to the needs of different registration algorithms.
+///
+/// # Arguments
+///
+/// * `cloud` - Point cloud to estimate features for (will be modified)
+/// * `config` - Configuration specifying which features to estimate
+///
+/// # Returns
+///
+/// * `Ok(())` if features were successfully estimated
+/// * `Err` if estimation failed
+///
+/// # Example
+///
+/// ```rust
+/// use small_gicp::{
+///     config::{LocalFeatureEstimationConfig, LocalFeatureSetterType},
+///     preprocessing::estimate_local_features_auto,
+///     PointCloud,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// # for i in 0..100 {
+/// #     cloud.add_point(i as f64 * 0.01, 0.0, 0.0);
+/// # }
+///
+/// let config = LocalFeatureEstimationConfig {
+///     setter_type: LocalFeatureSetterType::NormalCovariance,
+///     num_neighbors: 20,
+///     num_threads: 4,
+///     ..Default::default()
+/// };
+///
+/// estimate_local_features_auto(&mut cloud, &config)?;
+/// assert!(cloud.has_normals());
+/// assert!(cloud.has_covariances());
+/// # Ok(())
+/// # }
+/// ```
 pub fn estimate_local_features_auto(
     cloud: &mut PointCloud,
     config: &crate::config::LocalFeatureEstimationConfig,

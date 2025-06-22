@@ -12,42 +12,152 @@
 //! - **Registration algorithms**: ICP, Plane ICP, GICP, and VGICP
 //! - **Thread safety**: All operations can be parallelized
 //! - **Memory safety**: Automatic resource management with RAII
-//! - **Generic programming**: Trait-based design for custom point cloud types
+//! - **Voxel-based registration**: VGICP for large-scale point clouds
 //!
 //! # Quick Start
 //!
 //! ```rust,no_run
-//! use nalgebra::Point3;
 //! use small_gicp::prelude::*;
 //!
-//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-//! // TODO: This API is not yet implemented
-//! // The following shows the intended interface:
+//! # fn main() -> Result<()> {
+//! // Create point clouds (in practice, load from PLY files or sensors)
+//! let mut source = PointCloud::new()?;
+//! let mut target = PointCloud::new()?;
 //!
-//! // Create point clouds
-//! let target_points = vec![
-//!     Point3::new(0.0, 0.0, 0.0),
-//!     Point3::new(1.0, 0.0, 0.0),
-//!     Point3::new(0.0, 1.0, 0.0),
-//! ];
-//! let source_points = vec![
-//!     Point3::new(0.1, 0.1, 0.0),
-//!     Point3::new(1.1, 0.1, 0.0),
-//!     Point3::new(0.1, 1.1, 0.0),
-//! ];
+//! // Add points to the clouds
+//! for i in 0..100 {
+//!     let angle = i as f64 * 0.1;
+//!     target.add_point(angle.cos(), angle.sin(), 0.0);
+//!     // Source is slightly transformed (rotated and translated)
+//!     source.add_point(angle.cos() + 0.1, angle.sin() + 0.1, 0.0);
+//! }
 //!
-//! let target = PointCloud::from_points(&target_points)?;
-//! let source = PointCloud::from_points(&source_points)?;
+//! // Build KdTree for efficient correspondence search
+//! let target_tree = KdTree::new(&target)?;
 //!
-//! // Perform registration
-//! let settings = RegistrationSettings::default();
-//! let result = register(&target, &source, &settings)?;
+//! // Configure ICP settings
+//! let settings = IcpSettings {
+//!     max_iterations: 50,
+//!     max_correspondence_distance: 1.0,
+//!     ..Default::default()
+//! };
 //!
-//! println!("Registration converged: {}", result.converged);
+//! // Perform ICP registration
+//! let result = align_icp(&source, &target, &target_tree, None, settings)?;
+//!
+//! println!("Converged: {}", result.converged);
+//! println!("Iterations: {}", result.iterations);
 //! println!("Final error: {:.6}", result.error);
+//!
+//! // Extract the transformation
+//! let transform = &result.t_target_source;
+//! println!("Translation: {:?}", transform.translation.vector);
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Registration Methods
+//!
+//! ## ICP (Iterative Closest Point)
+//!
+//! Basic point-to-point registration. Fast but requires good initial alignment.
+//!
+//! ```rust,no_run
+//! # use small_gicp::prelude::*;
+//! # fn main() -> Result<()> {
+//! # let source = PointCloud::new()?;
+//! # let target = PointCloud::new()?;
+//! let target_tree = KdTree::new(&target)?;
+//! let result = align_icp(&source, &target, &target_tree, None, IcpSettings::default())?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Point-to-Plane ICP
+//!
+//! Uses surface normals for better convergence on smooth surfaces.
+//!
+//! ```rust,no_run
+//! # use small_gicp::prelude::*;
+//! # fn main() -> Result<()> {
+//! # let source = PointCloud::new()?;
+//! # let target = PointCloud::new()?;
+//! // Preprocess to compute normals
+//! let (processed_target, target_tree) = preprocess_points(&target, 0.1, 20, 4)?;
+//! let (processed_source, _) = preprocess_points(&source, 0.1, 20, 4)?;
+//!
+//! let result = align_plane_icp(
+//!     &processed_source,
+//!     &processed_target,
+//!     &target_tree,
+//!     None,
+//!     PlaneIcpSettings::default(),
+//! )?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## GICP (Generalized ICP)
+//!
+//! Uses local covariance information for robust registration.
+//!
+//! ```rust,no_run
+//! # use small_gicp::prelude::*;
+//! # fn main() -> Result<()> {
+//! # let source = PointCloud::new()?;
+//! # let target = PointCloud::new()?;
+//! // Preprocess to compute covariances
+//! let (processed_target, target_tree) = preprocess_points(&target, 0.1, 20, 4)?;
+//! let (processed_source, source_tree) = preprocess_points(&source, 0.1, 20, 4)?;
+//!
+//! let result = align_gicp(
+//!     &processed_source,
+//!     &processed_target,
+//!     &source_tree,
+//!     &target_tree,
+//!     None,
+//!     GicpSettings::default(),
+//! )?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## VGICP (Voxelized GICP)
+//!
+//! Efficient registration for large point clouds using voxel maps.
+//!
+//! ```rust,no_run
+//! # use small_gicp::prelude::*;
+//! # fn main() -> Result<()> {
+//! # let source = PointCloud::new()?;
+//! # let target = PointCloud::new()?;
+//! // Create voxel map from target cloud
+//! let voxel_resolution = 0.5;
+//! let target_voxelmap = create_gaussian_voxelmap(&target, voxel_resolution)?;
+//!
+//! let result = align_vgicp(
+//!     &source,
+//!     &target_voxelmap,
+//!     None,
+//!     VgicpSettings {
+//!         voxel_resolution,
+//!         ..Default::default()
+//!     },
+//! )?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Best Practices
+//!
+//! 1. **Preprocessing**: Always downsample dense point clouds for better performance
+//! 2. **Initial Alignment**: Provide a rough initial transformation for large misalignments
+//! 3. **Parameter Tuning**: Adjust `max_correspondence_distance` based on your data
+//! 4. **Method Selection**:
+//!    - Use ICP for fast, simple registration with good initial alignment
+//!    - Use Plane ICP when you have surface normals available
+//!    - Use GICP for highest accuracy with structured scenes
+//!    - Use VGICP for large-scale point clouds (>100k points)
 
 pub mod config;
 pub mod error;

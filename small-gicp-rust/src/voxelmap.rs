@@ -1,7 +1,7 @@
 //! Voxel map data structures for VGICP registration.
 //!
 //! This module provides the unified GaussianVoxelMap interface that directly maps to
-//! the C++ IncrementalVoxelMap<GaussianVoxel> template specialization.
+//! the C++ `IncrementalVoxelMap<GaussianVoxel>` template specialization.
 
 use crate::{error::Result, point_cloud::PointCloud};
 use nalgebra::{Isometry3, Matrix3, Point3};
@@ -96,19 +96,109 @@ pub struct VoxelMapStatistics {
     pub lru_counter: usize,
 }
 
-/// Unified Gaussian voxel map that provides all IncrementalVoxelMap<GaussianVoxel> functionality.
-/// This matches the C++ convention where GaussianVoxelMap = IncrementalVoxelMap<GaussianVoxel>.
+/// Unified Gaussian voxel map that provides all `IncrementalVoxelMap<GaussianVoxel>` functionality.
+///
+/// This matches the C++ convention where `GaussianVoxelMap = IncrementalVoxelMap<GaussianVoxel>`.
+/// The voxel map divides 3D space into a regular grid of voxels, where each voxel
+/// stores statistical information (mean and covariance) about the points it contains.
+///
+/// # Use Cases
+///
+/// - **VGICP Registration**: Primary use case for efficient large-scale registration
+/// - **Spatial Indexing**: Fast nearest neighbor queries in large point clouds
+/// - **Downsampling**: Statistical representation of dense point clouds
+/// - **Change Detection**: Comparing point clouds over time
+///
+/// # Performance
+///
+/// - Insertion: O(1) average case per point
+/// - Nearest neighbor search: O(1) to O(k) where k is the search neighborhood size
+/// - Memory usage: O(n) where n is the number of occupied voxels
+///
+/// # Example
+///
+/// ```rust
+/// use nalgebra::Point3;
+/// use small_gicp::{GaussianVoxelMap, PointCloud};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut cloud = PointCloud::new()?;
+/// # for i in 0..10 {
+/// #     cloud.add_point(i as f64 * 0.1, 0.0, 0.0);
+/// # }
+///
+/// // Create voxel map with 0.5m resolution
+/// let mut voxelmap = GaussianVoxelMap::new(0.5);
+/// voxelmap.insert(&cloud)?;
+/// voxelmap.finalize();
+///
+/// // Query nearest voxel
+/// let query = Point3::new(0.25, 0.0, 0.0);
+/// if let Some((index, distance)) = voxelmap.nearest_neighbor_search(&query) {
+///     println!(
+///         "Nearest voxel: index={}, distance={}",
+///         index,
+///         distance.sqrt()
+///     );
+/// }
+/// # Ok(())
+/// # }
+/// ```
 pub struct GaussianVoxelMap {
     inner: small_gicp_sys::GaussianVoxelMap,
 }
 
 impl GaussianVoxel {
     /// Get the mean position as a Point3.
+    ///
+    /// Converts the internal array representation to a nalgebra Point3
+    /// for easier manipulation.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::GaussianVoxel;
+    ///
+    /// let voxel = GaussianVoxel {
+    ///     num_points: 10,
+    ///     mean: [1.0, 2.0, 3.0],
+    ///     covariance: [0.0; 9],
+    /// };
+    ///
+    /// let mean = voxel.mean_point();
+    /// assert_eq!(mean.x, 1.0);
+    /// assert_eq!(mean.y, 2.0);
+    /// assert_eq!(mean.z, 3.0);
+    /// ```
     pub fn mean_point(&self) -> Point3<f64> {
         Point3::new(self.mean[0], self.mean[1], self.mean[2])
     }
 
     /// Get the covariance as a 3x3 matrix.
+    ///
+    /// Converts the internal row-major array representation to a nalgebra Matrix3.
+    /// The covariance matrix represents the distribution of points within the voxel.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::GaussianVoxel;
+    ///
+    /// let voxel = GaussianVoxel {
+    ///     num_points: 10,
+    ///     mean: [0.0; 3],
+    ///     covariance: [
+    ///         1.0, 0.0, 0.0, // First row
+    ///         0.0, 2.0, 0.0, // Second row
+    ///         0.0, 0.0, 3.0, // Third row
+    ///     ],
+    /// };
+    ///
+    /// let cov = voxel.covariance_matrix();
+    /// assert_eq!(cov[(0, 0)], 1.0);
+    /// assert_eq!(cov[(1, 1)], 2.0);
+    /// assert_eq!(cov[(2, 2)], 3.0);
+    /// ```
     pub fn covariance_matrix(&self) -> Matrix3<f64> {
         Matrix3::new(
             self.covariance[0],
@@ -124,6 +214,29 @@ impl GaussianVoxel {
     }
 
     /// Check if the voxel has valid data.
+    ///
+    /// A voxel is considered valid if it contains at least one point.
+    /// Invalid voxels may be returned by queries when no data is available.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use small_gicp::GaussianVoxel;
+    ///
+    /// let valid_voxel = GaussianVoxel {
+    ///     num_points: 5,
+    ///     mean: [1.0, 2.0, 3.0],
+    ///     covariance: [0.0; 9],
+    /// };
+    /// assert!(valid_voxel.is_valid());
+    ///
+    /// let invalid_voxel = GaussianVoxel {
+    ///     num_points: 0,
+    ///     mean: [0.0; 3],
+    ///     covariance: [0.0; 9],
+    /// };
+    /// assert!(!invalid_voxel.is_valid());
+    /// ```
     pub fn is_valid(&self) -> bool {
         self.num_points > 0
     }
