@@ -296,10 +296,6 @@ pub mod ffi {
         fn compute_normals(cloud: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
         fn compute_covariances(cloud: Pin<&mut PointCloud>, num_neighbors: i32, num_threads: i32);
 
-        // I/O functions
-        fn load_ply(filename: &str) -> UniquePtr<PointCloud>;
-        fn save_ply(filename: &str, cloud: &PointCloud);
-
         // Registration functions
         fn align_points_icp(
             source: &PointCloud,

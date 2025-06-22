@@ -1,6 +1,6 @@
 //! Voxel map data structures for VGICP registration.
 
-use crate::{error::Result, point_cloud::PointCloud, traits::MutablePointCloudTrait};
+use crate::{error::Result, point_cloud::PointCloud};
 use nalgebra::{Matrix3, Matrix4, Point3, Vector3};
 
 /// A Gaussian voxel containing statistical information about points.

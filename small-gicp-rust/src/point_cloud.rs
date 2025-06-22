@@ -1056,28 +1056,6 @@ impl PointCloud {
         !self.is_empty()
     }
 
-    /// Load a point cloud from a PLY file.
-    pub fn load_ply<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let path_display = path.as_ref().display().to_string();
-        info!("Loading PointCloud from PLY file: {}", path_display);
-        let inner = small_gicp_sys::Io::load_ply(path)
-            .map_err(|e| crate::error::SmallGicpError::CxxError(e))?;
-        let cloud = Self { inner };
-        info!(
-            "Successfully loaded {} points from {}",
-            cloud.len(),
-            path_display
-        );
-        Ok(cloud)
-    }
-
-    /// Save the point cloud to a PLY file.
-    pub fn save_ply<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
-        small_gicp_sys::Io::save_ply(path, &self.inner)
-            .map_err(|e| crate::error::SmallGicpError::CxxError(e))?;
-        Ok(())
-    }
-
     /// Downsample using voxel grid filtering.
     pub fn voxelgrid_sampling(&self, config: &crate::config::VoxelGridConfig) -> Result<Self> {
         use crate::preprocessing::Preprocessing;
@@ -1494,61 +1472,6 @@ pub mod tests {
             let _ = cloud.point_at(i).unwrap();
             let _ = cloud.normal_at(i).unwrap();
             let _ = cloud.covariance_at(i).unwrap();
-        }
-    }
-
-    /// Test PLY file I/O operations
-    #[test]
-    fn test_ply_io() {
-        // Test loading PLY file
-        let test_file = "data/source.ply";
-        if std::path::Path::new(test_file).exists() {
-            match PointCloud::load_ply(test_file) {
-                Ok(cloud) => {
-                    assert!(!cloud.is_empty());
-                    // Verify we can access points
-                    let _ = cloud.point_at(0).unwrap();
-                }
-                Err(e) => {
-                    // PLY loading might not be implemented yet
-                    eprintln!("PLY loading not yet implemented: {}", e);
-                }
-            }
-        } else {
-            eprintln!(
-                "Test PLY file not found at {}, skipping PLY I/O test",
-                test_file
-            );
-        }
-
-        // Test saving PLY file
-        let points = vec![Point3::new(1.0, 2.0, 3.0), Point3::new(4.0, 5.0, 6.0)];
-        let cloud = PointCloud::from_points(&points).unwrap();
-
-        let temp_file = "/tmp/test_point_cloud.ply";
-        match cloud.save_ply(temp_file) {
-            Ok(_) => {
-                // Try to load it back
-                match PointCloud::load_ply(temp_file) {
-                    Ok(loaded) => {
-                        assert_eq!(loaded.len(), cloud.len());
-                        for i in 0..cloud.len() {
-                            let p1 = cloud.point_at(i).unwrap();
-                            let p2 = loaded.point_at(i).unwrap();
-                            assert!((p1.x - p2.x).abs() < 1e-6);
-                            assert!((p1.y - p2.y).abs() < 1e-6);
-                            assert!((p1.z - p2.z).abs() < 1e-6);
-                        }
-                    }
-                    Err(e) => eprintln!("Failed to load saved PLY: {}", e),
-                }
-                // Clean up
-                let _ = std::fs::remove_file(temp_file);
-            }
-            Err(e) => {
-                // PLY saving might not be implemented yet
-                eprintln!("PLY saving not yet implemented: {}", e);
-            }
         }
     }
 

@@ -1,5 +1,7 @@
 #include "wrapper.h"
 #include "small-gicp-sys/src/ffi.rs.h"
+#include <fstream>
+#include <iostream>
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling.hpp>
@@ -731,9 +733,7 @@ bool UnsafeKdTree::unsafe_validate_data_ptr(const double *expected_ptr) const {
   return original_data_ptr_ == expected_ptr;
 }
 
-size_t UnsafeKdTree::unsafe_size() const {
-  return tree_->points.size();
-}
+size_t UnsafeKdTree::unsafe_size() const { return tree_->points.size(); }
 
 // Factory functions
 std::unique_ptr<PointCloud> create_point_cloud() {
@@ -886,19 +886,6 @@ void compute_covariances(PointCloud &cloud, int num_neighbors,
                                        num_threads);
 }
 
-// I/O functions - simplified implementation
-std::unique_ptr<PointCloud> load_ply(rust::Str filename) {
-  auto result = std::make_unique<PointCloud>();
-  (void)filename; // Suppress warning
-  // PLY loading implementation needs actual small_gicp I/O API
-  return result;
-}
-
-void save_ply(rust::Str filename, const PointCloud &cloud) {
-  (void)filename;
-  (void)cloud; // Suppress warnings
-               // PLY saving implementation needs actual small_gicp I/O API
-}
 
 // Missing registration function implementation
 RegistrationResult align_points_point_to_plane_icp(

@@ -67,7 +67,6 @@
 
 mod ffi;
 mod incremental_voxel_map;
-mod io;
 mod kdtree;
 mod point_cloud;
 mod preprocessing;
@@ -77,7 +76,6 @@ mod unsafe_kdtree;
 mod voxel_map;
 
 pub use incremental_voxel_map::{IncrementalVoxelMap, IncrementalVoxelMapBuilder};
-pub use io::{Io, PointCloudIoExt};
 pub use kdtree::{KdTree, KdTreeBuilder};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{Preprocessing, PreprocessingBuilder};
