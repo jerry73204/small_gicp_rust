@@ -6,7 +6,7 @@ use crate::{
         },
         RegistrationResult, RegistrationSettings, Transform,
     },
-    KdTree, PointCloud, VoxelMap,
+    GaussianVoxelMap, KdTree, PointCloud,
 };
 
 /// Registration algorithms for point cloud alignment
@@ -80,7 +80,7 @@ impl Registration {
     /// Align a point cloud to a voxel map using VGICP (Voxelized GICP)
     pub fn vgicp(
         source: &PointCloud,
-        target_voxelmap: &VoxelMap,
+        target_voxelmap: &GaussianVoxelMap,
         init_guess: Option<Transform>,
         settings: Option<RegistrationSettings>,
     ) -> RegistrationResult {

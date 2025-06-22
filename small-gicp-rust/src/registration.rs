@@ -1,8 +1,6 @@
 //! Simple registration API that directly wraps C++ registration_helper.hpp functions.
 
-use crate::{
-    error::Result, kdtree::KdTree, point_cloud::PointCloud, voxelmap::IncrementalVoxelMap,
-};
+use crate::{error::Result, kdtree::KdTree, point_cloud::PointCloud, voxelmap::GaussianVoxelMap};
 use nalgebra::Isometry3;
 
 /// Settings for ICP (Iterative Closest Point) registration.
@@ -414,7 +412,7 @@ pub fn preprocess_points(
     Ok((processed, kdtree))
 }
 
-/// Create an incremental Gaussian voxel map.
+/// Create a Gaussian voxel map.
 ///
 /// This function matches the C++ signature:
 /// ```cpp
@@ -423,11 +421,8 @@ pub fn preprocess_points(
 pub fn create_gaussian_voxelmap(
     points: &PointCloud,
     voxel_resolution: f64,
-) -> Result<IncrementalVoxelMap> {
-    let mut voxelmap = IncrementalVoxelMap::new(voxel_resolution);
-    voxelmap.insert(points)?;
-    voxelmap.finalize();
-    Ok(voxelmap)
+) -> Result<GaussianVoxelMap> {
+    GaussianVoxelMap::from_points(points, voxel_resolution)
 }
 
 // Helper function to convert FFI result to Rust result
@@ -826,9 +821,8 @@ pub fn align(
         }
         RegistrationMethod::Vgicp(settings) => {
             // VGICP needs a voxel map of the target
-            let mut voxelmap = IncrementalVoxelMap::new(settings.voxel_resolution);
-            voxelmap.insert(&downsampled_target)?;
-            voxelmap.finalize();
+            let voxelmap =
+                create_gaussian_voxelmap(&downsampled_target, settings.voxel_resolution)?;
 
             align_vgicp(&downsampled_source, &voxelmap, init_transform, settings)
         }
@@ -850,7 +844,7 @@ pub fn align(
 /// Registration result with final transformation and convergence info
 pub fn align_vgicp(
     source: &PointCloud,
-    target_voxelmap: &IncrementalVoxelMap,
+    target_voxelmap: &GaussianVoxelMap,
     init_t: Option<Isometry3<f64>>,
     settings: VgicpSettings,
 ) -> Result<RegistrationResult> {
@@ -882,47 +876,10 @@ pub fn align_vgicp(
         }
     };
 
-    // Create a GaussianVoxelMap from the IncrementalVoxelMap
-    // This is the same logic as in the old align_voxelmap
-    let mut target_voxelmap_ffi = small_gicp_sys::VoxelMap::new(target_voxelmap.voxel_size());
-
-    // Get the number of voxels to process
-    let num_voxels = target_voxelmap.num_voxels()?;
-
-    if num_voxels == 0 {
-        return Err(crate::error::SmallGicpError::InvalidArgument(
-            "Target voxel map is empty. Cannot perform VGICP registration.".to_string(),
-        ));
-    }
-
-    // Create a temporary point cloud to hold the voxel centers
-    let mut temp_cloud = PointCloud::new()?;
-
-    // Extract voxel data and create synthetic points for the VoxelMap
-    for voxel_idx in 0..num_voxels {
-        if let Ok(gaussian_voxel) = target_voxelmap.gaussian_voxel(voxel_idx) {
-            // Add the voxel mean as a point
-            temp_cloud.add_point(
-                gaussian_voxel.mean[0],
-                gaussian_voxel.mean[1],
-                gaussian_voxel.mean[2],
-            );
-        }
-    }
-
-    // Insert the reconstructed point cloud into the target voxel map
-    if temp_cloud.len() > 0 {
-        target_voxelmap_ffi.insert(&temp_cloud.into_cxx());
-    } else {
-        return Err(crate::error::SmallGicpError::InvalidArgument(
-            "Failed to extract voxel data from IncrementalVoxelMap.".to_string(),
-        ));
-    }
-
-    // Perform VGICP registration
+    // Perform VGICP registration - direct FFI call
     let ffi_result = small_gicp_sys::Registration::vgicp(
         source_cxx,
-        &target_voxelmap_ffi,
+        target_voxelmap.inner(),
         Some(init_transform),
         Some(ffi_settings),
     );
@@ -1099,17 +1056,17 @@ mod tests {
     #[test]
     fn test_align_vgicp_implementation() {
         // Test the VGICP implementation with a small voxel map
-        let mut voxelmap = crate::voxelmap::IncrementalVoxelMap::new(0.1);
         let mut source = crate::point_cloud::PointCloud::new().unwrap();
         let mut target_cloud = crate::point_cloud::PointCloud::new().unwrap();
 
-        // Create a small target point cloud and insert into voxel map
+        // Create a small target point cloud
         for i in 0..10 {
             let x = i as f64 * 0.1;
             target_cloud.add_point(x, 0.0, 0.0);
         }
-        voxelmap.insert(&target_cloud).unwrap();
-        voxelmap.finalize();
+
+        // Create a voxel map from the target
+        let voxelmap = create_gaussian_voxelmap(&target_cloud, 0.1).unwrap();
 
         // Create a slightly shifted source cloud
         for i in 0..10 {
@@ -1235,8 +1192,7 @@ mod tests {
 
     #[test]
     fn test_vgicp_registration_basic() {
-        // Basic VGICP registration test now that align_voxelmap is implemented
-        let mut target_voxelmap = crate::voxelmap::IncrementalVoxelMap::new(0.05);
+        // Basic VGICP registration test now that align_vgicp is implemented
         let mut source = crate::point_cloud::PointCloud::new().unwrap();
         let mut target_cloud = crate::point_cloud::PointCloud::new().unwrap();
 
@@ -1249,9 +1205,8 @@ mod tests {
             }
         }
 
-        // Insert target into voxel map
-        target_voxelmap.insert(&target_cloud).unwrap();
-        target_voxelmap.finalize();
+        // Create voxel map from target
+        let target_voxelmap = create_gaussian_voxelmap(&target_cloud, 0.05).unwrap();
 
         // Create a translated source cloud
         for i in 0..20 {

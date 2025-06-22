@@ -144,17 +144,36 @@ private:
   const double *original_data_ptr_; // For zero-copy validation
 };
 
-// Wrapper class for GaussianVoxelMap
+// Wrapper class for GaussianVoxelMap (unified IncrementalVoxelMap<GaussianVoxel> interface)
 class GaussianVoxelMap {
 public:
   explicit GaussianVoxelMap(double voxel_size);
 
+  // Basic operations (existing)
   void insert(const PointCloud &cloud);
   size_t size() const;
   double get_voxel_size() const;
   size_t get_num_voxels() const;
   void clear_voxels();
   bool has_voxel_at_coords(int x, int y, int z) const;
+
+  // Extended operations (from IncrementalVoxelMap interface)
+  void insert_with_transform(const PointCloud &cloud, const Transform &transform);
+  void insert_point(double x, double y, double z);
+  void finalize();
+  void set_search_offsets(int num_offsets);
+  GaussianVoxelData get_voxel_data(int x, int y, int z) const;
+  rust::Vec<VoxelInfoData> find_voxels_in_radius(double x, double y, double z, double radius) const;
+  NearestNeighborResult nearest_neighbor_search(double x, double y, double z) const;
+  KnnSearchResult knn_search(double x, double y, double z, size_t k) const;
+  std::array<int32_t, 3> get_voxel_coords(double x, double y, double z) const;
+  size_t get_voxel_index(int x, int y, int z) const;
+  GaussianVoxelData get_gaussian_voxel_by_index(size_t index) const;
+
+  // LRU cache management
+  void set_lru_horizon(size_t horizon);
+  void set_lru_clear_cycle(size_t cycle);
+  size_t get_lru_counter() const;
 
   // Internal access for registration
   small_gicp::GaussianVoxelMap &get_internal() { return *voxelmap_; }
@@ -164,6 +183,7 @@ public:
 
 private:
   std::shared_ptr<small_gicp::GaussianVoxelMap> voxelmap_;
+  double voxel_size_;
 };
 
 // Wrapper class for IncrementalVoxelMap
@@ -244,8 +264,6 @@ create_unsafe_kdtree_from_points_ptr(const double *points_data,
                                      size_t num_points,
                                      const KdTreeSettings &settings);
 std::unique_ptr<GaussianVoxelMap> create_voxelmap(double voxel_size);
-std::unique_ptr<IncrementalVoxelMap>
-create_incremental_voxelmap(double voxel_size);
 
 // Preprocessing functions
 std::unique_ptr<PointCloud> downsample_voxelgrid(const PointCloud &cloud,

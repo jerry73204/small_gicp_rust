@@ -9,10 +9,10 @@ use small_gicp::{
     point_cloud::PointCloud,
     preprocessing::Preprocessing,
     registration::{
-        align_gicp, align_icp, align_plane_icp, align_vgicp, GicpSettings, IcpSettings,
-        PlaneIcpSettings, VgicpSettings,
+        align_gicp, align_icp, align_plane_icp, align_vgicp, create_gaussian_voxelmap,
+        GicpSettings, IcpSettings, PlaneIcpSettings, VgicpSettings,
     },
-    voxelmap::IncrementalVoxelMap,
+    voxelmap::GaussianVoxelMap,
 };
 
 #[test]
@@ -399,15 +399,16 @@ fn test_vgicp() {
     let downsampled_target = Preprocessing::voxel_downsample(&target_cloud, 0.5, 4);
 
     // Create voxel map with same parameters as C++ test
-    let mut target_voxelmap = IncrementalVoxelMap::new(0.3); // Match C++ voxel size
-    match target_voxelmap.insert(&downsampled_target) {
-        Ok(_) => println!("Successfully inserted target points into voxel map"),
+    let target_voxelmap = match create_gaussian_voxelmap(&downsampled_target, 0.3) {
+        Ok(voxelmap) => {
+            println!("Successfully created gaussian voxel map");
+            voxelmap
+        }
         Err(e) => {
-            println!("Failed to insert points into voxel map: {}", e);
+            println!("Failed to create gaussian voxel map: {}", e);
             return;
         }
-    }
-    target_voxelmap.finalize();
+    };
 
     let settings = VgicpSettings {
         voxel_resolution: 0.3,
@@ -541,46 +542,29 @@ fn test_create_voxelmap() {
     let downsampled = Preprocessing::voxel_downsample(&cloud, 0.1, 4); // Smaller voxel size for downsampling
     println!("Downsampled to {} points", downsampled.len());
 
-    // Create IncrementalVoxelMap with larger voxel size
-    let mut voxelmap = IncrementalVoxelMap::new(0.5);
+    // Create GaussianVoxelMap with larger voxel size
+    let mut voxelmap = GaussianVoxelMap::new(0.5);
     voxelmap
         .insert(&downsampled)
         .expect("Failed to insert points into voxel map");
     voxelmap.finalize();
 
     // Validate voxel statistics (num_voxels, valid voxels, etc.)
-    let num_voxels_result = voxelmap.num_voxels();
-    println!("num_voxels() result: {:?}", num_voxels_result);
+    let num_voxels = voxelmap.num_voxels();
+    println!("Voxel map contains {} voxels", num_voxels);
 
-    match num_voxels_result {
-        Ok(num_voxels) => {
-            println!("Voxel map contains {} voxels", num_voxels);
+    let stats = voxelmap.statistics();
+    println!(
+        "Voxel stats: {} voxels, {} total points",
+        stats.num_voxels, stats.total_points
+    );
 
-            let stats = voxelmap.statistics();
-            println!(
-                "Voxel stats: {} voxels, {} total points",
-                stats.num_voxels, stats.total_points
-            );
-
-            // Test voxel query operations
-            let all_voxels = voxelmap.all_voxels();
-            println!("Retrieved {} voxels from all_voxels()", all_voxels.len());
-
-            if num_voxels > 0 || stats.num_voxels > 0 || all_voxels.len() > 0 {
-                println!("Voxel map creation completed successfully");
-            } else {
-                println!("Voxel map created but appears empty - this may be expected with certain datasets");
-            }
-        }
-        Err(e) => {
-            println!("Error getting voxel count: {}", e);
-            // Still test that the voxel map was created and can be queried
-            let stats = voxelmap.statistics();
-            println!(
-                "Voxel stats: {} voxels, {} total points",
-                stats.num_voxels, stats.total_points
-            );
-        }
+    if num_voxels > 0 || stats.num_voxels > 0 {
+        println!("Voxel map creation completed successfully");
+    } else {
+        println!(
+            "Voxel map created but appears empty - this may be expected with certain datasets"
+        );
     }
 }
 

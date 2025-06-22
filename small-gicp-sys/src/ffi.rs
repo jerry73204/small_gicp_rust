@@ -203,76 +203,56 @@ pub mod ffi {
         // Tree information
         fn unsafe_size(self: &UnsafeKdTree) -> usize;
 
-        // GaussianVoxelMap type and methods
+        // GaussianVoxelMap type and methods (unified IncrementalVoxelMap<GaussianVoxel> interface)
         type GaussianVoxelMap;
 
+        // Basic operations
         fn insert(self: Pin<&mut GaussianVoxelMap>, cloud: &PointCloud);
-        fn size(self: &GaussianVoxelMap) -> usize;
-        fn get_voxel_size(self: &GaussianVoxelMap) -> f64;
-        fn get_num_voxels(self: &GaussianVoxelMap) -> usize;
-        fn clear_voxels(self: Pin<&mut GaussianVoxelMap>);
-        fn has_voxel_at_coords(self: &GaussianVoxelMap, x: i32, y: i32, z: i32) -> bool;
-
-        // IncrementalVoxelMap type and methods
-        type IncrementalVoxelMap;
-
-        fn incremental_insert(self: Pin<&mut IncrementalVoxelMap>, cloud: &PointCloud);
-        fn incremental_size(self: &IncrementalVoxelMap) -> usize;
-        fn incremental_clear(self: Pin<&mut IncrementalVoxelMap>);
-        fn incremental_finalize(self: Pin<&mut IncrementalVoxelMap>);
-        fn incremental_get_voxel_size(self: &IncrementalVoxelMap) -> f64;
-        fn incremental_get_num_voxels(self: &IncrementalVoxelMap) -> usize;
-        fn incremental_insert_point(self: Pin<&mut IncrementalVoxelMap>, x: f64, y: f64, z: f64);
-        fn incremental_insert_with_transform(
-            self: Pin<&mut IncrementalVoxelMap>,
+        fn insert_with_transform(
+            self: Pin<&mut GaussianVoxelMap>,
             cloud: &PointCloud,
             transform: &Transform,
         );
-        fn incremental_has_voxel_at_coords(
-            self: &IncrementalVoxelMap,
-            x: i32,
-            y: i32,
-            z: i32,
-        ) -> bool;
-        fn incremental_set_search_offsets(self: Pin<&mut IncrementalVoxelMap>, num_offsets: i32);
-        fn incremental_get_voxel_data(
-            self: &IncrementalVoxelMap,
-            x: i32,
-            y: i32,
-            z: i32,
-        ) -> GaussianVoxelData;
-        fn incremental_find_voxels_in_radius(
-            self: &IncrementalVoxelMap,
+        fn insert_point(self: Pin<&mut GaussianVoxelMap>, x: f64, y: f64, z: f64);
+        fn size(self: &GaussianVoxelMap) -> usize;
+        fn clear_voxels(self: Pin<&mut GaussianVoxelMap>);
+        fn finalize(self: Pin<&mut GaussianVoxelMap>);
+
+        // Voxel grid properties
+        fn get_voxel_size(self: &GaussianVoxelMap) -> f64;
+        fn get_num_voxels(self: &GaussianVoxelMap) -> usize;
+        fn has_voxel_at_coords(self: &GaussianVoxelMap, x: i32, y: i32, z: i32) -> bool;
+
+        // Search operations
+        fn nearest_neighbor_search(
+            self: &GaussianVoxelMap,
+            x: f64,
+            y: f64,
+            z: f64,
+        ) -> NearestNeighborResult;
+        fn knn_search(self: &GaussianVoxelMap, x: f64, y: f64, z: f64, k: usize)
+            -> KnnSearchResult;
+
+        // Voxel data access
+        fn get_voxel_data(self: &GaussianVoxelMap, x: i32, y: i32, z: i32) -> GaussianVoxelData;
+        fn get_gaussian_voxel_by_index(self: &GaussianVoxelMap, index: usize) -> GaussianVoxelData;
+        fn get_voxel_coords(self: &GaussianVoxelMap, x: f64, y: f64, z: f64) -> [i32; 3];
+        fn get_voxel_index(self: &GaussianVoxelMap, x: i32, y: i32, z: i32) -> usize;
+
+        // Advanced operations
+        fn set_search_offsets(self: Pin<&mut GaussianVoxelMap>, num_offsets: i32);
+        fn find_voxels_in_radius(
+            self: &GaussianVoxelMap,
             x: f64,
             y: f64,
             z: f64,
             radius: f64,
         ) -> Vec<VoxelInfoData>;
-        fn incremental_nearest_neighbor_search(
-            self: &IncrementalVoxelMap,
-            x: f64,
-            y: f64,
-            z: f64,
-        ) -> NearestNeighborResult;
-        fn incremental_knn_search(
-            self: &IncrementalVoxelMap,
-            x: f64,
-            y: f64,
-            z: f64,
-            k: usize,
-        ) -> KnnSearchResult;
-        fn incremental_get_voxel_coords(
-            self: &IncrementalVoxelMap,
-            x: f64,
-            y: f64,
-            z: f64,
-        ) -> [i32; 3];
-        fn incremental_get_voxel_index(self: &IncrementalVoxelMap, x: i32, y: i32, z: i32)
-            -> usize;
-        fn incremental_get_gaussian_voxel_by_index(
-            self: &IncrementalVoxelMap,
-            index: usize,
-        ) -> GaussianVoxelData;
+
+        // LRU cache management
+        fn set_lru_horizon(self: Pin<&mut GaussianVoxelMap>, horizon: usize);
+        fn set_lru_clear_cycle(self: Pin<&mut GaussianVoxelMap>, cycle: usize);
+        fn get_lru_counter(self: &GaussianVoxelMap) -> usize;
 
         // Factory functions
         fn create_point_cloud() -> UniquePtr<PointCloud>;
@@ -284,7 +264,6 @@ pub mod ffi {
             settings: &KdTreeSettings,
         ) -> UniquePtr<UnsafeKdTree>;
         fn create_voxelmap(voxel_size: f64) -> UniquePtr<GaussianVoxelMap>;
-        fn create_incremental_voxelmap(voxel_size: f64) -> UniquePtr<IncrementalVoxelMap>;
 
         // Preprocessing functions
         fn downsample_voxelgrid(

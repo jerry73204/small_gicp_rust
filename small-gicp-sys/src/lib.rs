@@ -11,7 +11,7 @@
 //! - **Bulk Operations**: High-performance bulk data setting for large point clouds
 //! - **Preprocessing**: Voxel grid downsampling, normal estimation, covariance estimation
 //! - **Registration**: ICP, Point-to-Plane ICP, GICP, VGICP algorithms
-//! - **Spatial Data Structures**: KdTree, UnsafeKdTree, GaussianVoxelMap, IncrementalVoxelMap
+//! - **Spatial Data Structures**: KdTree, UnsafeKdTree, GaussianVoxelMap
 //! - **Transformations**: Rigid body transformations with utility functions
 //! - **I/O Support**: Load and save point clouds in PLY format
 //!
@@ -66,7 +66,6 @@
 #![warn(missing_docs)]
 
 mod ffi;
-mod incremental_voxel_map;
 mod kdtree;
 mod point_cloud;
 mod preprocessing;
@@ -75,13 +74,12 @@ mod transform;
 mod unsafe_kdtree;
 mod voxel_map;
 
-pub use incremental_voxel_map::{IncrementalVoxelMap, IncrementalVoxelMapBuilder};
 pub use kdtree::{KdTree, KdTreeBuilder};
 pub use point_cloud::PointCloud;
 pub use preprocessing::{Preprocessing, PreprocessingBuilder};
 pub use registration::{Registration, RegistrationSettingsBuilder, TransformExt};
 pub use unsafe_kdtree::{UnsafeKdTree, UnsafeKdTreeBuilder};
-pub use voxel_map::{VoxelMap, VoxelMapBuilder};
+pub use voxel_map::{GaussianVoxelMap, GaussianVoxelMapBuilder};
 
 // Re-export FFI types that users need
 pub use ffi::ffi::{

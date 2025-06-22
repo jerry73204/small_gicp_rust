@@ -69,7 +69,6 @@ pub use config::{
     FlatContainerConfig,
     GaussNewtonConfig,
     GaussianVoxelMapConfig,
-    IncrementalVoxelMapConfig,
     KdTreeBuilderType,
     KdTreeConfig,
     KnnConfig,
@@ -125,8 +124,8 @@ pub use traits::{
     Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
 };
 pub use voxelmap::{
-    GaussianVoxel, GaussianVoxelMap, IncrementalVoxelMap, SearchOffsetPattern, VoxelContainerType,
-    VoxelInfo, VoxelMapStatistics,
+    GaussianVoxel, GaussianVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
+    VoxelMapStatistics,
 };
 
 /// Convenience module for glob imports.
@@ -141,7 +140,6 @@ pub mod prelude {
             FlatContainerConfig,
             GaussNewtonConfig,
             GaussianVoxelMapConfig,
-            IncrementalVoxelMapConfig,
             KdTreeBuilderType,
             KdTreeConfig,
             KnnConfig,
@@ -198,8 +196,8 @@ pub mod prelude {
             SpatialSearchTree,
         },
         voxelmap::{
-            GaussianVoxel, GaussianVoxelMap, IncrementalVoxelMap, SearchOffsetPattern,
-            VoxelContainerType, VoxelInfo, VoxelMapStatistics,
+            GaussianVoxel, GaussianVoxelMap, SearchOffsetPattern, VoxelContainerType, VoxelInfo,
+            VoxelMapStatistics,
         },
     };
 }
