@@ -13,10 +13,10 @@ This crate provides a high-level, memory-safe interface to the small_gicp C++ li
 - **Point cloud operations**: Load, save, and manipulate 3D point clouds
 - **KdTree spatial indexing**: Efficient nearest neighbor search
 - **Point cloud preprocessing**: Downsampling, normal estimation, and covariance computation
-- **Registration algorithms**: ICP, Plane ICP, GICP, and VGICP
+- **Registration algorithms**: ICP, Point-to-Plane ICP, GICP, and VGICP
 - **Thread safety**: All operations can be parallelized
 - **Memory safety**: Automatic resource management with RAII
-- **Integration with nalgebra**: Uses nalgebra for linear algebra types
+- **Voxel-based registration**: VGICP for large-scale point clouds
 
 ## Installation
 
@@ -25,276 +25,280 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 small-gicp-rust = "0.1"
-nalgebra = "0.32"
 ```
 
 ## Quick Start
 
 ```rust
 use small_gicp::prelude::*;
-use nalgebra::Point3;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create point clouds
-    let target_points = vec![
-        Point3::new(0.0, 0.0, 0.0),
-        Point3::new(1.0, 0.0, 0.0),
-        Point3::new(0.0, 1.0, 0.0),
-        Point3::new(1.0, 1.0, 0.0),
-    ];
-    let source_points = vec![
-        Point3::new(0.1, 0.1, 0.0),
-        Point3::new(1.1, 0.1, 0.0),
-        Point3::new(0.1, 1.1, 0.0),
-        Point3::new(1.1, 1.1, 0.0),
-    ];
-
-    let target = PointCloud::from_points(&target_points)?;
-    let source = PointCloud::from_points(&source_points)?;
-
-    // Perform registration
-    let settings = RegistrationSettings::default();
-    let result = register(&target, &source, &settings)?;
-
-    println!("Registration converged: {}", result.converged);
+fn main() -> Result<()> {
+    // Create point clouds (in practice, load from PLY files or sensors)
+    let mut source = PointCloud::new()?;
+    let mut target = PointCloud::new()?;
+    
+    // Add points to the clouds
+    for i in 0..100 {
+        let angle = i as f64 * 0.1;
+        target.add_point(angle.cos(), angle.sin(), 0.0);
+        // Source is slightly transformed (rotated and translated)
+        source.add_point(angle.cos() + 0.1, angle.sin() + 0.1, 0.0);
+    }
+    
+    // Build KdTree for efficient correspondence search
+    let target_tree = KdTree::new(&target)?;
+    
+    // Configure ICP settings
+    let settings = IcpSettings {
+        max_iterations: 50,
+        max_correspondence_distance: 1.0,
+        ..Default::default()
+    };
+    
+    // Perform ICP registration
+    let result = align_icp(&source, &target, &target_tree, None, settings)?;
+    
+    println!("Converged: {}", result.converged);
+    println!("Iterations: {}", result.iterations);
     println!("Final error: {:.6}", result.error);
-    println!("Translation: {:?}", result.translation());
+    
+    // Extract the transformation
+    let transform = &result.t_target_source;
+    println!("Translation: {:?}", transform.translation.vector);
     
     Ok(())
 }
 ```
 
+## Registration Methods
+
+### ICP (Iterative Closest Point)
+
+Basic point-to-point registration. Fast but requires good initial alignment.
+
+```rust
+use small_gicp::prelude::*;
+
+let target_tree = KdTree::new(&target)?;
+let result = align_icp(&source, &target, &target_tree, None, IcpSettings::default())?;
+```
+
+### Point-to-Plane ICP
+
+Uses surface normals for better convergence on smooth surfaces.
+
+```rust
+use small_gicp::prelude::*;
+
+// Preprocess to compute normals
+let (processed_target, target_tree) = preprocess_points(&target, 0.1, 20, 4)?;
+let (processed_source, _) = preprocess_points(&source, 0.1, 20, 4)?;
+
+let result = align_plane_icp(
+    &processed_source,
+    &processed_target,
+    &target_tree,
+    None,
+    PlaneIcpSettings::default()
+)?;
+```
+
+### GICP (Generalized ICP)
+
+Uses local covariance information for robust registration.
+
+```rust
+use small_gicp::prelude::*;
+
+// Preprocess to compute covariances
+let (processed_target, target_tree) = preprocess_points(&target, 0.1, 20, 4)?;
+let (processed_source, source_tree) = preprocess_points(&source, 0.1, 20, 4)?;
+
+let result = align_gicp(
+    &processed_source,
+    &processed_target,
+    &source_tree,
+    &target_tree,
+    None,
+    GicpSettings::default()
+)?;
+```
+
+### VGICP (Voxelized GICP)
+
+Efficient registration for large point clouds using voxel maps.
+
+```rust
+use small_gicp::prelude::*;
+
+// Create voxel map from target cloud
+let voxel_resolution = 0.5;
+let target_voxelmap = create_gaussian_voxelmap(&target, voxel_resolution)?;
+
+let result = align_vgicp(
+    &source,
+    &target_voxelmap,
+    None,
+    VgicpSettings {
+        voxel_resolution,
+        ..Default::default()
+    }
+)?;
+```
+
 ## Examples
 
-### Basic Registration
+### Basic Registration Example
 
 ```rust
 use small_gicp::prelude::*;
-use nalgebra::Point3;
+use rand::distributions::{Distribution, Uniform};
 
-// Create point clouds from vectors of points
-let target = PointCloud::from_points(&target_points)?;
-let source = PointCloud::from_points(&source_points)?;
+// Generate sample point clouds
+let mut source = PointCloud::new()?;
+let mut target = PointCloud::new()?;
 
-// Configure registration settings
-let settings = RegistrationSettings {
-    registration_type: RegistrationType::Gicp,
-    num_threads: 4,
-    initial_guess: None,
-};
-
-// Perform registration
-let result = register(&target, &source, &settings)?;
-
-// Access results
-println!("Converged: {}", result.converged);
-println!("Error: {:.6}", result.error);
-println!("Iterations: {}", result.iterations);
-
-// Get transformation as nalgebra types
-let transformation = result.transformation;
-let translation = result.translation();
-let rotation = result.rotation();
-```
-
-### Point Cloud Preprocessing
-
-```rust
-use small_gicp::prelude::*;
-
-// Load point cloud from file
-let cloud = PointCloud::from_ply("input.ply")?;
-
-// Configure preprocessing
-let settings = PreprocessingSettings {
-    downsampling: Some(DownsamplingMethod::VoxelGrid { leaf_size: 0.05 }),
-    num_neighbors_normals: 20,
-    estimate_covariances: true,
-    num_threads: 4,
-};
-
-// Preprocess the cloud
-let result = preprocess_point_cloud(&cloud, &settings, true)?;
-
-// Use the preprocessed cloud and KdTree
-let preprocessed_cloud = result.cloud;
-let kdtree = result.kdtree.unwrap();
-
-// Save the preprocessed cloud
-preprocessed_cloud.save_ply("output.ply")?;
-```
-
-### Manual Preprocessing Steps
-
-```rust
-use small_gicp::prelude::*;
-
-let cloud = PointCloud::from_ply("input.ply")?;
-
-// Step 1: Downsample
-let downsampled = voxelgrid_sampling(&cloud, 0.05, 4)?;
-println!("Downsampled: {} → {} points", cloud.len(), downsampled.len());
-
-// Step 2: Build KdTree
-let kdtree = KdTree::new(&downsampled, 4)?;
-
-// Step 3: Estimate normals and covariances
-let mut processed = downsampled;
-estimate_normals_and_covariances(&mut processed, &kdtree, 20, 4)?;
-```
-
-### Different Registration Algorithms
-
-```rust
-use small_gicp::prelude::*;
-
-let algorithms = [
-    RegistrationType::Icp,        // Point-to-point ICP
-    RegistrationType::PlaneIcp,   // Point-to-plane ICP  
-    RegistrationType::Gicp,       // Generalized ICP
-    RegistrationType::Vgicp,      // Voxelized Generalized ICP
-];
-
-for algorithm in algorithms {
-    let settings = RegistrationSettings {
-        registration_type: algorithm,
-        num_threads: 4,
-        initial_guess: None,
-    };
-    
-    let result = register(&target, &source, &settings)?;
-    println!("{:?}: error = {:.6}", algorithm, result.error);
+// Create a simple 3D pattern
+for i in 0..50 {
+    for j in 0..50 {
+        let x = i as f64 * 0.1;
+        let y = j as f64 * 0.1;
+        let z = (x * x + y * y).sin() * 0.5;
+        target.add_point(x, y, z);
+    }
 }
+
+// Apply a transformation to create the source cloud
+let rotation = nalgebra::Vector3::z() * 0.3; // 0.3 radians around Z
+let translation = nalgebra::Vector3::new(0.5, 0.5, 0.1);
+let transform = nalgebra::Isometry3::new(translation, rotation);
+
+// Transform target points to create source
+for i in 0..target.len() {
+    let p = target.point(i);
+    let pt = nalgebra::Point3::new(p[0], p[1], p[2]);
+    let transformed = transform * pt;
+    source.add_point(transformed.x, transformed.y, transformed.z);
+}
+
+// Perform registration to recover the transformation
+let target_tree = KdTree::new(&target)?;
+let result = align_icp(&source, &target, &target_tree, None, IcpSettings::default())?;
+
+println!("Registration result:");
+println!("  Converged: {}", result.converged);
+println!("  Iterations: {}", result.iterations);
+println!("  Error: {:.6}", result.error);
 ```
 
-### VGICP Registration
+### Preprocessing Pipeline
 
 ```rust
 use small_gicp::prelude::*;
 
-// Create Gaussian voxel map for target
-let target_voxelmap = GaussianVoxelMap::new(&target, 0.1, 4)?;
+// Load a point cloud
+let cloud = PointCloud::new()?;
+// ... add points ...
 
-let settings = RegistrationSettings {
-    registration_type: RegistrationType::Vgicp,
-    num_threads: 4,
-    initial_guess: None,
-};
+// Complete preprocessing pipeline
+let (processed_cloud, kdtree) = preprocess_points(
+    &cloud,
+    0.1,    // Downsampling resolution
+    20,     // Number of neighbors for normal estimation
+    4       // Number of threads
+)?;
 
-// Register using voxel map
-let result = register_vgicp(&target_voxelmap, &source, &settings)?;
+println!("Original points: {}", cloud.len());
+println!("Processed points: {}", processed_cloud.len());
+println!("Has normals: {}", processed_cloud.has_normals());
+println!("Has covariances: {}", processed_cloud.has_covariances());
 ```
 
-### KdTree Operations
+### Custom Registration Settings
+
+```rust
+use small_gicp::prelude::*;
+
+// Create custom settings for fine control
+let settings = IcpSettings {
+    max_iterations: 100,
+    max_correspondence_distance: 2.0,
+    rotation_eps: 0.001,
+    translation_eps: 0.001,
+    num_threads: 8,
+};
+
+let target_tree = KdTree::new(&target)?;
+let result = align_icp(&source, &target, &target_tree, None, settings)?;
+```
+
+### Working with Voxel Maps
 
 ```rust
 use small_gicp::prelude::*;
 use nalgebra::Point3;
 
-let kdtree = KdTree::new(&cloud, 4)?;
-let query_point = Point3::new(0.5, 0.5, 0.5);
+// Create a voxel map
+let mut voxelmap = GaussianVoxelMap::new(0.5); // 0.5m voxel size
 
-// Nearest neighbor search
-let (index, sq_distance) = kdtree.nearest_neighbor(query_point)?;
+// Insert point cloud
+voxelmap.insert(&cloud)?;
 
-// K nearest neighbors
-let neighbors = kdtree.knn_search(query_point, 10)?;
+// Query operations
+let query_point = Point3::new(1.0, 2.0, 3.0);
 
-// Radius search
-let radius_neighbors = kdtree.radius_search(query_point, 0.1, 20)?;
+// Find nearest voxel
+if let Some((index, distance)) = voxelmap.nearest_neighbor_search(&query_point) {
+    println!("Nearest voxel index: {}, distance: {:.3}", index, distance.sqrt());
+}
+
+// Get voxel statistics
+let stats = voxelmap.statistics();
+println!("Voxels: {}, Total points: {}", stats.num_voxels, stats.total_points);
 ```
 
-## Registration Algorithms
+## Best Practices
 
-This crate supports several point cloud registration algorithms:
-
-- **ICP (Iterative Closest Point)**: Basic point-to-point registration
-- **Plane ICP**: Point-to-plane registration, better for planar surfaces  
-- **GICP (Generalized ICP)**: Uses local surface covariances for better accuracy
-- **VGICP (Voxelized GICP)**: Memory-efficient variant of GICP using voxel maps
+1. **Preprocessing**: Always downsample dense point clouds for better performance
+2. **Initial Alignment**: Provide a rough initial transformation for large misalignments
+3. **Parameter Tuning**: Adjust `max_correspondence_distance` based on your data
+4. **Method Selection**:
+   - Use ICP for fast, simple registration with good initial alignment
+   - Use Plane ICP when you have surface normals available
+   - Use GICP for highest accuracy with structured scenes
+   - Use VGICP for large-scale point clouds (>100k points)
 
 ## API Documentation
 
-### Core Types
+See the [full API documentation](https://docs.rs/small-gicp-rust) for detailed information about all types and functions.
 
-- `PointCloud`: 3D point cloud with optional normals
+### Key Types
+
+- `PointCloud`: 3D point cloud with optional normals and covariances
 - `KdTree`: Spatial index for efficient nearest neighbor search
-- `RegistrationSettings`: Configuration for registration algorithms
-- `RegistrationResult`: Results of registration including transformation
-- `PreprocessingSettings`: Configuration for preprocessing operations
+- `GaussianVoxelMap`: Voxel map for VGICP registration
+- `RegistrationResult`: Results including transformation and convergence info
 
-### Key Functions
+### Registration Functions
 
-- `register()`: Complete registration with automatic preprocessing
-- `register_preprocessed()`: Registration with manually preprocessed clouds
-- `register_vgicp()`: VGICP registration using voxel maps
-- `preprocess_point_cloud()`: Complete preprocessing pipeline
-- `voxelgrid_sampling()`: Voxel grid downsampling
-- `random_sampling()`: Random downsampling
-- `estimate_normals()`: Surface normal estimation
+- `align_icp()`: Basic ICP registration
+- `align_plane_icp()`: Point-to-plane ICP with normals
+- `align_gicp()`: Generalized ICP with covariances
+- `align_vgicp()`: Voxelized GICP for large clouds
+
+### Preprocessing Functions
+
+- `preprocess_points()`: Complete preprocessing pipeline
+- `create_gaussian_voxelmap()`: Create voxel map for VGICP
 
 ## Performance
 
-The library supports multi-threading for all major operations:
-
-- Point cloud preprocessing (downsampling, normal estimation)
-- KdTree construction  
-- Registration algorithms
-
-Set the `num_threads` parameter to control parallelization (1 for single-threaded).
-
-## Examples
-
-Run the included examples:
-
-```bash
-# Basic registration demonstration
-cargo run --example basic_registration
-
-# Preprocessing operations
-cargo run --example preprocessing_demo
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-# Unit tests
-cargo test
-
-# Integration tests  
-cargo test --test integration_tests
-
-# All tests
-cargo test --all
-```
-
-## Dependencies
-
-This crate depends on:
-
-- `small-gicp-sys`: Low-level FFI bindings to the C++ library
-- `nalgebra`: Linear algebra types (Point3, Vector3, Isometry3, etc.)
-- `thiserror`: Error handling
+The library supports multi-threading for all major operations. Set the `num_threads` parameter in registration settings to control parallelization.
 
 ## License
 
-This crate is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-The underlying small_gicp C++ library has its own license terms.
+This crate is licensed under the MIT License, same as the original small_gicp library.
 
 ## Contributing
 
 Contributions are welcome! Please see the main repository for contribution guidelines.
-
-## Changelog
-
-### 0.1.0
-
-- Initial release
-- Support for ICP, GICP, and VGICP registration
-- Point cloud preprocessing utilities
-- KdTree spatial indexing
-- Safe Rust API with automatic memory management
-- Integration with nalgebra for linear algebra types

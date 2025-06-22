@@ -1,100 +1,70 @@
 # small_gicp_rust
 
-Rust bindings and C wrapper for the [small_gicp](https://github.com/koide3/small_gicp) point cloud registration library.
+Rust bindings for the [small_gicp](https://github.com/koide3/small_gicp) point cloud registration library.
 
 ## Overview
 
-This project provides Rust access to small_gicp, a fast C++ library for point cloud registration algorithms (ICP, GICP, VGICP). It includes:
+This project provides a safe, idiomatic Rust interface to small_gicp, a high-performance C++ library for point cloud registration algorithms (ICP, GICP, VGICP).
 
-- **C wrapper** (`small_gicp_c/`) - Complete C API for the C++ library
-- **Rust sys crate** (`small-gicp-sys/`) - Low-level FFI bindings
-- **Rust high-level API** (`small-gicp-rust/`) - Safe, ergonomic Rust interface
+- **small-gicp-sys**: Low-level FFI bindings to the C++ library
+- **small-gicp**: High-level Rust API with safety and ergonomics
 
-## Architecture
+## Installation
 
-```
-small_gicp_rust/
-├── small_gicp/              # Original C++ library (submodule)
-├── small_gicp_c/            # C wrapper API
-│   ├── include/             # C headers
-│   ├── src/                 # C++ implementation
-│   └── example/             # C usage examples
-├── small-gicp-sys/          # Rust FFI bindings (sys crate)
-└── small-gicp-rust/         # High-level Rust API
-    ├── src/
-    ├── examples/
-    └── tests/
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+small-gicp = "0.1"
 ```
 
-## Building
+## Quick Example
 
-### Prerequisites
-- CMake 3.16+
-- C++17 compiler
-- Eigen3
-- OpenMP (optional)
-- Intel TBB (optional)
-
-### C Wrapper
-```bash
-cd small_gicp_c
-./build.sh
-```
-
-### Rust
-```bash
-cargo build --all-targets
-```
-
-## C API Coverage
-
-The C wrapper provides ~85% coverage of the C++ API:
-
-| Module | Coverage | Features |
-|--------|----------|----------|
-| Point Cloud | 90% | Points, normals, covariances, validation |
-| Registration | 80% | ICP, GICP, VGICP, advanced settings |
-| KdTree | 85% | Parallel builders (OpenMP, TBB), configuration |
-| Utilities | 65% | Downsampling, normal estimation |
-| I/O | 40% | PLY file support |
-
-See [PROGRESS.md](small_gicp_c/PROGRESS.md) for detailed API coverage.
-
-## Usage
-
-### C API
-```c
-#include <small_gicp_c.h>
-
-// Create point clouds
-small_gicp_point_cloud_t *target, *source;
-small_gicp_point_cloud_create(&target);
-small_gicp_point_cloud_create(&source);
-
-// Load data and perform registration
-small_gicp_registration_result_t result;
-small_gicp_align(target, source, SMALL_GICP_GICP, NULL, 4, &result);
-```
-
-### Rust API
 ```rust
-use small_gicp_rust::{PointCloud, align, RegistrationType};
+use small_gicp::prelude::*;
 
-let target = PointCloud::from_points(&target_points)?;
-let source = PointCloud::from_points(&source_points)?;
-
-let result = align(&target, &source, RegistrationType::GICP)?;
-println!("Transformation: {:?}", result.transformation);
+fn main() -> Result<()> {
+    // Create sample point clouds
+    let mut source = PointCloud::new()?;
+    let mut target = PointCloud::new()?;
+    
+    // Add points (in practice, load from files or sensors)
+    for i in 0..100 {
+        let angle = i as f64 * 0.1;
+        target.add_point(angle.cos(), angle.sin(), 0.0);
+        // Source is slightly transformed
+        source.add_point(angle.cos() + 0.1, angle.sin() + 0.1, 0.0);
+    }
+    
+    // Build KdTree for target
+    let target_tree = KdTree::new(&target)?;
+    
+    // Align point clouds using ICP
+    let result = align_icp(
+        &source,
+        &target,
+        &target_tree,
+        None,
+        IcpSettings::default()
+    )?;
+    
+    println!("Converged: {}", result.converged);
+    println!("Error: {:.6}", result.error);
+    println!("Transform: {:?}", result.t_target_source);
+    
+    Ok(())
+}
 ```
 
-## Features
+## Registration Methods
 
-- **Point Cloud Operations**: Create, manipulate, and validate point clouds
-- **Registration Algorithms**: ICP, Point-to-Plane ICP, GICP, VGICP
-- **Parallel Processing**: OpenMP and TBB support for performance
-- **Preprocessing**: Downsampling, normal/covariance estimation
-- **Advanced Configuration**: Custom termination criteria, robust kernels, DOF restrictions
+- **ICP**: Fast point-to-point alignment
+- **Plane ICP**: Uses surface normals for better convergence
+- **GICP**: Probabilistic approach using local covariances
+- **VGICP**: Efficient voxel-based variant for large point clouds
+
+See the [documentation](https://docs.rs/small-gicp) for detailed examples of each method.
 
 ## License
 
-This project follows the same license as the original small_gicp library (MIT).
+MIT License - same as the original small_gicp library.
