@@ -422,7 +422,10 @@ pub fn create_gaussian_voxelmap(
     points: &PointCloud,
     voxel_resolution: f64,
 ) -> Result<GaussianVoxelMap> {
-    GaussianVoxelMap::from_points(points, voxel_resolution)
+    let mut voxelmap = GaussianVoxelMap::new(voxel_resolution);
+    voxelmap.insert(points)?;
+    voxelmap.finalize(); // Finalize the voxel map for VGICP
+    Ok(voxelmap)
 }
 
 // Helper function to convert FFI result to Rust result
