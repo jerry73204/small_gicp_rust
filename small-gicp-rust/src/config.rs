@@ -296,25 +296,26 @@ impl Default for OptimizerConfig {
     }
 }
 
-/// Configuration for robust kernel outlier rejection.
-#[derive(Debug, Clone)]
-pub struct RobustKernelConfig {
-    /// Type of robust kernel to use.
-    pub kernel_type: crate::registration::RobustKernelType,
-    /// Scaling parameter for the robust kernel.
-    /// For Huber: threshold for switching between quadratic and linear regions.
-    /// For Cauchy: scale parameter controlling influence of outliers.
-    pub scale_parameter: f64,
-}
-
-impl Default for RobustKernelConfig {
-    fn default() -> Self {
-        Self {
-            kernel_type: crate::registration::RobustKernelType::None,
-            scale_parameter: 1.0, // Typical default scale from C wrapper examples
-        }
-    }
-}
+// TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+// /// Configuration for robust kernel outlier rejection.
+// #[derive(Debug, Clone)]
+// pub struct RobustKernelConfig {
+//     /// Type of robust kernel to use.
+//     pub kernel_type: crate::registration::RobustKernelType,
+//     /// Scaling parameter for the robust kernel.
+//     /// For Huber: threshold for switching between quadratic and linear regions.
+//     /// For Cauchy: scale parameter controlling influence of outliers.
+//     pub scale_parameter: f64,
+// }
+//
+// impl Default for RobustKernelConfig {
+//     fn default() -> Self {
+//         Self {
+//             kernel_type: crate::registration::RobustKernelType::None,
+//             scale_parameter: 1.0, // Typical default scale from C wrapper examples
+//         }
+//     }
+// }
 
 /// Configuration for DOF (Degrees of Freedom) restrictions during registration.
 /// This allows constraining the optimization to specific translation and rotation axes.
@@ -445,8 +446,9 @@ pub struct RegistrationConfig {
     pub correspondence_rejector: CorrespondenceRejectorConfig,
     /// Optimizer configuration.
     pub optimizer: OptimizerConfig,
-    /// Robust kernel configuration for outlier rejection.
-    pub robust_kernel: RobustKernelConfig,
+    // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+    // /// Robust kernel configuration for outlier rejection.
+    // pub robust_kernel: RobustKernelConfig,
     /// DOF restriction configuration for constrained registration.
     pub dof_restriction: Option<DofRestrictionConfig>,
     /// Preprocessing configuration (used if input clouds are not preprocessed).
@@ -461,7 +463,8 @@ impl Default for RegistrationConfig {
             termination: TerminationConfig::default(),
             correspondence_rejector: CorrespondenceRejectorConfig::default(),
             optimizer: OptimizerConfig::default(),
-            robust_kernel: RobustKernelConfig::default(),
+            // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+            // robust_kernel: RobustKernelConfig::default(),
             dof_restriction: None, // No DOF restrictions by default
             preprocessing: Some(PreprocessingConfig::default()),
             num_threads: default_num_threads(),
@@ -824,83 +827,85 @@ impl Default for KnnSearchConfig {
     }
 }
 
-/// Advanced registration settings with comprehensive control.
-#[derive(Debug, Clone)]
-pub struct AdvancedRegistrationConfig {
-    /// Registration algorithm type
-    pub registration_type: crate::registration::RegistrationType,
-    /// Voxel resolution for VGICP
-    pub voxel_resolution: f64,
-    /// Downsampling resolution for preprocessing
-    pub downsampling_resolution: f64,
-    /// Maximum correspondence distance
-    pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence (in radians)
-    pub rotation_eps: f64,
-    /// Translation tolerance for convergence (in meters)
-    pub translation_eps: f64,
-    /// Number of threads to use
-    pub num_threads: usize,
-    /// Maximum number of iterations
-    pub max_iterations: i32,
-    /// Whether to print debug messages
-    pub verbose: bool,
-}
+// TODO: Remove - depends on old RegistrationType
+// /// Advanced registration settings with comprehensive control.
+// #[derive(Debug, Clone)]
+// pub struct AdvancedRegistrationConfig {
+//     /// Registration algorithm type
+//     pub registration_type: crate::registration::RegistrationType,
+//     /// Voxel resolution for VGICP
+//     pub voxel_resolution: f64,
+//     /// Downsampling resolution for preprocessing
+//     pub downsampling_resolution: f64,
+//     /// Maximum correspondence distance
+//     pub max_correspondence_distance: f64,
+//     /// Rotation tolerance for convergence (in radians)
+//     pub rotation_eps: f64,
+//     /// Translation tolerance for convergence (in meters)
+//     pub translation_eps: f64,
+//     /// Number of threads to use
+//     pub num_threads: usize,
+//     /// Maximum number of iterations
+//     pub max_iterations: i32,
+//     /// Whether to print debug messages
+//     pub verbose: bool,
+// }
+//
+// impl Default for AdvancedRegistrationConfig {
+//     fn default() -> Self {
+//         Self {
+//             registration_type: crate::registration::RegistrationType::GICP,
+//             voxel_resolution: 1.0,
+//             downsampling_resolution: 0.25,
+//             max_correspondence_distance: 1.0,
+//             rotation_eps: 0.1 * std::f64::consts::PI / 180.0, // 0.1 degrees
+//             translation_eps: 1e-3,                            // 1mm
+//             num_threads: default_num_threads(),
+//             max_iterations: 20,
+//             verbose: false,
+//         }
+//     }
+// }
 
-impl Default for AdvancedRegistrationConfig {
-    fn default() -> Self {
-        Self {
-            registration_type: crate::registration::RegistrationType::GICP,
-            voxel_resolution: 1.0,
-            downsampling_resolution: 0.25,
-            max_correspondence_distance: 1.0,
-            rotation_eps: 0.1 * std::f64::consts::PI / 180.0, // 0.1 degrees
-            translation_eps: 1e-3,                            // 1mm
-            num_threads: default_num_threads(),
-            max_iterations: 20,
-            verbose: false,
-        }
-    }
-}
-
-/// Registration helper settings for complete pipeline control.
-#[derive(Debug, Clone)]
-pub struct RegistrationHelperConfig {
-    /// Registration algorithm type
-    pub registration_type: crate::registration::RegistrationType,
-    /// Voxel resolution for VGICP
-    pub voxel_resolution: f64,
-    /// Downsampling resolution for preprocessing
-    pub downsampling_resolution: f64,
-    /// Maximum correspondence distance
-    pub max_correspondence_distance: f64,
-    /// Rotation tolerance for convergence (in radians)
-    pub rotation_eps: f64,
-    /// Translation tolerance for convergence (in meters)
-    pub translation_eps: f64,
-    /// Number of threads to use
-    pub num_threads: usize,
-    /// Maximum number of iterations
-    pub max_iterations: i32,
-    /// Whether to print debug messages
-    pub verbose: bool,
-}
-
-impl Default for RegistrationHelperConfig {
-    fn default() -> Self {
-        Self {
-            registration_type: crate::registration::RegistrationType::GICP,
-            voxel_resolution: 1.0,
-            downsampling_resolution: 0.25,
-            max_correspondence_distance: 1.0,
-            rotation_eps: 0.1 * std::f64::consts::PI / 180.0,
-            translation_eps: 1e-3,
-            num_threads: default_num_threads(),
-            max_iterations: 20,
-            verbose: false,
-        }
-    }
-}
+// TODO: Remove - depends on old RegistrationType
+// /// Registration helper settings for complete pipeline control.
+// #[derive(Debug, Clone)]
+// pub struct RegistrationHelperConfig {
+//     /// Registration algorithm type
+//     pub registration_type: crate::registration::RegistrationType,
+//     /// Voxel resolution for VGICP
+//     pub voxel_resolution: f64,
+//     /// Downsampling resolution for preprocessing
+//     pub downsampling_resolution: f64,
+//     /// Maximum correspondence distance
+//     pub max_correspondence_distance: f64,
+//     /// Rotation tolerance for convergence (in radians)
+//     pub rotation_eps: f64,
+//     /// Translation tolerance for convergence (in meters)
+//     pub translation_eps: f64,
+//     /// Number of threads to use
+//     pub num_threads: usize,
+//     /// Maximum number of iterations
+//     pub max_iterations: i32,
+//     /// Whether to print debug messages
+//     pub verbose: bool,
+// }
+//
+// impl Default for RegistrationHelperConfig {
+//     fn default() -> Self {
+//         Self {
+//             registration_type: crate::registration::RegistrationType::GICP,
+//             voxel_resolution: 1.0,
+//             downsampling_resolution: 0.25,
+//             max_correspondence_distance: 1.0,
+//             rotation_eps: 0.1 * std::f64::consts::PI / 180.0,
+//             translation_eps: 1e-3,
+//             num_threads: default_num_threads(),
+//             max_iterations: 20,
+//             verbose: false,
+//         }
+//     }
+// }
 
 /// Parallel processing configuration for registration operations.
 #[derive(Debug, Clone)]
@@ -920,38 +925,41 @@ impl Default for ParallelProcessingConfig {
     }
 }
 
-/// Complete advanced registration configuration combining all parameters.
-#[derive(Debug, Clone)]
-pub struct CompleteRegistrationConfig {
-    /// Basic registration settings
-    pub registration: AdvancedRegistrationConfig,
-    /// Termination criteria for convergence
-    pub termination: TerminationConfig,
-    /// Extended optimizer configuration
-    pub optimizer: ExtendedOptimizerConfig,
-    /// Extended correspondence rejector configuration
-    pub correspondence_rejector: ExtendedCorrespondenceRejectorConfig,
-    /// Robust kernel configuration for outlier rejection
-    pub robust_kernel: RobustKernelConfig,
-    /// DOF restriction configuration for constrained registration
-    pub dof_restriction: Option<DofRestrictionConfig>,
-    /// Parallel processing configuration
-    pub parallel_processing: ParallelProcessingConfig,
-}
-
-impl Default for CompleteRegistrationConfig {
-    fn default() -> Self {
-        Self {
-            registration: AdvancedRegistrationConfig::default(),
-            termination: TerminationConfig::default(),
-            optimizer: ExtendedOptimizerConfig::default(),
-            correspondence_rejector: ExtendedCorrespondenceRejectorConfig::default(),
-            robust_kernel: RobustKernelConfig::default(),
-            dof_restriction: None,
-            parallel_processing: ParallelProcessingConfig::default(),
-        }
-    }
-}
+// TODO: Remove - depends on AdvancedRegistrationConfig which depends on old RegistrationType
+// /// Complete advanced registration configuration combining all parameters.
+// #[derive(Debug, Clone)]
+// pub struct CompleteRegistrationConfig {
+//     /// Basic registration settings
+//     pub registration: AdvancedRegistrationConfig,
+//     /// Termination criteria for convergence
+//     pub termination: TerminationConfig,
+//     /// Extended optimizer configuration
+//     pub optimizer: ExtendedOptimizerConfig,
+//     /// Extended correspondence rejector configuration
+//     pub correspondence_rejector: ExtendedCorrespondenceRejectorConfig,
+//     // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+//     // /// Robust kernel configuration for outlier rejection
+//     // pub robust_kernel: RobustKernelConfig,
+//     /// DOF restriction configuration for constrained registration
+//     pub dof_restriction: Option<DofRestrictionConfig>,
+//     /// Parallel processing configuration
+//     pub parallel_processing: ParallelProcessingConfig,
+// }
+//
+// impl Default for CompleteRegistrationConfig {
+//     fn default() -> Self {
+//         Self {
+//             registration: AdvancedRegistrationConfig::default(),
+//             termination: TerminationConfig::default(),
+//             optimizer: ExtendedOptimizerConfig::default(),
+//             correspondence_rejector: ExtendedCorrespondenceRejectorConfig::default(),
+//             // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+//             // robust_kernel: RobustKernelConfig::default(),
+//             dof_restriction: None,
+//             parallel_processing: ParallelProcessingConfig::default(),
+//         }
+//     }
+// }
 
 // Conversion implementations for C FFI
 impl From<ReductionType> for u32 {
@@ -1009,8 +1017,9 @@ mod tests {
         // Test new advanced configs
         let _extended_optimizer_config = ExtendedOptimizerConfig::default();
         let _extended_kdtree_config = ExtendedKdTreeConfig::default();
-        let _advanced_registration_config = AdvancedRegistrationConfig::default();
-        let _complete_registration_config = CompleteRegistrationConfig::default();
+        // TODO: Uncomment when configs are updated
+        // let _advanced_registration_config = AdvancedRegistrationConfig::default();
+        // let _complete_registration_config = CompleteRegistrationConfig::default();
         let _knn_search_config = KnnSearchConfig::default();
         let _parallel_processing_config = ParallelProcessingConfig::default();
     }
@@ -1065,17 +1074,18 @@ mod tests {
         );
         assert_eq!(kdtree_config.projection.max_scan_count, 128);
 
-        // Test AdvancedRegistrationConfig
-        let reg_config = AdvancedRegistrationConfig::default();
-        assert_eq!(
-            reg_config.registration_type,
-            crate::registration::RegistrationType::GICP
-        );
-        assert_eq!(reg_config.voxel_resolution, 1.0);
-        assert_eq!(reg_config.downsampling_resolution, 0.25);
-        assert_eq!(reg_config.max_correspondence_distance, 1.0);
-        assert_eq!(reg_config.translation_eps, 1e-3);
-        assert!(!reg_config.verbose);
+        // TODO: Uncomment when AdvancedRegistrationConfig is updated
+        // // Test AdvancedRegistrationConfig
+        // let reg_config = AdvancedRegistrationConfig::default();
+        // assert_eq!(
+        //     reg_config.registration_type,
+        //     crate::registration::RegistrationType::GICP
+        // );
+        // assert_eq!(reg_config.voxel_resolution, 1.0);
+        // assert_eq!(reg_config.downsampling_resolution, 0.25);
+        // assert_eq!(reg_config.max_correspondence_distance, 1.0);
+        // assert_eq!(reg_config.translation_eps, 1e-3);
+        // assert!(!reg_config.verbose);
 
         // Test KnnSearchConfig
         let knn_config = KnnSearchConfig::default();

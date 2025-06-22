@@ -482,6 +482,7 @@ RegistrationResult align_points_icp(const PointCloud &source,
 
   // Setup registration setting
   small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::ICP;
   reg_setting.max_correspondence_distance =
       settings.max_correspondence_distance;
   reg_setting.max_iterations = settings.max_iterations;
@@ -497,10 +498,12 @@ RegistrationResult align_points_icp(const PointCloud &source,
   // Convert result
   RegistrationResult reg_result;
 
-  // Extract transformation matrix
+  // Extract transformation matrix (convert from column-major to row-major)
   Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
-  for (int i = 0; i < 16; ++i) {
-    reg_result.transformation.matrix[i] = result_matrix.data()[i];
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
   }
 
   reg_result.converged = result.converged;
@@ -537,21 +540,51 @@ RegistrationResult align_points_gicp(const PointCloud &source,
     }
   }
 
-  // Simplified implementation - GICP
-  (void)source;
-  (void)target;
-  (void)source_tree;
-  (void)target_tree;
-  (void)settings; // Suppress warnings
+  // Setup registration setting
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::GICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.num_threads = settings.num_threads;
 
-  // Create dummy result for now - simplified
+  // Convert init_T to Eigen::Isometry3d
+  Eigen::Isometry3d init_T_iso = Eigen::Isometry3d::Identity();
+  init_T_iso.matrix() = init_T;
+
+  // Perform registration
+  // Note: GICP in small_gicp only uses target_tree, not source_tree
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T_iso, reg_setting);
+
+  // Convert result
   RegistrationResult reg_result;
-  for (int i = 0; i < 16; ++i) {
-    reg_result.transformation.matrix[i] = init_T.data()[i];
+
+  // Extract transformation matrix (convert from column-major to row-major)
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
   }
-  reg_result.converged = false;
-  reg_result.iterations = 0;
-  reg_result.error = 0.0;
+
+  reg_result.converged = result.converged;
+  reg_result.iterations = static_cast<int32_t>(result.iterations);
+  reg_result.error = result.error;
+  reg_result.num_inliers = result.num_inliers;
+
+  // Information matrix and vector
+  if (result.H.rows() == 6 && result.H.cols() == 6) {
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(
+        reg_result.information_matrix.data()) = result.H;
+  }
+  if (result.b.size() == 6) {
+    Eigen::Map<Eigen::Vector<double, 6>>(reg_result.information_vector.data()) =
+        result.b;
+  }
 
   return reg_result;
 }
@@ -568,19 +601,50 @@ RegistrationResult align_points_vgicp(const PointCloud &source,
     }
   }
 
-  // Simplified implementation - VGICP
-  (void)source;
-  (void)target_voxelmap;
-  (void)settings; // Suppress warnings
+  // Setup registration setting
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::VGICP;
+  reg_setting.voxel_resolution = 0.5; // TODO: Add to RegistrationSettings
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.num_threads = settings.num_threads;
 
-  // Create dummy result for now - simplified
+  // Convert init_T to Eigen::Isometry3d
+  Eigen::Isometry3d init_T_iso = Eigen::Isometry3d::Identity();
+  init_T_iso.matrix() = init_T;
+
+  // Perform VGICP registration
+  auto result = small_gicp::align(target_voxelmap.get_internal(),
+                                  source.get_internal(), init_T_iso, reg_setting);
+
+  // Convert result
   RegistrationResult reg_result;
-  for (int i = 0; i < 16; ++i) {
-    reg_result.transformation.matrix[i] = init_T.data()[i];
+
+  // Extract transformation matrix (convert from column-major to row-major)
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
   }
-  reg_result.converged = false;
-  reg_result.iterations = 0;
-  reg_result.error = 0.0;
+
+  reg_result.converged = result.converged;
+  reg_result.iterations = static_cast<int32_t>(result.iterations);
+  reg_result.error = result.error;
+  reg_result.num_inliers = result.num_inliers;
+
+  // Information matrix and vector
+  if (result.H.rows() == 6 && result.H.cols() == 6) {
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(
+        reg_result.information_matrix.data()) = result.H;
+  }
+  if (result.b.size() == 6) {
+    Eigen::Map<Eigen::Vector<double, 6>>(reg_result.information_vector.data()) =
+        result.b;
+  }
 
   return reg_result;
 }
@@ -900,20 +964,50 @@ RegistrationResult align_points_point_to_plane_icp(
     }
   }
 
-  // Simplified implementation - Point-to-Plane ICP
-  (void)source;
-  (void)target;
-  (void)target_tree;
-  (void)settings; // Suppress warnings
+  // Setup registration setting
+  small_gicp::RegistrationSetting reg_setting;
+  reg_setting.type = small_gicp::RegistrationSetting::PLANE_ICP;
+  reg_setting.max_correspondence_distance =
+      settings.max_correspondence_distance;
+  reg_setting.max_iterations = settings.max_iterations;
+  reg_setting.rotation_eps = settings.rotation_epsilon;
+  reg_setting.translation_eps = settings.transformation_epsilon;
+  reg_setting.num_threads = settings.num_threads;
 
-  // Create dummy result for now - simplified
+  // Convert init_T to Eigen::Isometry3d
+  Eigen::Isometry3d init_T_iso = Eigen::Isometry3d::Identity();
+  init_T_iso.matrix() = init_T;
+
+  // Perform registration
+  auto result =
+      small_gicp::align(target.get_internal(), source.get_internal(),
+                        target_tree.get_internal(), init_T_iso, reg_setting);
+
+  // Convert result
   RegistrationResult reg_result;
-  for (int i = 0; i < 16; ++i) {
-    reg_result.transformation.matrix[i] = init_T.data()[i];
+
+  // Extract transformation matrix (convert from column-major to row-major)
+  Eigen::Matrix4d result_matrix = result.T_target_source.matrix();
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      reg_result.transformation.matrix[i * 4 + j] = result_matrix(i, j);
+    }
   }
-  reg_result.converged = false;
-  reg_result.iterations = 0;
-  reg_result.error = 0.0;
+
+  reg_result.converged = result.converged;
+  reg_result.iterations = static_cast<int32_t>(result.iterations);
+  reg_result.error = result.error;
+  reg_result.num_inliers = result.num_inliers;
+
+  // Information matrix and vector
+  if (result.H.rows() == 6 && result.H.cols() == 6) {
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(
+        reg_result.information_matrix.data()) = result.H;
+  }
+  if (result.b.size() == 6) {
+    Eigen::Map<Eigen::Vector<double, 6>>(reg_result.information_vector.data()) =
+        result.b;
+  }
 
   return reg_result;
 }

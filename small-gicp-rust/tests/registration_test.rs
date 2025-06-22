@@ -8,7 +8,10 @@ use small_gicp::{
     kdtree::KdTree,
     point_cloud::PointCloud,
     preprocessing::Preprocessing,
-    registration::{align, align_voxelmap, RegistrationSetting, RegistrationType},
+    registration::{
+        align_gicp, align_icp, align_plane_icp, align_vgicp, GicpSettings, IcpSettings,
+        PlaneIcpSettings, VgicpSettings,
+    },
     voxelmap::IncrementalVoxelMap,
 };
 
@@ -52,20 +55,19 @@ fn test_icp_registration() {
 
     // ICP doesn't require normals or covariances, just point positions
     // Use larger correspondence distance for the downsampled data
-    let setting = RegistrationSetting {
-        reg_type: RegistrationType::ICP,
+    let settings = IcpSettings {
         max_iterations: 50,
         max_correspondence_distance: 1.0, // Larger for downsampled data
         ..Default::default()
     };
 
     let target_tree = KdTree::new(&downsampled_target).expect("Failed to build target KdTree");
-    let result = align(
-        &downsampled_target,
+    let result = align_icp(
         &downsampled_source,
+        &downsampled_target,
         &target_tree,
         None,
-        Some(setting),
+        settings,
     );
 
     match result {
@@ -142,8 +144,7 @@ fn test_plane_icp() {
         }
     }
 
-    let setting = RegistrationSetting {
-        reg_type: RegistrationType::PlaneICP,
+    let settings = PlaneIcpSettings {
         max_iterations: 30,
         max_correspondence_distance: 1.0,
         ..Default::default()
@@ -157,12 +158,12 @@ fn test_plane_icp() {
         }
     };
 
-    match align(
-        &downsampled_target,
+    match align_plane_icp(
         &downsampled_source,
+        &downsampled_target,
         &target_tree,
         None,
-        Some(setting),
+        settings,
     ) {
         Ok(result) => {
             println!(
@@ -282,8 +283,7 @@ fn test_gicp() {
         }
     }
 
-    let setting = RegistrationSetting {
-        reg_type: RegistrationType::GICP,
+    let settings = GicpSettings {
         max_iterations: 30,
         max_correspondence_distance: 1.0,
         ..Default::default()
@@ -297,12 +297,21 @@ fn test_gicp() {
         }
     };
 
-    match align(
-        &downsampled_target,
+    let source_tree = match KdTree::new(&downsampled_source) {
+        Ok(tree) => tree,
+        Err(e) => {
+            println!("Failed to build source KdTree: {}", e);
+            return;
+        }
+    };
+
+    match align_gicp(
         &downsampled_source,
+        &downsampled_target,
+        &source_tree,
         &target_tree,
         None,
-        Some(setting),
+        settings,
     ) {
         Ok(result) => {
             println!(
@@ -400,15 +409,14 @@ fn test_vgicp() {
     }
     target_voxelmap.finalize();
 
-    let setting = RegistrationSetting {
-        reg_type: RegistrationType::VGICP,
+    let settings = VgicpSettings {
         voxel_resolution: 0.3,
         max_iterations: 30,
         max_correspondence_distance: 1.0,
         ..Default::default()
     };
 
-    match align_voxelmap(&target_voxelmap, &downsampled_source, None, Some(setting)) {
+    match align_vgicp(&downsampled_source, &target_voxelmap, None, settings) {
         Ok(result) => {
             println!(
                 "VGICP converged: {}, iterations: {}, error: {}",
@@ -581,6 +589,8 @@ fn test_align_points() {
     // Test high-level alignment API matching C++ helper_test.cpp:Align
     // Reference: small_gicp/src/test/helper_test.cpp
 
+    use small_gicp::registration::{align, PreprocessingConfig, RegistrationMethod};
+
     // Load realistic test data from PLY files using test utilities
     let source = match TestData::source_cloud() {
         Ok(cloud) => cloud,
@@ -604,93 +614,77 @@ fn test_align_points() {
         target.len()
     );
 
-    // Apply preprocessing similar to the C++ helper implementation
-    let preprocessed_target = Preprocessing::voxel_downsample(&target, 0.25, 4);
-    let preprocessed_source = Preprocessing::voxel_downsample(&source, 0.25, 4);
+    // Configure preprocessing
+    let preprocessing = PreprocessingConfig {
+        downsampling_resolution: 0.25,
+        num_neighbors: 20,
+        num_threads: 4,
+    };
 
-    println!(
-        "After preprocessing: source: {} points, target: {} points",
-        preprocessed_source.len(),
-        preprocessed_target.len()
-    );
-
-    // Test different registration types
-    let registration_types = vec![
-        RegistrationType::ICP,
-        RegistrationType::PlaneICP,
-        RegistrationType::GICP,
+    // Test different registration methods
+    let methods = vec![
+        (
+            "ICP",
+            RegistrationMethod::Icp(small_gicp::registration::IcpSettings {
+                max_iterations: 20,
+                max_correspondence_distance: 1.0,
+                ..Default::default()
+            }),
+        ),
+        (
+            "PlaneICP",
+            RegistrationMethod::PlaneIcp(small_gicp::registration::PlaneIcpSettings {
+                max_iterations: 20,
+                max_correspondence_distance: 1.0,
+                ..Default::default()
+            }),
+        ),
+        (
+            "GICP",
+            RegistrationMethod::Gicp(small_gicp::registration::GicpSettings {
+                max_iterations: 20,
+                max_correspondence_distance: 1.0,
+                ..Default::default()
+            }),
+        ),
+        (
+            "VGICP",
+            RegistrationMethod::Vgicp(small_gicp::registration::VgicpSettings {
+                max_iterations: 20,
+                max_correspondence_distance: 1.0,
+                voxel_resolution: 0.5,
+                ..Default::default()
+            }),
+        ),
     ];
 
-    for reg_type in registration_types {
-        println!("\n--- Testing {:?} registration ---", reg_type);
+    for (name, method) in methods {
+        println!("\n--- Testing {} registration ---", name);
 
-        let setting = RegistrationSetting {
-            reg_type,
-            max_iterations: 20,
-            max_correspondence_distance: 1.0,
-            ..Default::default()
-        };
-
-        let target_tree = match KdTree::new(&preprocessed_target) {
-            Ok(tree) => tree,
-            Err(e) => {
-                println!("Failed to build target KdTree for {:?}: {}", reg_type, e);
-                continue;
-            }
-        };
-
-        match align(
-            &preprocessed_target,
-            &preprocessed_source,
-            &target_tree,
-            None,
-            Some(setting),
-        ) {
+        match align(&source, &target, method, None, preprocessing.clone()) {
             Ok(result) => {
                 println!(
-                    "{:?} converged: {}, iterations: {}, error: {}",
-                    reg_type, result.converged, result.iterations, result.error
+                    "{} converged: {}, iterations: {}, error: {}",
+                    name, result.converged, result.iterations, result.error
                 );
 
                 assert!(result.iterations >= 0, "Registration should be attempted");
 
                 if result.converged {
-                    println!("{:?} completed successfully", reg_type);
+                    println!("{} completed successfully", name);
                     assert!(
                         result.error.is_finite(),
                         "Error should be finite when converged"
                     );
                 } else {
-                    println!("{:?} attempted but did not converge (acceptable)", reg_type);
+                    println!("{} attempted but did not converge (acceptable)", name);
                 }
             }
             Err(e) => {
-                println!("{:?} failed: {} (may be expected)", reg_type, e);
+                println!("{} failed: {} (may be expected)", name, e);
             }
         }
     }
-
-    // When PLY I/O is implemented, this test should:
-    // 1. Load source and target point clouds from PLY files
-    // 2. Use high-level preprocess_points() function
-    // 3. Run complete registration workflow
-    // 4. Validate final transformation against ground truth
-    // 5. Test different registration types (ICP, GICP, VGICP)
-
-    // Example structure (to be implemented when PLY I/O works):
-    // let source = TestData::source_cloud()?;
-    // let target = TestData::target_cloud()?;
-    // let ground_truth = load_transformation_matrix("data/T_target_source.txt")?;
-    //
-    // // Test complete preprocessing + alignment workflow
-    // let (preprocessed_target, target_tree) = preprocess_points(&target, 0.25, 20)?;
-    // let (preprocessed_source, _) = preprocess_points(&source, 0.25, 20)?;
-    //
-    // let setting = RegistrationSetting::default();
-    // let result = align(&preprocessed_target, &preprocessed_source, &target_tree, None, Some(setting))?;
-    //
-    // // Validate against ground truth
-    // assert_transform_equal(&result.t_target_source.to_homogeneous(), &ground_truth, 2.5, 0.2);
 }
 
 #[test]
@@ -716,8 +710,7 @@ fn test_registration_with_synthetic_data() {
     }
 
     // Test basic registration setting
-    let setting = RegistrationSetting {
-        reg_type: RegistrationType::ICP,
+    let settings = IcpSettings {
         max_iterations: 10,
         ..Default::default()
     };
@@ -726,7 +719,7 @@ fn test_registration_with_synthetic_data() {
     let target_tree = KdTree::new(&target).expect("Failed to build target KdTree");
 
     // Try to align - this currently fails with small point clouds
-    match align(&target, &source, &target_tree, None, Some(setting)) {
+    match align_icp(&source, &target, &target_tree, None, settings) {
         Ok(result) => {
             println!("Registration converged: {}", result.converged);
             println!("Iterations: {}", result.iterations);

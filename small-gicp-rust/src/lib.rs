@@ -61,13 +61,35 @@ pub mod voxelmap;
 #[cfg(test)]
 // Re-export the most commonly used types
 pub use config::{
-    CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-    DownsamplingBackend, DownsamplingConfig, FlatContainerConfig, GaussNewtonConfig,
-    GaussianVoxelMapConfig, IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig, KnnConfig,
-    LevenbergMarquardtConfig, LocalFeatureEstimationConfig, LocalFeatureSetterType,
-    LocalFeaturesBackend, NormalEstimationBackend, NormalEstimationConfig, OptimizerConfig,
-    ParallelBackend, PreprocessingConfig, ProjectionConfig, ProjectionType, RandomSamplingConfig,
-    RegistrationConfig, RobustKernelConfig, TerminationConfig, VoxelGridConfig,
+    CorrespondenceRejectorConfig,
+    CovarianceEstimationConfig,
+    DofRestrictionConfig,
+    DownsamplingBackend,
+    DownsamplingConfig,
+    FlatContainerConfig,
+    GaussNewtonConfig,
+    GaussianVoxelMapConfig,
+    IncrementalVoxelMapConfig,
+    KdTreeBuilderType,
+    KdTreeConfig,
+    KnnConfig,
+    LevenbergMarquardtConfig,
+    LocalFeatureEstimationConfig,
+    LocalFeatureSetterType,
+    LocalFeaturesBackend,
+    NormalEstimationBackend,
+    NormalEstimationConfig,
+    OptimizerConfig,
+    ParallelBackend,
+    PreprocessingConfig as ConfigPreprocessingConfig,
+    ProjectionConfig,
+    ProjectionType,
+    RandomSamplingConfig,
+    RegistrationConfig,
+    TerminationConfig,
+    VoxelGridConfig,
+    // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+    // RobustKernelConfig,
 };
 pub use error::{Result, SmallGicpError};
 pub use kdtree::{BorrowedKdTree, KdTree};
@@ -75,8 +97,29 @@ pub use point_cloud::PointCloud;
 pub use preprocessing::Preprocessing;
 // Re-export registration functions and types
 pub use registration::{
-    align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
-    RegistrationSetting, RegistrationType, RobustKernel, RobustKernelType,
+    // High-level API
+    align,
+    // Low-level API
+    align_gicp,
+    align_icp,
+    align_plane_icp,
+    align_vgicp,
+
+    // Common types
+    create_gaussian_voxelmap,
+    preprocess_points,
+    // Settings types
+    GicpSettings,
+    IcpSettings,
+    PlaneIcpSettings,
+    PreprocessingConfig,
+    RegistrationMethod,
+
+    RegistrationResult,
+
+    VgicpSettings,
+    // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+    // RobustKernel, RobustKernelType,
 };
 pub use traits::{
     Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait, SpatialSearchTree,
@@ -90,14 +133,35 @@ pub use voxelmap::{
 pub mod prelude {
     pub use crate::{
         config::{
-            CorrespondenceRejectorConfig, CovarianceEstimationConfig, DofRestrictionConfig,
-            DownsamplingBackend, DownsamplingConfig, FlatContainerConfig, GaussNewtonConfig,
-            GaussianVoxelMapConfig, IncrementalVoxelMapConfig, KdTreeBuilderType, KdTreeConfig,
-            KnnConfig, LevenbergMarquardtConfig, LocalFeatureEstimationConfig,
-            LocalFeatureSetterType, LocalFeaturesBackend, NormalEstimationBackend,
-            NormalEstimationConfig, OptimizerConfig, ParallelBackend, PreprocessingConfig,
-            ProjectionConfig, ProjectionType, RandomSamplingConfig, RegistrationConfig,
-            RobustKernelConfig, TerminationConfig, VoxelGridConfig,
+            CorrespondenceRejectorConfig,
+            CovarianceEstimationConfig,
+            DofRestrictionConfig,
+            DownsamplingBackend,
+            DownsamplingConfig,
+            FlatContainerConfig,
+            GaussNewtonConfig,
+            GaussianVoxelMapConfig,
+            IncrementalVoxelMapConfig,
+            KdTreeBuilderType,
+            KdTreeConfig,
+            KnnConfig,
+            LevenbergMarquardtConfig,
+            LocalFeatureEstimationConfig,
+            LocalFeatureSetterType,
+            LocalFeaturesBackend,
+            NormalEstimationBackend,
+            NormalEstimationConfig,
+            OptimizerConfig,
+            ParallelBackend,
+            PreprocessingConfig as ConfigPreprocessingConfig,
+            ProjectionConfig,
+            ProjectionType,
+            RandomSamplingConfig,
+            RegistrationConfig,
+            TerminationConfig,
+            VoxelGridConfig,
+            // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+            // RobustKernelConfig,
         },
         error::{Result, SmallGicpError},
         kdtree::{BorrowedKdTree, KdTree},
@@ -105,8 +169,29 @@ pub mod prelude {
         preprocessing::Preprocessing,
         // Registration functions and types
         registration::{
-            align, align_voxelmap, create_gaussian_voxelmap, preprocess_points, RegistrationResult,
-            RegistrationSetting, RegistrationType, RobustKernel, RobustKernelType,
+            // High-level API
+            align,
+            // Low-level API
+            align_gicp,
+            align_icp,
+            align_plane_icp,
+            align_vgicp,
+
+            // Common types
+            create_gaussian_voxelmap,
+            preprocess_points,
+            // Settings types
+            GicpSettings,
+            IcpSettings,
+            PlaneIcpSettings,
+            PreprocessingConfig,
+            RegistrationMethod,
+
+            RegistrationResult,
+
+            VgicpSettings,
+            // TODO: Uncomment when robust kernels are exposed in C++ registration_helper API
+            // RobustKernel, RobustKernelType,
         },
         traits::{
             Covariance4, MutablePointCloudTrait, Normal4, Point4, PointCloudTrait,

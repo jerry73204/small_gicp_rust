@@ -1,12 +1,15 @@
-//! Example demonstrating the simplified registration API.
+//! Example demonstrating the new registration API.
 
 use nalgebra::{Isometry3, Point3};
 use small_gicp::{
-    align, create_gaussian_voxelmap,
+    create_gaussian_voxelmap,
     kdtree::KdTree,
     point_cloud::PointCloud,
     preprocess_points,
-    registration::{RegistrationSetting, RegistrationType},
+    registration::{
+        align_gicp, align_icp, align_plane_icp, align_vgicp, GicpSettings, IcpSettings,
+        PlaneIcpSettings, VgicpSettings,
+    },
     Result,
 };
 
@@ -29,9 +32,9 @@ fn main() -> Result<()> {
         }
     }
 
-    // Apply a known transformation to create source cloud
+    // Apply a known transformation to create the source cloud
     let true_transform =
-        Isometry3::translation(0.5, 0.3, 0.1) * Isometry3::rotation(nalgebra::Vector3::z() * 0.1);
+        Isometry3::rotation(nalgebra::Vector3::z() * 0.1) * Isometry3::translation(0.5, 0.3, 0.1);
 
     for i in 0..target.len() {
         let pt = target.point_at(i)?;
@@ -51,13 +54,14 @@ fn main() -> Result<()> {
         let target_tree = KdTree::new(&target)?;
 
         // Configure ICP
-        let mut settings = RegistrationSetting::default();
-        settings.reg_type = RegistrationType::ICP;
-        settings.max_iterations = 50;
-        settings.num_threads = 4;
+        let settings = IcpSettings {
+            max_iterations: 50,
+            num_threads: 4,
+            ..Default::default()
+        };
 
         // Run registration
-        let result = align(&target, &source, &target_tree, None, Some(settings))?;
+        let result = align_icp(&source, &target, &target_tree, None, settings)?;
 
         println!("  Converged: {}", result.converged);
         println!("  Iterations: {}", result.iterations);
@@ -71,100 +75,114 @@ fn main() -> Result<()> {
         );
     }
 
-    // Example 2: Preprocessing pipeline
-    println!("\n2. Registration with Preprocessing");
+    // Example 2: Plane ICP with normal estimation
+    println!("\n2. Point-to-Plane ICP Registration");
     println!("----------------------------------");
     {
-        // Preprocess both clouds (downsample, compute normals and covariances)
-        let (processed_target, target_tree) = preprocess_points(&target, 0.2, 20, 4)?;
+        // Preprocess target to estimate normals
+        let (mut processed_target, target_tree) = preprocess_points(&target, 0.2, 20, 4)?;
         let (processed_source, _) = preprocess_points(&source, 0.2, 20, 4)?;
 
-        println!("  Downsampled target: {} points", processed_target.len());
-        println!("  Downsampled source: {} points", processed_source.len());
-        println!("  Normals computed: {}", processed_target.has_normals());
-        println!(
-            "  Covariances computed: {}",
-            processed_target.has_covariances()
-        );
+        println!("  Target has normals: {}", processed_target.has_normals());
 
-        // Run GICP (requires covariances)
-        let mut settings = RegistrationSetting::default();
-        settings.reg_type = RegistrationType::GICP;
+        // Configure Plane ICP
+        let settings = PlaneIcpSettings {
+            max_iterations: 30,
+            ..Default::default()
+        };
 
-        let result = align(
-            &processed_target,
+        // Run registration
+        let result = align_plane_icp(
             &processed_source,
+            &processed_target,
             &target_tree,
             None,
-            Some(settings),
+            settings,
         )?;
 
-        println!("\n  GICP Results:");
         println!("  Converged: {}", result.converged);
         println!("  Iterations: {}", result.iterations);
         println!("  Final error: {:.6}", result.error);
     }
 
-    // Example 3: Voxel map creation (for VGICP)
-    println!("\n3. Voxel Map Creation");
+    // Example 3: GICP Registration
+    println!("\n3. GICP Registration");
+    println!("--------------------");
+    {
+        // Preprocess both clouds (compute covariances)
+        let (processed_target, target_tree) = preprocess_points(&target, 0.2, 20, 4)?;
+        let (processed_source, source_tree) = preprocess_points(&source, 0.2, 20, 4)?;
+
+        println!("  Downsampled target: {} points", processed_target.len());
+        println!("  Downsampled source: {} points", processed_source.len());
+        println!(
+            "  Covariances computed: {}",
+            processed_target.has_covariances()
+        );
+
+        // Configure GICP
+        let settings = GicpSettings::default();
+
+        // Run GICP (requires both source and target trees)
+        let result = align_gicp(
+            &processed_source,
+            &processed_target,
+            &source_tree,
+            &target_tree,
+            None,
+            settings,
+        )?;
+
+        println!("  Converged: {}", result.converged);
+        println!("  Iterations: {}", result.iterations);
+        println!("  Final error: {:.6}", result.error);
+    }
+
+    // Example 4: VGICP Registration with voxel maps
+    println!("\n4. VGICP Registration");
     println!("---------------------");
     {
-        let voxel_resolution = 0.5;
-        let voxelmap = create_gaussian_voxelmap(&target, voxel_resolution)?;
+        // Create a voxel map from target
+        let voxelmap = create_gaussian_voxelmap(&target, 0.5)?;
+        println!("  Created voxel map with resolution: 0.5");
 
-        println!("  Voxel resolution: {}", voxel_resolution);
-        println!("  Number of voxels: {}", voxelmap.len());
+        // Configure VGICP
+        let settings = VgicpSettings {
+            voxel_resolution: 0.5,
+            ..Default::default()
+        };
 
-        // Note: VGICP alignment is not yet fully implemented
-        println!("  (VGICP alignment will be available in future release)");
+        // Run VGICP registration
+        let result = align_vgicp(&source, &voxelmap, None, settings)?;
+
+        println!("  Converged: {}", result.converged);
+        println!("  Iterations: {}", result.iterations);
+        println!("  Final error: {:.6}", result.error);
     }
 
-    // Example 4: Multi-stage registration
-    println!("\n4. Multi-stage Registration");
-    println!("---------------------------");
+    // Example 5: Custom settings
+    println!("\n5. Registration with Custom Settings");
+    println!("------------------------------------");
     {
-        // Stage 1: Coarse alignment with downsampled clouds
-        let (coarse_target, coarse_tree) = preprocess_points(&target, 0.5, 10, 4)?;
-        let (coarse_source, _) = preprocess_points(&source, 0.5, 10, 4)?;
-
-        let mut coarse_settings = RegistrationSetting::default();
-        coarse_settings.reg_type = RegistrationType::ICP;
-        coarse_settings.max_correspondence_distance = 2.0;
-
-        let coarse_result = align(
-            &coarse_target,
-            &coarse_source,
-            &coarse_tree,
-            None,
-            Some(coarse_settings),
-        )?;
-
-        println!("  Stage 1 (coarse): error = {:.6}", coarse_result.error);
-
-        // Stage 2: Fine alignment with full resolution
         let target_tree = KdTree::new(&target)?;
-        let mut fine_settings = RegistrationSetting::default();
-        fine_settings.reg_type = RegistrationType::ICP;
-        fine_settings.max_correspondence_distance = 0.5;
 
-        let fine_result = align(
-            &target,
-            &source,
-            &target_tree,
-            Some(coarse_result.t_target_source),
-            Some(fine_settings),
-        )?;
+        // Create custom ICP settings
+        let settings = IcpSettings {
+            max_correspondence_distance: 2.0,
+            rotation_eps: 0.001,
+            translation_eps: 0.001,
+            num_threads: 8,
+            max_iterations: 100,
+        };
 
-        println!("  Stage 2 (fine): error = {:.6}", fine_result.error);
+        let result = align_icp(&source, &target, &target_tree, None, settings)?;
 
-        let translation = fine_result.t_target_source.translation.vector;
-        println!(
-            "  Final translation: [{:.3}, {:.3}, {:.3}]",
-            translation.x, translation.y, translation.z
-        );
+        println!("  Used custom convergence criteria");
+        println!("  Converged: {}", result.converged);
+        println!("  Iterations: {}", result.iterations);
+        println!("  Final error: {:.6}", result.error);
     }
 
-    println!("\nRegistration examples completed successfully!");
-
+    println!("\n✓ Registration examples completed successfully!");
     Ok(())
 }
