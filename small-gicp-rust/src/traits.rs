@@ -136,7 +136,7 @@ pub trait PointCloudTrait: Debug + Send + Sync {
     ///
     /// The caller must ensure that `index < self.size()` and `self.has_covariances()`.
     unsafe fn covariance_unchecked(&self, index: usize) -> Covariance4<f64> {
-        self.covariance(index).unwrap_or_else(|| Matrix4::zeros())
+        self.covariance(index).unwrap_or_else(Matrix4::zeros)
     }
 }
 

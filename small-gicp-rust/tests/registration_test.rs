@@ -506,7 +506,7 @@ fn test_preprocess_points() {
         .expect("Failed to estimate covariances");
 
     // Validate that preprocessing produces expected point count and data quality
-    assert!(processed.len() > 0, "Processed cloud should not be empty");
+    assert!(!processed.is_empty(), "Processed cloud should not be empty");
     assert!(
         processed.has_normals(),
         "Processed cloud should have normals"

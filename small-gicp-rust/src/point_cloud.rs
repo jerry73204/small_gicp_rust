@@ -691,11 +691,10 @@ impl PointCloud {
         })
     }
 
-    /// Access the underlying small-gicp-sys PointCloud mutably.
-    /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn inner_mut(&mut self) -> &mut small_gicp_sys::PointCloud {
-        &mut self.inner
-    }
+    // TODO: Add mutable inner access if needed for future preprocessing operations
+    // pub(crate) fn inner_mut(&mut self) -> &mut small_gicp_sys::PointCloud {
+    //     &mut self.inner
+    // }
 
     /// Create a PointCloud from a small-gicp-sys PointCloud.
     /// This is for internal use only and should not be exposed to users.
@@ -1252,6 +1251,7 @@ impl MutablePointCloudTrait for PointCloud {
 }
 
 #[cfg(test)]
+#[allow(clippy::needless_range_loop)]
 pub mod tests {
     use super::*;
     use nalgebra::{Matrix4, Vector3, Vector4};
@@ -1301,6 +1301,7 @@ pub mod tests {
         let cloud = PointCloud::from_points(&test_points).unwrap();
 
         // Test individual point access
+        #[allow(clippy::needless_range_loop)]
         for i in 0..cloud.len() {
             let point = cloud.point_at(i).unwrap();
             assert_eq!(point.x, test_points[i].x);
@@ -1489,7 +1490,7 @@ pub mod tests {
         // Generate random points
         let num_points = 100;
         let src_points: Vec<Point3<f64>> = (0..num_points)
-            .map(|_| Point3::new(rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)))
+            .map(|_| Point3::new(rng.sample(dist), rng.sample(dist), rng.sample(dist)))
             .collect();
 
         let mut cloud = PointCloud::from_points(&src_points).unwrap();
@@ -1497,7 +1498,7 @@ pub mod tests {
 
         // Test setting random normals and covariances
         let normals: Vec<Vector3<f64>> = (0..num_points)
-            .map(|_| Vector3::new(rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)))
+            .map(|_| Vector3::new(rng.sample(dist), rng.sample(dist), rng.sample(dist)))
             .collect();
 
         cloud.set_normals(&normals).unwrap();
@@ -1505,10 +1506,10 @@ pub mod tests {
         let covs: Vec<Matrix4<f64>> = (0..num_points)
             .map(|_| {
                 let v = Vector4::new(
-                    rng.sample(&dist),
-                    rng.sample(&dist),
-                    rng.sample(&dist),
-                    rng.sample(&dist),
+                    rng.sample(dist),
+                    rng.sample(dist),
+                    rng.sample(dist),
+                    rng.sample(dist),
                 );
                 v * v.transpose()
             })
@@ -1516,7 +1517,7 @@ pub mod tests {
 
         // Set covariances
         for i in 0..cloud.len() {
-            cloud.set_covariance(i, covs[i].clone()).unwrap();
+            cloud.set_covariance(i, covs[i]).unwrap();
         }
 
         // Verify all data

@@ -6,7 +6,7 @@ use crate::{
     PointCloud,
 };
 use cxx::UniquePtr;
-use std::pin::Pin;
+// TODO: Re-add `use std::pin::Pin;` if mutable FFI handle access is implemented
 
 /// Gaussian voxel map for efficient VGICP registration.
 /// This is the unified interface that provides all IncrementalVoxelMap<GaussianVoxel> functionality.
@@ -134,10 +134,7 @@ impl GaussianVoxelMap {
         &self.inner
     }
 
-    /// Get mutable internal FFI handle
-    pub(crate) fn as_ffi_mut(&mut self) -> Pin<&mut FfiGaussianVoxelMap> {
-        self.inner.pin_mut()
-    }
+    // TODO: Add mutable FFI handle access if needed for future advanced voxel operations
 }
 
 /// Builder for voxel map with configuration options

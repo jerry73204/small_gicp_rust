@@ -187,17 +187,18 @@ impl KdTree {
         &self.inner
     }
 
-    /// Convert from a small-gicp-sys KdTree.
-    /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn from_cxx(inner: small_gicp_sys::KdTree) -> Self {
-        Self { inner }
-    }
-
-    /// Convert to a small-gicp-sys KdTree.
-    /// This is for internal use only and should not be exposed to users.
-    pub(crate) fn into_cxx(self) -> small_gicp_sys::KdTree {
-        self.inner
-    }
+    // TODO: Add CXX conversion methods if needed for future FFI integration
+    // /// Convert from a small-gicp-sys KdTree.
+    // /// This is for internal use only and should not be exposed to users.
+    // pub(crate) fn from_cxx(inner: small_gicp_sys::KdTree) -> Self {
+    //     Self { inner }
+    // }
+    //
+    // /// Convert to a small-gicp-sys KdTree.
+    // /// This is for internal use only and should not be exposed to users.
+    // pub(crate) fn into_cxx(self) -> small_gicp_sys::KdTree {
+    //     self.inner
+    // }
 
     /// Get the number of points in the tree.
     pub fn size(&self) -> usize {
@@ -336,10 +337,10 @@ impl<'a> BorrowedKdTree<'a> {
         self.size() == 0
     }
 
-    /// Access the underlying UnsafeKdTree for internal use.
-    pub(crate) fn inner(&self) -> &small_gicp_sys::UnsafeKdTree {
-        &self.inner
-    }
+    // TODO: Add inner access if needed for future integration with other modules
+    // pub(crate) fn inner(&self) -> &small_gicp_sys::UnsafeKdTree {
+    //     &self.inner
+    // }
 }
 
 impl std::fmt::Debug for BorrowedKdTree<'_> {

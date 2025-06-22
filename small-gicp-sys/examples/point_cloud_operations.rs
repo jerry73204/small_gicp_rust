@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate transform utilities
     println!("\n=== Transform Utilities ===");
 
-    let identity = Transform::identity();
+    let _identity = Transform::identity(); // TODO: Use this transform for demonstration
     let translation = Transform::translation(1.0, 2.0, 3.0);
     let rotation_z = Transform::rotation_z(std::f64::consts::PI / 2.0);
 

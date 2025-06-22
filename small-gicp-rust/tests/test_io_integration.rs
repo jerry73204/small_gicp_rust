@@ -16,7 +16,7 @@ fn test_load_test_data() {
             "Successfully loaded target.ply with {} points",
             target.len()
         );
-        assert!(target.len() > 0, "Expected non-empty point cloud");
+        assert!(!target.is_empty(), "Expected non-empty point cloud");
     } else {
         println!("target.ply not found - skipping test");
     }
@@ -26,7 +26,7 @@ fn test_load_test_data() {
             "Successfully loaded source.ply with {} points",
             source.len()
         );
-        assert!(source.len() > 0, "Expected non-empty point cloud");
+        assert!(!source.is_empty(), "Expected non-empty point cloud");
     } else {
         println!("source.ply not found - skipping test");
     }

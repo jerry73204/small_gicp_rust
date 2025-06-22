@@ -49,15 +49,13 @@ pub fn load_test_ply<P: AsRef<Path>>(path: P) -> Result<PointCloud, Box<dyn std:
     let is_little_endian = line.contains("little_endian");
 
     let mut num_vertices = 0;
-    let mut in_header = true;
 
     // Parse rest of header
-    while in_header {
+    loop {
         line.clear();
         reader.read_line(&mut line)?;
 
         if line.trim() == "end_header" {
-            in_header = false;
             break;
         }
 
@@ -78,12 +76,14 @@ pub fn load_test_ply<P: AsRef<Path>>(path: P) -> Result<PointCloud, Box<dyn std:
             let mut xyz = [0f32; 3];
 
             if is_little_endian {
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..3 {
                     let mut bytes = [0u8; 4];
                     reader.read_exact(&mut bytes)?;
                     xyz[i] = f32::from_le_bytes(bytes);
                 }
             } else {
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..3 {
                     let mut bytes = [0u8; 4];
                     reader.read_exact(&mut bytes)?;
@@ -153,7 +153,7 @@ mod tests {
         match result {
             Ok(cloud) => {
                 println!("Successfully loaded target.ply with {} points", cloud.len());
-                assert!(cloud.len() > 0, "Expected non-empty point cloud");
+                assert!(!cloud.is_empty(), "Expected non-empty point cloud");
             }
             Err(e) => {
                 eprintln!("Failed to load target.ply: {}", e);

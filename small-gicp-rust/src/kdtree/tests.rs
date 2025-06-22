@@ -49,9 +49,9 @@ fn create_test_fixture() -> Result<TestFixture> {
         let idx = rng.gen_range(0..points.len());
         let point = points.point_at(idx)?;
         queries.push(Point3::new(
-            point.x + rng.sample(&offset_dist),
-            point.y + rng.sample(&offset_dist),
-            point.z + rng.sample(&offset_dist),
+            point.x + rng.sample(offset_dist),
+            point.y + rng.sample(offset_dist),
+            point.z + rng.sample(offset_dist),
         ));
     }
 
@@ -59,9 +59,9 @@ fn create_test_fixture() -> Result<TestFixture> {
     let coord_dist = Uniform::new(0.0, 100.0);
     for _ in 0..50 {
         queries.push(Point3::new(
-            rng.sample(&coord_dist),
-            rng.sample(&coord_dist),
-            rng.sample(&coord_dist),
+            rng.sample(coord_dist),
+            rng.sample(coord_dist),
+            rng.sample(coord_dist),
         ));
     }
 
@@ -84,13 +84,14 @@ fn generate_synthetic_cloud(num_points: usize) -> Result<PointCloud> {
     let dist = Uniform::new(-50.0, 50.0);
 
     let points: Vec<Point3<f64>> = (0..num_points)
-        .map(|_| Point3::new(rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)))
+        .map(|_| Point3::new(rng.sample(dist), rng.sample(dist), rng.sample(dist)))
         .collect();
 
     PointCloud::from_points(&points)
 }
 
 /// Brute force k-NN search for ground truth
+#[allow(clippy::type_complexity)]
 fn brute_force_knn(
     points: &PointCloud,
     queries: &[Point3<f64>],
@@ -143,7 +144,7 @@ fn test_load_check() {
         }
     };
 
-    assert!(fixture.points.len() > 0, "Points should not be empty");
+    assert!(!fixture.points.is_empty(), "Points should not be empty");
     assert_eq!(fixture.queries.len(), 150, "Should have 150 queries");
     assert_eq!(fixture.k_indices.len(), fixture.queries.len());
     assert_eq!(fixture.k_sq_dists.len(), fixture.queries.len());
@@ -239,6 +240,7 @@ fn verify_knn_results(kdtree: &KdTree, fixture: &TestFixture) {
         );
 
         // Verify results match ground truth
+        #[allow(clippy::needless_range_loop)]
         for j in 0..fixture.k {
             assert_eq!(
                 results[j].0, fixture.k_indices[i][j],
@@ -411,7 +413,7 @@ fn generate_synthetic_distribution(
         SyntheticDistribution::Uniform => {
             let dist = Uniform::new(-100.0, 100.0);
             (0..num_points)
-                .map(|_| Point3::new(rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)))
+                .map(|_| Point3::new(rng.sample(dist), rng.sample(dist), rng.sample(dist)))
                 .collect()
         }
         SyntheticDistribution::Normal => {
@@ -438,9 +440,9 @@ fn generate_synthetic_distribution(
             let centers: Vec<Point3<f64>> = (0..num_clusters)
                 .map(|_| {
                     Point3::new(
-                        rng.sample(&center_dist),
-                        rng.sample(&center_dist),
-                        rng.sample(&center_dist),
+                        rng.sample(center_dist),
+                        rng.sample(center_dist),
+                        rng.sample(center_dist),
                     )
                 })
                 .collect();

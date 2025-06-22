@@ -61,9 +61,9 @@ pub enum SearchOffsetPattern {
 /// Legacy aliases for SearchOffsetPattern variants.
 impl SearchOffsetPattern {
     /// Alias for Face (7 neighbors).
-    pub const FaceNeighbors: Self = Self::Face;
+    pub const FACE_NEIGHBORS: Self = Self::Face;
     /// Alias for FullCube (27 neighbors).
-    pub const FullNeighborhood: Self = Self::FullCube;
+    pub const FULL_NEIGHBORHOOD: Self = Self::FullCube;
 }
 
 impl SearchOffsetPattern {
@@ -342,15 +342,13 @@ impl GaussianVoxelMap {
         &self.inner
     }
 
-    /// Convert to cxx for FFI (for internal use).
-    pub(crate) fn from_cxx(inner: small_gicp_sys::GaussianVoxelMap) -> Self {
-        Self { inner }
-    }
-
-    /// Convert to cxx for FFI (for internal use).
-    pub(crate) fn into_cxx(self) -> small_gicp_sys::GaussianVoxelMap {
-        self.inner
-    }
+    // TODO: Add CXX conversion methods if needed for future FFI integration
+    // pub(crate) fn from_cxx(inner: small_gicp_sys::GaussianVoxelMap) -> Self {
+    //     Self { inner }
+    // }
+    // pub(crate) fn into_cxx(self) -> small_gicp_sys::GaussianVoxelMap {
+    //     self.inner
+    // }
 }
 
 impl std::fmt::Debug for GaussianVoxelMap {
@@ -395,9 +393,9 @@ mod tests {
     fn test_search_offset_pattern() {
         assert_eq!(SearchOffsetPattern::Center.to_int(), 1);
         assert_eq!(SearchOffsetPattern::Face.to_int(), 7);
-        assert_eq!(SearchOffsetPattern::FaceNeighbors.to_int(), 7);
+        assert_eq!(SearchOffsetPattern::FACE_NEIGHBORS.to_int(), 7);
         assert_eq!(SearchOffsetPattern::FullCube.to_int(), 27);
-        assert_eq!(SearchOffsetPattern::FullNeighborhood.to_int(), 27);
+        assert_eq!(SearchOffsetPattern::FULL_NEIGHBORHOOD.to_int(), 27);
     }
 
     #[test]
@@ -413,7 +411,7 @@ mod tests {
         assert_eq!(voxelmap.voxel_size(), 0.5);
 
         voxelmap.insert(&cloud).unwrap();
-        assert!(voxelmap.len() > 0);
+        assert!(!voxelmap.is_empty());
         assert!(!voxelmap.is_empty());
         assert!(voxelmap.num_voxels() > 0);
     }
@@ -478,7 +476,7 @@ mod tests {
         voxelmap.set_lru_clear_cycle(5);
 
         // These would be tested more thoroughly with actual LRU behavior
-        let counter = voxelmap.lru_counter();
+        let _counter = voxelmap.lru_counter();
         // Just ensure it returns a valid value (counter is usize, always >= 0)
     }
 }

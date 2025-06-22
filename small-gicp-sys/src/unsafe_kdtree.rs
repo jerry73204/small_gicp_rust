@@ -100,10 +100,7 @@ impl UnsafeKdTree {
         self.inner.unsafe_size()
     }
 
-    /// Get internal FFI handle (for registration algorithms)
-    pub(crate) fn as_ffi(&self) -> &FfiUnsafeKdTree {
-        &self.inner
-    }
+    // TODO: Add internal FFI handle access if needed for future registration algorithms
 }
 
 /// Builder for UnsafeKdTree construction with options
