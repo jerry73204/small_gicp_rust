@@ -136,6 +136,7 @@ The Python bindings (`src/python/`) expose core functionality:
 ## Development Approach
 
 - The Rust library can leave todo!() and comments if the related FFI item is not implemented yet. Don't simply return dummy value. It would cause silent error.
+- If a test in Rust API requires a feature that is not yet complete, leave a todo!() and TODO comments and let it fail in the test. There is no need to make it passing.
 
 ## Logging
 
